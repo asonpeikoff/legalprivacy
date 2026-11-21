@@ -33,6 +33,7 @@ import tests.test_cookies
 import tests.test_observe
 import tests.test_macspoof
 import tests.test_nettools
+import tests.test_ua_mix
 
 MODULES = [
     tests.test_identity,
@@ -54,6 +55,7 @@ MODULES = [
     tests.test_observe,
     tests.test_macspoof,
     tests.test_nettools,
+    tests.test_ua_mix,
 ]
 
 

@@ -80,7 +80,7 @@ class Controller:
         self.observer.baseline_fn = self._baseline
         self._feed_timer_started = False
         from .relayrun import RelayManager
-        self.relay = RelayManager(self.log)        # optional relay: its own Tor process, never started automatically
+        self.relay = RelayManager(self.log)        # optional relay: its own Tor process, practice mode unless set up
         from .accounts import AccountsManager
         self.accounts = AccountsManager(          # optional signed-in accounts; clearnet only, never Tor
             self.log, config=lambda: self.profile.accounts,
@@ -512,6 +512,12 @@ class Controller:
         from .nettools import privacy_check
         return privacy_check(self)
 
+    def mac_status(self) -> dict:
+        """Read-only MAC address overview for the Tools tab (changing it needs root: `legalprivacy mac`)."""
+        from .macspoof import MacSpoofer
+        sp = MacSpoofer()
+        return {"interfaces": [i for i in sp.status() if i["eligible"]], "environment": sp.environment()}
+
     def mylist_state(self) -> dict:
         from .history import history_files
         ml = self.profile.mylist
@@ -582,18 +588,29 @@ class Controller:
         rows = [{"id": e["id"], "ua": e["ua"], "group": e["group"], "platform": e["platform"],
                  "release": e["release"], "share": e["share"]} for e in library()]
         return {"mode": ident.ua_mode, "rotate_every": ident.rotate_every, "pin": ident.ua_pin,
-                "own_ua": ident.own_ua, "library": rows, "running": self.running,
+                "own_ua": ident.own_ua, "own_share": round(float(ident.ua_own_share) * 100),
+                "library": rows, "running": self.running,
                 "applies_to": "Plain-HTTP lane. The real-browser lane always sends its own browser's "
                               "user agent, and the onion lane always uses Tor Browser's fixed one."}
 
     def ua_save(self, body: dict) -> dict:
         allowed = {k: str(body[k]) for k in ("ua_mode", "rotate_every", "ua_pin", "own_ua") if k in body}
+        if "own_share" in body:                        # percent of identities that use your own browser's UA
+            try:
+                pct = float(body["own_share"])
+            except (TypeError, ValueError):
+                raise ConfigError("The share must be a number from 0 to 100.") from None
+            if not 0 <= pct <= 100:
+                raise ConfigError("The share must be a number from 0 to 100.")
+            allowed["ua_own_share"] = pct / 100.0
         cur = self.profile.identity
         mode = allowed.get("ua_mode", cur.ua_mode)
         pin = allowed.get("ua_pin", cur.ua_pin)
         own = allowed.get("own_ua", cur.own_ua).strip()
         if mode == "pin" and not pin:
             raise ConfigError("Choose what to pin to first.")
+        if mode == "mix" and not own:
+            raise ConfigError("Paste or detect your browser's user agent first (the mix needs your real one).")
         if mode == "pin" and pin == "own" and not own:
             raise ConfigError("Paste or detect your browser's user agent first.")
         self.apply_config({"identity": allowed})
@@ -603,7 +620,8 @@ class Controller:
         """Default is your own browser's user agent. If it isn't known yet, read it once from the
         installed browser; if that isn't possible, say so (noise rotates until it's pasted)."""
         ident = self.profile.identity
-        if ident.ua_mode != "pin" or ident.ua_pin != "own" or ident.own_ua.strip():
+        wants_own = ident.ua_mode == "mix" or (ident.ua_mode == "pin" and ident.ua_pin == "own")
+        if not wants_own or ident.own_ua.strip():
             return
         res = self.ua_detect() if self.browser_info()["available"] else {"error": "no browser to read it from"}
         if res.get("ua"):
@@ -670,7 +688,7 @@ class Controller:
                                          if res["ok"] else res["error"]))
         return res
 
-    # ── Relay (optional; a separate Tor process; never started automatically) ──
+    # ── Relay (a separate Tor process; starts with the app in practice mode by default) ──
     RELAY_CHECKLIST = ("address", "always_on", "bandwidth", "not_exit", "public_ip")
 
     @staticmethod
@@ -750,10 +768,14 @@ class Controller:
         return self.relay_state()
 
     def relay_autostart(self) -> None:
-        """Called once when the app opens. Starts the relay only if the person chose 'start with the app'
-        (and, for a public relay, completed the checklist before)."""
+        """Called once when the app opens. Starts the relay if 'start with the app' is on (the default). Out of the
+        box that is practice mode: loopback only, nothing published. A public relay starts only after its
+        checklist was completed once."""
         rc = self.profile.relay
         if rc.autostart and (rc.practice or rc.acknowledged):
+            if not self.relay._find_binary():            # default-on: stay quiet until Tor has been installed once
+                self.log.info("relay", "Relay not started: Tor is not installed yet (it installs the first time you start Tor).")
+                return
             try:
                 self.relay.start(rc.spec())
             except Exception as exc:

@@ -44,7 +44,10 @@ def _chromium_bases() -> list[tuple[str, str]]:
     cfg = home / ".config"
     return [("Chrome", str(cfg / "google-chrome")), ("Edge", str(cfg / "microsoft-edge")),
             ("Brave", str(cfg / "BraveSoftware" / "Brave-Browser")), ("Chromium", str(cfg / "chromium")),
-            ("Chromium (snap)", str(home / "snap" / "chromium" / "common" / "chromium"))]
+            ("Chromium (snap)", str(home / "snap" / "chromium" / "common" / "chromium")),
+            ("Chrome (Flatpak)", str(home / ".var" / "app" / "com.google.Chrome" / "config" / "google-chrome")),
+            ("Chromium (Flatpak)", str(home / ".var" / "app" / "org.chromium.Chromium" / "config" / "chromium")),
+            ("Brave (Flatpak)", str(home / ".var" / "app" / "com.brave.Browser" / "config" / "BraveSoftware" / "Brave-Browser"))]
 
 
 def _firefox_bases() -> list[str]:
@@ -54,7 +57,9 @@ def _firefox_bases() -> list[str]:
                              "Mozilla", "Firefox", "Profiles")]
     if sys.platform == "darwin":
         return [str(home / "Library" / "Application Support" / "Firefox" / "Profiles")]
-    return [str(home / ".mozilla" / "firefox"), str(home / "snap" / "firefox" / "common" / ".mozilla" / "firefox")]
+    return [str(home / ".mozilla" / "firefox"), str(home / ".config" / "mozilla" / "firefox"),
+            str(home / "snap" / "firefox" / "common" / ".mozilla" / "firefox"),
+            str(home / ".var" / "app" / "org.mozilla.firefox" / ".mozilla" / "firefox")]
 
 
 def history_files() -> list[dict]:
@@ -193,6 +198,13 @@ def bookmark_sites(denylist: set[str] | None = None) -> dict:
                 continue
             used.append(f"Firefox ({prof})")
             counts.update(s for s in (site_of(r[0]) for r in rows) if s)
+    if not used and not errors:
+        errors.append("No Firefox or Chrome-type browser profile found on this computer. If your browser is in another "
+                      "VM or qube, export its bookmarks to an HTML file there (Firefox: Ctrl+Shift+O, Import and Backup, "
+                      "Export Bookmarks to HTML; Chrome: Ctrl+Shift+O, ⋮, Export bookmarks), copy the file here and use "
+                      "'From a file'.")
+    elif used and not counts and not errors:
+        errors.append("Found " + ", ".join(used) + " but it has no bookmarks (or they are all filtered).")
     return _finish(counts, used, errors, denylist)
 
 

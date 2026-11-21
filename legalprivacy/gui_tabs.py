@@ -684,7 +684,7 @@ class TorTab(Tab):
                  else "Listening" if d.get("ready") else "Waiting for Tor to be ready")
         self.dns_status.configure(text=f"Status: {state}    Address: {where}    Reachable from: {who}")
 
-    # -- Relay (optional; separate Tor process; never starts by itself) -----------
+    # -- Relay (separate Tor process; practice mode by default) -----------
     CHECKS = (("address", "This computer has a public IP address, or my router forwards the ORPort to it."),
               ("always_on", "This computer stays on and connected most of the time."),
               ("bandwidth", "I am happy with the speed limit above and the traffic it can use each month."),
@@ -700,7 +700,7 @@ class TorTab(Tab):
                         "exit: it never connects to websites for anyone, and legalPrivacy can never make it one. A relay or "
                         "bridge also does not provide DNS (only exit relays look up names). Relay addresses are public by "
                         "design: the Tor network publishes them in a list anyone can read. The relay runs as its own "
-                        "separate Tor program and never starts by itself.", "tor", host=rc.body).pack(fill="x", pady=(0, 6))
+                        "separate Tor program; it starts with the app in practice mode (nothing published) unless you untick that.", "tor", host=rc.body).pack(fill="x", pady=(0, 6))
         self.r_inputs: list = []
         self.r_mode = tk.StringVar(value="middle")
         for val, txt, hint in (("middle", "Middle relay", "Listed publicly; carries traffic between other relays."),
@@ -754,10 +754,10 @@ class TorTab(Tab):
         self.r_pill = pill(r, "Stopped", "off")
         self.r_pill.pack(side="left")
         self.r_msg = rc.note("", muted=False, pady=(4, 2))
-        self.r_auto = tk.BooleanVar(value=False)
+        self.r_auto = tk.BooleanVar(value=True)
         self._r_loading = True
         rc.check(self.r_auto, "Start the relay when this app opens",
-                 "Off. The relay is otherwise never started automatically.", command=self.relay_autostart)
+                 "On by default. Until you complete the checklist this is practice mode: nothing is published.", command=self.relay_autostart)
         self.r_note = rc.note("", pady=(2, 2))
         self.r_log = tk.Text(rc.body, height=7, wrap="none", state="disabled", relief="flat", borderwidth=0,
                              highlightthickness=1, font=app.fonts["mono"], padx=8, pady=6)

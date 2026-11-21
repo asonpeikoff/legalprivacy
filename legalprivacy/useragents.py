@@ -219,6 +219,8 @@ class UaChooser:
 
     mode "pin": always the pinned one (your own browser, or one library entry).
     mode "rotate": a random library entry, re-drawn every hour or every day.
+    mode "mix": each new identity uses your own browser's user agent with probability ua_own_share and a
+    freshly drawn random library entry otherwise (so "70% real, 30% random").
     The draw is cached for the whole period, so one period looks like one device.
     `mobile` returns (phone share, device setting) and may change hour to hour.
     """
@@ -248,6 +250,12 @@ class UaChooser:
         return f"{t.tm_year}-{t.tm_yday}-{t.tm_hour}"
 
     def choose(self) -> dict:
+        if self.cfg.ua_mode == "mix":
+            own = entry_from_ua(self.cfg.own_ua) if self.cfg.own_ua.strip() else None
+            if own is not None and self.rng.random() < float(self.cfg.ua_own_share):
+                return own
+            share, device = self.mobile()
+            return sample_entry(self.rng, share, device)
         if self.cfg.ua_mode == "pin":
             e = self.pinned_entry()
             if e is not None:

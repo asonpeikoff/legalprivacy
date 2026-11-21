@@ -118,7 +118,8 @@ class RelayConfig:
     or_port: int = 9001
     dir_port: int = 9030
     practice: bool = True             # practice mode: loopback only, nothing published (the safe first run)
-    autostart: bool = False           # start the relay with the app: only after an explicit choice
+    autostart: bool = True            # start the relay with the app. On by default, but only ever in practice mode
+                                      # (loopback, nothing published); a public relay still needs the checklist once
     acknowledged: bool = False        # the checklist was completed once (needed for autostart)
 
     def validate(self) -> None:
@@ -193,14 +194,18 @@ class DnsConfig:
 @dataclass
 class IdentityConfig:
     """Which user agent the plain-HTTP noise sends. See legalprivacy/useragents.py."""
-    ua_mode: str = "pin"          # pin (default: your own browser's, recommended) | rotate
+    ua_mode: str = "pin"          # pin (default: your own browser's, recommended) | rotate | mix
     rotate_every: str = "hour"    # hour | day   (rotate mode: how often the choice changes)
     ua_pin: str = "own"           # pin mode: "own" or a library id. "own" with no UA yet = rotate until known
     own_ua: str = ""              # your browser's user agent (stored only on this computer)
+    ua_own_share: float = 0.7     # mix mode: share of identities that use your own browser's user agent (0 to 1);
+                                  # the rest get a random one from the library
 
     def validate(self) -> None:
-        if self.ua_mode not in ("rotate", "pin"):
-            raise ConfigError("identity.ua_mode must be rotate or pin")
+        if self.ua_mode not in ("rotate", "pin", "mix"):
+            raise ConfigError("identity.ua_mode must be rotate, pin or mix")
+        if not 0 <= float(self.ua_own_share) <= 1:
+            raise ConfigError("identity.ua_own_share must be between 0 and 1")
         if self.rotate_every not in ("hour", "day"):
             raise ConfigError("identity.rotate_every must be hour or day")
         if len(self.own_ua) > 600:
@@ -509,8 +514,14 @@ def apply_overrides(profile: Profile, raw: dict[str, Any]) -> Profile:
         profile.dns.validate()
     if p.get("identity"):
         merged = profile.identity.__dict__ | p["identity"]
-        profile.identity = IdentityConfig(**{k: str(v) for k, v in merged.items()
-                                             if k in IdentityConfig.__dataclass_fields__})
+        vals = {k: v for k, v in merged.items() if k in IdentityConfig.__dataclass_fields__}
+        share = vals.pop("ua_own_share", None)
+        profile.identity = IdentityConfig(**{k: str(v) for k, v in vals.items()})
+        if share is not None:
+            try:
+                profile.identity.ua_own_share = float(share)
+            except (TypeError, ValueError):
+                raise ConfigError("identity.ua_own_share must be a number between 0 and 1") from None
         profile.identity.validate()
     if p.get("extras"):
         m = profile.extras.__dict__ | p["extras"]

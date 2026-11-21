@@ -497,7 +497,7 @@ body.loading .big,body.loading .kpi b{display:block;width:min(100%,5ch);color:tr
     <div class="row" style="margin-top:8px"><button id="rStart" class="torb"><svg class="ic sm" aria-hidden="true"><use href="#i-play"/></svg>Start relay</button>
       <button id="rStop"><svg class="ic sm" aria-hidden="true"><use href="#i-stop"/></svg>Stop relay</button>
       <span class="pill" id="rPill">Stopped</span><span class="small" id="rMsg"></span></div>
-    <label class="chk"><input type="checkbox" id="rAuto"><span>Start the relay when this app opens <span class="mute">(off; the relay is otherwise never started automatically)</span></span></label>
+    <label class="chk"><input type="checkbox" id="rAuto"><span>Start the relay when this app opens <span class="mute">(on by default; until you complete the checklist this is practice mode: nothing is published)</span></span></label>
     <div class="small mute" id="rNote"></div>
     <div class="scroll" style="max-height:200px;margin-top:6px"><div id="rLog" class="logbox"><span class="mute">Nothing yet. The relay's own log appears here once it starts.</span></div></div>
     <details class="small" style="margin-top:6px"><summary>Router and firewall notes</summary><div class="mute">
@@ -569,6 +569,7 @@ body.loading .big,body.loading .kpi b{display:block;width:min(100%,5ch);color:tr
         <li><b>One library entry</b> is a single fixed browser. Only pick this for a specific reason, since one fixed browser is an easy pattern.</li>
       </ul></div>
     <label class="opt"><input type="radio" name="uamode" value="own"> <b>Pin to my own browser's user agent</b> <span class="mute">(recommended, default) — until it's known, the noise rotates</span></label>
+    <label class="opt"><input type="radio" name="uamode" value="mix"> <b>Mix: some real, some random</b> <span class="mute">— about <input type="number" id="uShare" min="0" max="100" step="5" value="70" style="width:64px">% of the noise uses your own browser's user agent, the rest a random one</span></label>
     <label class="opt"><input type="radio" name="uamode" value="rotate-hour"> <b>Random, changing every hour</b></label>
     <label class="opt"><input type="radio" name="uamode" value="rotate-day"> <b>Random, changing every day</b></label>
     <label class="opt"><input type="radio" name="uamode" value="lib"> <b>Pin to one library entry</b> <span class="mute">(not recommended; pick one below)</span></label>
@@ -712,7 +713,7 @@ body.loading .big,body.loading .kpi b{display:block;width:min(100%,5ch);color:tr
     <p class="small mute">Reads your browsers' history on this computer only. Nothing is sent anywhere. Only site names and visit counts are read, and nothing is kept until you add sites. Sites the safety filter blocks are left out.</p>
     <div class="small mute" id="mBrowsers"></div>
     <div class="row" style="margin-top:8px"><b>From history:</b> last <input type="number" id="mDays" value="30" min="1" max="365" style="width:70px"> days <span class="small mute">(30 recommended)</span> <button id="mScan">Scan my history</button></div>
-    <div class="row"><b>From bookmarks:</b> <button id="mBm">Import my bookmarks</button></div>
+    <div class="row"><b>From bookmarks:</b> <button id="mBm" class="pri">Import bookmarks from Firefox / Chrome</button></div>
     <div class="row"><b>From a file:</b> <input type="file" id="mBmFile" accept=".html,.htm,.har,.json,.txt,.csv"></div>
     <div class="small mute">Any of these work, and only the addresses are read:
       <b>a bookmarks export</b> (.html, from your browser's bookmark manager) ·
@@ -887,6 +888,12 @@ body.loading .big,body.loading .kpi b{display:block;width:min(100%,5ch);color:tr
     <p class="small mute">A rough estimate from your current settings (amount, mix, real browser, low-data mode, active hours, cap). Real pages vary a lot.</p>
     <div class="row"><button id="toolEst">Estimate</button></div>
     <div id="toolEstOut" class="small" style="margin-top:6px"></div>
+  </div>
+  <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg>MAC address</h3>
+    <p class="small mute">Wi-Fi and LAN operators can log your network card's hardware address. This shows what each physical interface uses now. Changing it needs administrator rights, so it is done from a terminal (<a href="https://github.com/asonpeikoff/legalprivacy/blob/master/docs/MAC.md" target="_blank" rel="noopener">docs/MAC.md</a>). On Qubes OS, or any virtual machine, run it in the qube that owns the physical card (sys-net), not here.</p>
+    <div class="row"><button id="toolMac">Check MAC addresses</button></div>
+    <div id="toolMacOut" class="small" style="margin-top:8px"></div>
+    <div class="small mute" style="margin-top:6px"><code>sudo legalprivacy mac randomize --all</code> &nbsp; <code>sudo legalprivacy mac restore --all</code></div>
   </div>
   <div class="card"><h3>Live log</h3>
     <p class="small mute">The live log is kept in memory only. Nothing is written to disk, and it is cleared when legalPrivacy quits.</p>
@@ -1415,7 +1422,7 @@ $('#dnsTest').onclick=async()=>{
   try{const r=await api('/api/tor/dns/test',{});S.tor.dns_test=r;b.disabled=false;renderDns(S.tor)}
   catch(e){b.disabled=false;$('#dnsOut').innerHTML=`<span class="bad">${esc(e.message)}</span>`}};
 
-// relay (optional; never started automatically)
+// relay (separate Tor process; practice mode by default)
 $$('#relayCard input').forEach(x=>x.oninput=null);
 let R=null,rFilled=false,rBusy=false,rPrevT=null;
 const rCk=()=>$$('#rCheck [data-ck]');
@@ -1545,7 +1552,8 @@ let UA=null;
 function uaRadioValue(){return document.querySelector('input[name=uamode]:checked')?.value||'own'}
 function fillUA(){
   if(!UA)return; const m=UA.mode, ev=UA.rotate_every;
-  const v= m==='pin'?(UA.pin==='own'?'own':'lib'):(ev==='day'?'rotate-day':'rotate-hour');
+  const v= m==='mix'?'mix':m==='pin'?(UA.pin==='own'?'own':'lib'):(ev==='day'?'rotate-day':'rotate-hour');
+  if(!$('#uShare').matches(':focus'))$('#uShare').value=UA.own_share??70;
   (document.querySelector(`input[name=uamode][value=${v}]`)||{}).checked=true;
   if(!$('#uOwn').matches(':focus'))$('#uOwn').value=UA.own_ua||'';
   $('#uApplies').textContent=UA.applies_to;
@@ -1564,9 +1572,10 @@ async function saveUA(override,auto){
   if(override){body={ua_mode:'pin',ua_pin:override.pin}}
   else if(v==='own')body={ua_mode:'pin',ua_pin:'own'};
   else if(v==='lib')body={ua_mode:'pin'};
+  else if(v==='mix')body={ua_mode:'mix',own_share:parseFloat($('#uShare').value)};
   else body={ua_mode:'rotate',rotate_every:v==='rotate-day'?'day':'hour'};
   body.own_ua=$('#uOwn').value.trim();
-  if(body.ua_mode==='pin'&&body.ua_pin==='own'&&!body.own_ua){$('#uNote').textContent='Paste or detect your browser’s user agent first.';return}
+  if((body.ua_mode==='mix'||(body.ua_mode==='pin'&&body.ua_pin==='own'))&&!body.own_ua){$('#uNote').textContent='Paste or detect your browser’s user agent first.';return}
   if(body.ua_mode==='pin'&&!body.ua_pin){$('#uNote').textContent='Click “Pin this” on a library entry below.';$('#uSearch').focus();return}
   try{UA=await api('/api/useragents',body);fillUA();$('#uNote').textContent='Saved ✓ '+(UA.running?(needApply(),'(going live…)'):'')}catch(e){$('#uNote').textContent='Not saved: '+e.message;if(!auto)toast(e.message,1)}
 }
@@ -1826,6 +1835,11 @@ $('#toolEst').onclick=async()=>{try{const d=await api('/api/tools/estimate');
   $('#toolEstOut').innerHTML=`About <b>${d.mb_per_day} MB a day</b> (≈${d.gb_per_month} GB a month): ≈${d.actions_per_hour} actions an hour for ${d.hours_per_day} hours${d.real_browser?(d.low_data?', real browser without images':', real browser with images'):', plain HTTP'}${d.cap_mb?`, capped at ${d.cap_mb} MB a day`:''}.`}catch(e){$('#toolEstOut').textContent=e.message}};
 $('#toolPriv').onclick=async()=>{try{const d=await api('/api/tools/privacy');const ic={ok:'✅',warn:'⚠️',info:'ℹ️'};
   $('#toolPrivOut').innerHTML='<table><tbody>'+d.checks.map(c=>`<tr><td>${ic[c.status]||''} <b>${esc(c.name)}</b></td><td>${esc(c.detail)}${c.advice?`<div class="mute">${esc(c.advice)}</div>`:''}</td></tr>`).join('')+'</tbody></table>'}catch(e){$('#toolPrivOut').textContent=e.message}};
+$('#toolMac').onclick=async()=>{const o=$('#toolMacOut');o.textContent='Checking…';
+  try{const d=await api('/api/tools/mac');
+    if(!d.interfaces.length){o.innerHTML='<div class="mute">No physical network interface here'+(d.environment.xen_virtual_interfaces.length?' (only a Xen virtual one: this looks like a Qubes qube, so the physical card is in sys-net)':'')+'.</div>';return}
+    o.innerHTML='<table><thead><tr><th>Interface</th><th>Now</th><th>Factory</th><th></th></tr></thead><tbody>'+d.interfaces.map(i=>`<tr><td>${esc(i.iface)}</td><td><code>${esc(i.current||'?')}</code></td><td><code>${esc(i.permanent||'?')}</code></td><td>${i.spoofed?'changed':'factory'}${i.default_route?' · default route':''}</td></tr>`).join('')+'</tbody></table>'
+  }catch(e){o.textContent=e.message}};
 $('#toolClearLog').onclick=()=>act('/api/logs/clear').then(()=>{$('#toolLogNote').textContent='cleared';renderLog(true)});
 $('#fRefresh').onclick=()=>{if(confirm('Download fresh lists now from Google Trends, Wikipedia, BBC, Hugging Face and Tranco? This contacts those sites from your connection.')){act('/api/feeds/refresh');toast('Refreshing sources in the background…')}};
 $('#fAuto').onchange=()=>act('/api/app',{auto_refresh_sources:$('#fAuto').checked});

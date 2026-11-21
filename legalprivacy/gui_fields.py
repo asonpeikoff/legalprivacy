@@ -51,6 +51,7 @@ FIELDS: dict[str, tuple[tuple, str]] = {
     "speed": (("realtime_scale",), "float"), "max_failures": (("daily_max_failures",), "int"),
     "ua_mode": (("identity", "ua_mode"), "str"), "rotate_every": (("identity", "rotate_every"), "str"),
     "ua_pin": (("identity", "ua_pin"), "str"), "own_ua": (("identity", "own_ua"), "str"),
+    "ua_own_share": (("identity", "ua_own_share"), "pct"),
     "mylist_enabled": (("mylist", "enabled"), "bool"), "mylist_share": (("mylist", "random_share"), "pct"),
     "mylist_sites": (("mylist", "sites"), "raw"), "mylist_weights": (("mylist", "weights"), "raw"),
 }
@@ -183,11 +184,14 @@ def app_flags(v: dict[str, Any]) -> dict:
 
 # ── user agent choice ───────────────────────────────────────────────────────
 UA_CHOICES = [("own", "Pin to my own browser's user agent (recommended)"),
+              ("mix", "Mix: some of the noise uses my own browser's, the rest random"),
               ("rotate-hour", "Random, changing every hour"), ("rotate-day", "Random, changing every day"),
               ("lib", "Pin to one library entry (not recommended)")]
 
 
 def ua_choice_from_identity(mode: str, rotate_every: str, pin: str) -> str:
+    if mode == "mix":
+        return "mix"
     if mode == "rotate":
         return "rotate-day" if rotate_every == "day" else "rotate-hour"
     return "own" if pin == "own" else "lib"
@@ -196,6 +200,8 @@ def ua_choice_from_identity(mode: str, rotate_every: str, pin: str) -> str:
 def ua_choice_to_identity(choice: str, lib_id: str = "") -> dict:
     if choice == "own":
         return {"ua_mode": "pin", "ua_pin": "own"}
+    if choice == "mix":
+        return {"ua_mode": "mix"}
     if choice == "lib":
         return {"ua_mode": "pin", "ua_pin": lib_id if lib_id and lib_id != "own" else "own"}
     return {"ua_mode": "rotate", "rotate_every": "day" if choice == "rotate-day" else "hour"}

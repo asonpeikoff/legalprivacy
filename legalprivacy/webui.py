@@ -245,6 +245,8 @@ class UIServer:
                     if u.path == "/api/ml/predict":
                         g = lambda k, d: (q.get(k) or [d])[0]                     # noqa: E731
                         return self._json(ctl.ml_predict(g("site", ""), _qint(q, "hour", "12"), _qint(q, "weekday", "2")))
+                    if u.path == "/api/tools/mac":
+                        return self._json(ctl.mac_status())
                     if u.path == "/api/tools/privacy":
                         return self._json({"checks": ctl.privacy_check()})
                     if u.path == "/api/browser/trace":
@@ -401,7 +403,7 @@ def start_services(ctl) -> None:
             ctl.start(reason="autostart on launch")
         except ConfigError as exc:
             ctl.log.error("app", str(exc))
-    ctl.relay_autostart()                 # only if "start the relay with the app" was chosen; default off
+    ctl.relay_autostart()                 # "start the relay with the app" is on by default, in practice mode (nothing published)
 
 
 def run_ui(profile_path: str | None = None, port: int | None = None, open_browser: bool | None = None,

@@ -225,6 +225,9 @@ class SettingsTab(Tab):
         for val, lab in F.UA_CHOICES:
             c.radio(self.ua_choice, val, lab)
         r = c.row((8, 2))
+        c.lbl(r, "Mix: share that uses my own browser's (%)").pack(side="left")
+        self.f_spin(r, "ua_own_share", 0, 100, 5, 5).pack(side="left", padx=6)
+        r = c.row((8, 2))
         c.lbl(r, "Your browser's user agent").pack(side="left")
         self.f_entry(r, "own_ua", 46, "paste it, or press Detect").pack(side="left", padx=8, fill="x", expand=True)
         r = c.row()
