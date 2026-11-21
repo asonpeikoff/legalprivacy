@@ -31,6 +31,8 @@ import tests.test_extras
 import tests.test_selftest
 import tests.test_cookies
 import tests.test_observe
+import tests.test_macspoof
+import tests.test_nettools
 
 MODULES = [
     tests.test_identity,
@@ -50,6 +52,8 @@ MODULES = [
     tests.test_selftest,
     tests.test_cookies,
     tests.test_observe,
+    tests.test_macspoof,
+    tests.test_nettools,
 ]
 
 

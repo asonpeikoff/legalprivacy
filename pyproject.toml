@@ -17,6 +17,7 @@ dependencies = [
 [project.scripts]
 legalprivacy = "legalprivacy.cli:main"
 legalprivacy-launch = "legalprivacy.launcher:main"
+legalprivacy-mac = "legalprivacy.macspoof:main"       # headless MAC spoofing (stdlib only)
 legalprivacy-gui = "legalprivacy.gui:main"             # native desktop app (Tkinter, no browser)
 legalprivacy-desktop = "legalprivacy.desktop:main"   # the dashboard in its own window (needs the [desktop] extra)
 cricket = "legalprivacy.cli:main"                 # old names, kept so existing setups keep working

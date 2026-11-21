@@ -330,6 +330,9 @@ def main(argv: list[str] | None = None) -> int:
 
     relay_sub.add_parser("doctor").set_defaults(func=cmd_relay)
 
+    from . import macspoof
+    macspoof.add_parser(sub)
+
     args = parser.parse_args(argv)
     try:
         return args.func(args)

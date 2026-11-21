@@ -358,14 +358,15 @@ def apply_theme(root: tk.Misc, s: ttk.Style, p: dict, fonts: dict) -> None:
     def px(n):                                                   # paddings follow the screen density
         return int(round(n * fx))
 
-    fill, fill_hi, fill_lo = p["code"], _mix(p["code"], p["fg"], .07), _mix(p["code"], p["fg"], .14)
-    s.configure("TButton", background=fill, foreground=p["fg"], padding=(px(12), px(6)), borderwidth=1, width=0,
-                relief="flat", bordercolor=p["border"], lightcolor=fill, darkcolor=fill, focuscolor=fill,
+    # secondary buttons: card-coloured fill with an accent outline and accent text (not flat grey)
+    fill, fill_hi, fill_lo = p["panel"], _mix(p["panel"], p["accent"], .14), _mix(p["panel"], p["accent"], .26)
+    s.configure("TButton", background=fill, foreground=p["accent"], padding=(px(12), px(6)), borderwidth=1, width=0,
+                relief="flat", bordercolor=p["accent"], lightcolor=fill, darkcolor=fill, focuscolor=fill,
                 focusthickness=0)
     s.map("TButton", background=[("disabled", p["bg"]), ("pressed", fill_lo), ("active", fill_hi)],
           foreground=[("disabled", p["muted"])], lightcolor=[("pressed", fill_lo), ("active", fill_hi)],
           darkcolor=[("pressed", fill_lo), ("active", fill_hi)],
-          bordercolor=[("focus", p["accent"]), ("pressed", p["muted"]), ("active", p["muted"])])
+          bordercolor=[("disabled", p["border"]), ("focus", p["fg"])])
     acc_hi, acc_lo = _mix(p["accent"], p["fg"], .12), _mix(p["accent"], p["fg"], .22)
     s.configure("Primary.TButton", background=p["accent"], foreground=p["accent_fg"], bordercolor=p["accent"],
                 lightcolor=p["accent"], darkcolor=p["accent"], font=fonts["bold"], focuscolor=p["accent"])

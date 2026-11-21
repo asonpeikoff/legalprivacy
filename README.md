@@ -425,6 +425,37 @@ Tor lane for noise, which stays onion-only.
   (owner-only permissions on Linux and macOS). Tor bridge lines are checked before they are
   written into Tor's configuration.
 
+## MAC address spoofing (Linux)
+
+Your network card's hardware address (MAC) is a stable identifier that Wi-Fi and LAN operators can log. `legalprivacy mac`
+randomizes it and puts the original back. It is part of legalPrivacy, which is named in homage to the blog
+[*Legalizing Privacy*](https://legalizingprivacy.substack.com) by Amy Peikoff.
+
+```
+sudo legalprivacy mac status [--json]                    # current vs permanent MAC per interface (no root needed)
+sudo legalprivacy mac randomize wlan0|--all [--mode random|stable] [--persist]
+sudo legalprivacy mac set wlan0 02:11:22:33:44:55
+sudo legalprivacy mac restore wlan0|--all
+sudo legalprivacy mac rotate --enable --interval 60      # opt-in, 15 to 1440 minutes; --disable to stop
+```
+
+- **Backends:** NetworkManager when it manages the connection (`wifi.cloned-mac-address` / `ethernet.cloned-mac-address` set to
+  `random`, a new address per connection, or `stable`, one per network, which avoids captive-portal re-login loops);
+  otherwise `ip link set dev IF down`, `address MAC`, `up`.
+- **Addresses** are unicast and locally administered. The permanent MAC (`ethtool -P`) is recorded before the first change, and
+  `restore` returns to it.
+- **Safety:** the interface carrying the default route is skipped unless you pass `--force` / `--include-active`; bridges,
+  bridge and bond members and virtual interfaces are never touched; changes need root.
+- **Rotation** is off by default and never rotates the default-route interface while a VPN or Tor tunnel is up.
+- **Nothing survives a reboot** unless you pass `--persist` (NetworkManager only) or enable rotation.
+- **Exit codes:** 0 ok, 1 error, 2 bad arguments, 3 permission denied. Every command takes `--json`.
+- **Headless:** stdlib only, so `sudo python3 -m legalprivacy.macspoof ...` (or `legalprivacy-mac`) works without the dashboard or any extra packages.
+- **Qubes OS:** run it in **sys-net**, which owns the physical NIC, not in an AppVM (Xen virtual NICs are refused). See [docs/MAC.md](docs/MAC.md#qubes-os).
+
+A new MAC means a new DHCP lease and possibly a new IP address; captive portals and MAC-filtered networks may ask you to sign in
+again or refuse you. Your hostname and DHCP client identifier are separate identifiers and are not changed. See
+[docs/MAC.md](docs/MAC.md).
+
 ## Command line
 
 ```
@@ -433,6 +464,7 @@ legalprivacy run --profile profiles/example.yaml [--verbose] [--once] [--dry-run
 legalprivacy doctor --profile profiles/example.yaml
 legalprivacy tor status|start|install|newnym   # the app's private Tor
 legalprivacy relay bridges | gen-client | gen  # bridges and relay configurations
+legalprivacy mac status|randomize|set|restore|rotate   # MAC address spoofing (Linux, root)
 ```
 
 ## Credits

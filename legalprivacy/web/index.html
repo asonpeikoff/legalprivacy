@@ -174,6 +174,14 @@ button:active:not(:disabled){transform:translateY(1px);box-shadow:none}
 button:disabled{box-shadow:none}
 button.pri{border-color:var(--acc)}button.torb{border-color:var(--tor)}
 button.dng{border-color:var(--bad)}
+/* secondary buttons get the accent colour (green outline) instead of plain grey; primary stay filled */
+button{color:var(--acc);border-color:var(--acc);background:var(--panel)}
+button:hover:not(:disabled){background:var(--acc2)}
+button.pri{color:var(--on-acc);background:var(--acc)}button.pri:hover:not(:disabled){background:var(--acc)}
+button.dng{color:var(--bad);border-color:var(--bad)}button.dng:hover:not(:disabled){background:var(--bad2)}
+button.torb{color:var(--on-tor);background:var(--tor)}button.torb:hover:not(:disabled){background:var(--tor)}
+nav button{color:var(--mute);border-color:transparent;border-bottom-color:transparent;background:none}
+nav button.on{color:var(--ink);border-bottom-color:var(--acc)}nav button:hover:not(:disabled){background:var(--code)}
 :focus-visible{outline:3px solid var(--acc);outline-offset:2px;border-radius:var(--r-sm)}
 button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid var(--acc);outline-offset:2px;box-shadow:none}
 
@@ -858,21 +866,16 @@ body.loading .big,body.loading .kpi b{display:block;width:min(100%,5ch);color:tr
 </section>
 
 <section id="t-tools" class="tab">
-  <div class="card"><h3>How much data will this use?</h3>
-    <p class="small mute">A rough estimate from your current settings (amount, mix, real browser, low-data mode, active hours, cap). Real pages vary a lot.</p>
-    <div class="row"><button id="toolEst">Estimate</button></div>
-    <div id="toolEstOut" class="small" style="margin-top:6px"></div>
-  </div>
   <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg>Privacy check</h3>
     <p class="small mute">What actually protects you, checked on this computer only. Nothing is sent anywhere.</p>
     <div class="row"><button id="toolPriv">Run privacy check</button></div>
     <div id="toolPrivOut" class="small" style="margin-top:6px"></div>
   </div>
   <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg>DNS leak check</h3>
-    <p class="small mute">Shows which DNS servers your computer is set to use, and whether any of them is one you did not choose for noise. Each click makes one lookup of a random, never-used name.</p>
+    <p class="small mute">Shows which DNS servers your computer is set to use, and whether any of them is one you did not choose for noise. Each click makes two small lookups.</p>
     <div class="row"><button id="toolDns">Run DNS check</button></div>
     <div id="toolDnsOut" class="small" style="margin-top:8px"></div>
-    <div class="small mute" style="margin-top:8px">This check reads your computer's own configuration. To see which resolver actually answers, the external test is the authoritative one:
+    <div class="small mute" style="margin-top:8px">The list is your computer's own configuration (often just a router, VPN or Qubes network qube forwarding for you); <b>Answered by</b> is the resolver that really reached the internet. For a second opinion:
       <a href="https://www.dnsleaktest.com/" target="_blank" rel="noopener">dnsleaktest.com</a> (opens in a new tab).</div>
   </div>
   <div class="card"><h3>Speed test</h3>
@@ -880,13 +883,18 @@ body.loading .big,body.loading .kpi b{display:block;width:min(100%,5ch);color:tr
     <div class="row"><button id="toolSpeed">Run speed test</button><span class="small mute" id="toolSpeedNote"></span></div>
     <div id="toolSpeedOut" class="small" style="margin-top:8px"></div>
   </div>
+  <div class="card"><h3>How much data will this use?</h3>
+    <p class="small mute">A rough estimate from your current settings (amount, mix, real browser, low-data mode, active hours, cap). Real pages vary a lot.</p>
+    <div class="row"><button id="toolEst">Estimate</button></div>
+    <div id="toolEstOut" class="small" style="margin-top:6px"></div>
+  </div>
   <div class="card"><h3>Live log</h3>
     <p class="small mute">The live log is kept in memory only. Nothing is written to disk, and it is cleared when legalPrivacy quits.</p>
     <div class="row"><button id="toolClearLog">Clear live log now</button><span class="small mute" id="toolLogNote"></span></div>
   </div>
   <div class="card"><h3>Related checks</h3>
     <p class="small mute">Outside links, opened only when you click them, in a new tab.</p>
-    <div class="row"><a href="https://check.torproject.org/" target="_blank" rel="noopener">Check whether Tor is in use (check.torproject.org)</a></div>
+    <div class="small mute">To check that your traffic really leaves through Tor, use <b>Test Tor</b> on the 🧅 Tor tab: it asks check.torproject.org through the app's own Tor. (Opening that page in a normal browser can only ever say "no".)</div>
     <div class="row"><a href="https://www.opennicproject.org/" target="_blank" rel="noopener">About OpenNIC resolvers (opennicproject.org)</a></div>
   </div>
   <div class="card"><h3>Files</h3>
@@ -1746,6 +1754,7 @@ $('#toolDns').onclick=async()=>{
     const rows=d.resolvers.length?d.resolvers.map(r=>`<tr><td><code>${esc(r.ip)}</code></td><td>${esc(r.verdict)}</td></tr>`).join(''):'<tr><td colspan=2 class="mute">No resolver found in your system settings.</td></tr>';
     o.innerHTML=`<table><thead><tr><th>Resolver your computer uses</th><th>What it is</th></tr></thead><tbody>${rows}</tbody></table>`+
       (d.note?`<div class="note small" style="margin-top:6px">${esc(d.note)}</div>`:'')+
+      (d.egress_resolver&&d.egress_resolver.ip?`<div style="margin-top:6px"><b>Answered by:</b> <code>${esc(d.egress_resolver.ip)}</code>${d.egress_resolver.name?` (${esc(d.egress_resolver.name)})`:''}${d.egress_resolver.is_chosen===true?' — one of your chosen resolvers':(d.egress_resolver.is_chosen===false?' — not one of your chosen resolvers':'')}<div class="mute">This is the resolver that sees your lookups, however many forwarders sit in front of it.</div></div>`:(d.egress_resolver&&d.egress_resolver.error?`<div class="mute" style="margin-top:6px">${esc(d.egress_resolver.error)}</div>`:''))+
       `<div style="margin-top:6px">Sample lookup: ${d.sample_lookup.ms} ms, ${esc(d.sample_lookup.result)}</div>`;
   }catch(e){o.textContent=e.message}
 };
