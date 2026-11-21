@@ -48,9 +48,7 @@ REFINERS = {   # refine in a way that fits where the query came from
                 "youtube", "examples", "tutorial", "2026"],
     "words": ["meaning", "synonym", "pronunciation", "in a sentence"],
 }
-_STOP = set("a an the of to in on for and or but with as at by from is are was were be been it its this that "
-            "these those has have had will would could should can may might says say said after over into "
-            "about amid than then just more most new why how what who when where which watch".split())
+_STOP = set(["a", "an", "the", "of", "to", "in", "on", "for", "and", "or", "but", "with", "as", "at", "by", "from", "is", "are", "was", "were", "be", "been", "it", "its", "this", "that", "these", "those", "has", "have", "had", "will", "would", "could", "should", "can", "may", "might", "says", "say", "said", "after", "over", "into", "about", "amid", "than", "then", "just", "more", "most", "new", "why", "how", "what", "who", "when", "where", "which", "watch"])
 
 
 def headline_to_query(h: str) -> str:

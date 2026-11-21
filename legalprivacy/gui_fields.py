@@ -28,6 +28,9 @@ FIELDS: dict[str, tuple[tuple, str]] = {
     "tor_bridges": (("transports", "tor", "bridges"), "lines"),
     "bridge_mode": (("transports", "tor", "bridge_mode"), "str"),
     "bridge_auto": (("transports", "tor", "bridge_auto"), "bool"),
+    "tor_dns": (("transports", "tor", "dns_port"), "dnson"),       # Tor DNS switch: on = the default local port
+    "tor_dns_lan": (("transports", "tor", "dns_lan"), "bool"),
+    "tor_dns_addr": (("transports", "tor", "dns_lan_addr"), "str"),
     "active_hours": (("extras", "active_hours"), "bool"), "active_from": (("extras", "active_from"), "int"),
     "active_to": (("extras", "active_to"), "int"), "browser_dns": (("extras", "browser_dns"), "bool"),
     "typos": (("extras", "typos"), "bool"), "polite": (("extras", "polite"), "bool"),
@@ -51,6 +54,7 @@ FIELDS: dict[str, tuple[tuple, str]] = {
     "mylist_enabled": (("mylist", "enabled"), "bool"), "mylist_share": (("mylist", "random_share"), "pct"),
     "mylist_sites": (("mylist", "sites"), "raw"), "mylist_weights": (("mylist", "weights"), "raw"),
 }
+DNS_DEFAULT_PORT = 19053        # same as tordns.DEFAULT_PORT (this module stays free of other imports)
 APP_KEYS = ("autostart", "clear_logs_on_restart", "observe", "auto_refresh_sources", "ml_auto")
 
 
@@ -81,6 +85,8 @@ def read_fields(profile) -> dict:
             v = int(round(float(v) * 100))
         elif kind == "optstr":
             v = v or ""
+        elif kind == "dnson":
+            v = bool(v)
         elif kind == "csv":
             v = ", ".join(v or [])
         elif kind == "lines":
@@ -108,6 +114,8 @@ def fields_payload(v: dict) -> dict:
             x = float(x) / 100.0
         elif kind == "optstr":
             x = (str(x).strip() or None)
+        elif kind == "dnson":
+            x = DNS_DEFAULT_PORT if x else 0
         elif kind == "int":
             x = int(x)
         elif kind == "float":

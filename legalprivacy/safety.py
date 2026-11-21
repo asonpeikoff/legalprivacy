@@ -6,15 +6,7 @@ import re
 
 # Words that disqualify a query outright (adult, gambling, violence/self-harm, weapons,
 # illegal drugs, hacking/crime, extremism). Matched on word boundaries.
-_BAD_WORDS = r"""
-porn\w* xxx nude\w* naked sex sexy sexual\w* erotic\w* escort\w* fetish\w* hentai nsfw onlyfans
-camgirl\w* milf\w* nsfw casino\w* gambl\w* betting bookmaker\w* poker slots
-suicid\w* self-harm kill\w* murder\w* assassin\w* bomb\w* explosive\w* weapon\w* firearm\w* gun\w* rifle\w*
-terror\w* jihad\w* extremis\w* nazi\w* genocide rape\w* molest\w* abuse\w* trafficking
-cocaine heroin meth\w* fentanyl lsd mdma ecstasy opioid\w* narcotic\w* overdos\w*
-hack\w* crack\w* exploit\w* malware ransomware phishing ddos carding counterfeit\w* forgery
-fake\s+id launder\w* darknet dark\s+web
-""".split()
+_BAD_WORDS = [r"porn\w*", r"xxx", r"nude\w*", r"naked", r"sex", r"sexy", r"sexual\w*", r"erotic\w*", r"escort\w*", r"fetish\w*", r"hentai", r"nsfw", r"onlyfans", r"camgirl\w*", r"milf\w*", r"nsfw", r"casino\w*", r"gambl\w*", r"betting", r"bookmaker\w*", r"poker", r"slots", r"suicid\w*", r"self-harm", r"kill\w*", r"murder\w*", r"assassin\w*", r"bomb\w*", r"explosive\w*", r"weapon\w*", r"firearm\w*", r"gun\w*", r"rifle\w*", r"terror\w*", r"jihad\w*", r"extremis\w*", r"nazi\w*", r"genocide", r"rape\w*", r"molest\w*", r"abuse\w*", r"trafficking", r"cocaine", r"heroin", r"meth\w*", r"fentanyl", r"lsd", r"mdma", r"ecstasy", r"opioid\w*", r"narcotic\w*", r"overdos\w*", r"hack\w*", r"crack\w*", r"exploit\w*", r"malware", r"ransomware", r"phishing", r"ddos", r"carding", r"counterfeit\w*", r"forgery", r"fake\s+id", r"launder\w*", r"darknet", r"dark\s+web"]
 _BAD_RE = re.compile(r"\b(?:" + "|".join(_BAD_WORDS) + r")\b", re.I)
 
 _BAD_DOMAIN_PARTS = ("porn", "xxx", "sex", "adult", "nude", "cam4", "xvideos", "xnxx", "xhamster",
@@ -67,12 +59,9 @@ def safe_domain(domain: str, denylist: set[str] | None = None) -> bool:
 # ── English-language sites only ───────────────────────────────────────────────
 # Country domains of places where English isn't the main language of the web. Country codes that are
 # widely used as generic names (.io, .ai, .co, .me, .tv, .fm, .gg, .ly, .sh, .to, .rs, .so) are fine.
-_FOREIGN_TLDS = frozenset("""de at ch fr be lu es it pt nl pl cz sk hu ro bg gr tr ru ua by kz se no dk fi ee lv lt
-is hr si ba mk al md ge am az jp cn kr tw hk mo vn th id my kh la mm ir iq sa ae eg ma dz tn il br ar mx cl pe uy py
-bo ve ec cu do gt hn sv ni cr pa su рф""".split())
+_FOREIGN_TLDS = frozenset(["de", "at", "ch", "fr", "be", "lu", "es", "it", "pt", "nl", "pl", "cz", "sk", "hu", "ro", "bg", "gr", "tr", "ru", "ua", "by", "kz", "se", "no", "dk", "fi", "ee", "lv", "lt", "is", "hr", "si", "ba", "mk", "al", "md", "ge", "am", "az", "jp", "cn", "kr", "tw", "hk", "mo", "vn", "th", "id", "my", "kh", "la", "mm", "ir", "iq", "sa", "ae", "eg", "ma", "dz", "tn", "il", "br", "ar", "mx", "cl", "pe", "uy", "py", "bo", "ve", "ec", "cu", "do", "gt", "hn", "sv", "ni", "cr", "pa", "su", "рф"])
 # Language parts of an address: de.wikipedia.org, example.com/fr/, example.com/pt-br/
-_LANG_CODES = frozenset("""de fr es it nl pt ru ja jp zh cn ko kr pl sv se da dk fi cs cz hu ro bg el gr tr ar he fa
-th vi uk ua hr sr sl sk lt lv et""".split())
+_LANG_CODES = frozenset(["de", "fr", "es", "it", "nl", "pt", "ru", "ja", "jp", "zh", "cn", "ko", "kr", "pl", "sv", "se", "da", "dk", "fi", "cs", "cz", "hu", "ro", "bg", "el", "gr", "tr", "ar", "he", "fa", "th", "vi", "uk", "ua", "hr", "sr", "sl", "sk", "lt", "lv", "et"])
 _LANG_SEG_RE = re.compile(r"^([a-z]{2})(?:[-_][a-zA-Z]{2,4})?$")
 
 

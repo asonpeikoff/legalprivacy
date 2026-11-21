@@ -30,7 +30,6 @@ profile:
       enabled: true
       manage: true              # true: app runs its own private Tor (auto-installs); false: use socks/control below
       onion: true               # visit .onion sites
-      clearnet_via_tor: false   # route ordinary clearnet noise through Tor — NOT recommended
       auto_install: true
       onion_seeds: []           # extra v3 onion URLs; empty = built-in official mirrors
       bridges: []               # e.g. "obfs4 1.2.3.4:443 FINGERPRINT cert=… iat-mode=0"

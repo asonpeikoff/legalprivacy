@@ -81,7 +81,7 @@ def test_client_hints_only_for_chromium_and_match_version():
         accept_language="en-US,en;q=0.9", pace="normal", query_taste=WORDS,
         chromium=True, platform="Windows")
     h = headers_for(chrome)
-    assert f'Chromium";v="156"' in h["Sec-CH-UA"]
+    assert 'Chromium";v="156"' in h["Sec-CH-UA"]
     assert '"Google Chrome";v="156"' in h["Sec-CH-UA"]
     assert h["Sec-CH-UA-Mobile"] == "?0"
     assert h["Sec-CH-UA-Platform"] == '"Windows"'
@@ -124,7 +124,8 @@ def test_gpc_is_pinned_per_identity():
 
 
 def test_profile_merges_extra_yaml_keys_gracefully(tmp_path=None):
-    import tempfile, os
+    import tempfile
+    import os
     yaml_content = """
 profile:
   name: extra-keys
@@ -209,7 +210,7 @@ def test_chooser_rotates_per_hour_or_day_and_pins_on_request():
 
 
 def test_identity_settings_round_trip_and_validate():
-    from legalprivacy.config import Profile, apply_overrides, profile_to_dict, ConfigError
+    from legalprivacy.config import Profile, apply_overrides, profile_to_dict
     p = Profile(name="t")
     apply_overrides(p, {"identity": {"ua_mode": "pin", "ua_pin": "own", "own_ua": "Mozilla/5.0 X"}})
     assert p.identity.ua_mode == "pin" and profile_to_dict(p)["profile"]["identity"]["own_ua"] == "Mozilla/5.0 X"

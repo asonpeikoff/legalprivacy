@@ -13,12 +13,10 @@ except ImportError:
     pytest = types.ModuleType("pytest")
     pytest.raises = _RaisesContext
 
-from legalprivacy.config import (EngineConfig, Profile, TransportConfig,
-                                 load_profile)
+from legalprivacy.config import (EngineConfig, Profile, TransportConfig)
 from legalprivacy.pacing import Budget
 from legalprivacy.scheduler import Lane, Runner, build_lanes
-from legalprivacy.transports import (ClearnetTransport, HitResult, Target,
-                                     TorTransport)
+from legalprivacy.transports import (ClearnetTransport, HitResult)
 
 WORDS = ["weather", "news", "books", "travel", "recipes", "music"]
 HTML = '<a href="/p2">next</a> <a href="https://elsewhere.example/out">out</a>'

@@ -7,7 +7,6 @@ not know which transport will carry them.
 from __future__ import annotations
 
 import random
-import re
 import socket
 import struct
 import urllib.parse
@@ -170,13 +169,6 @@ QUERY_PATTERNS = [
 ]
 
 COMMON_TOPICS = [topic for topics in REAL_INTERNET_THEMES.values() for topic in topics]
-
-DOH_RESOLVERS = [
-    "https://cloudflare-dns.com/dns-query?name=%s&type=A",
-    "https://dns.google/resolve?name=%s&type=A",
-    "https://dns.quad9.net/dns-query?name=%s&type=A",
-]
-
 
 def load_wordlist(path: str, fallback: list[str] | None = None) -> list[str]:
     from .paths import resolve_resource
@@ -402,8 +394,7 @@ def parse_dns_names(answer: bytes) -> list[str]:
 class DnsNoise:
     """Lookups of REAL, popular domains (Tranco ranking) to public resolvers, packets crafted by hand.
 
-    Clearnet engine only — arbitrary UDP queries cannot traverse Tor circuits;
-    the tor lane uses DoH-over-Tor instead (see DohNoise). Invented domains are
+    Clearnet engine only: the Tor lane visits .onion sites and makes no DNS noise. Invented domains are
     never generated: a stream of NXDOMAINs is itself a tell.
     """
 
@@ -448,25 +439,3 @@ class DnsNoise:
             return False
         finally:
             sock.close()
-
-
-class DohNoise:
-    """DNS-over-HTTPS lookups of real domains; runs over the Tor transport's SOCKS daemon."""
-
-    def __init__(self, rng: random.Random, words: list[str] | None = None, domains=None):
-        from .domains import DomainPool
-        self.rng = rng
-        self.domains = domains or DomainPool(rng)
-
-    def make(self, identity=None) -> Target:
-        url = self.rng.choice(DOH_RESOLVERS) % urllib.parse.quote(self.domains.hostname())
-        return Target(url=url, kind="doh")
-
-
-@dataclass
-class EngineCluster:
-    """Bundles engine factories for the scheduler."""
-    search: SearchTargetFactory | None = None
-    crawl: CrawlTargetFactory | None = None
-    dns: DnsNoise | None = None
-    doh: DohNoise | None = None

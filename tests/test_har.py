@@ -147,3 +147,15 @@ def test_har_endpoints_roundtrip():
         assert _call(base, srv.token, "/api/har/forget", {})[1] == {"present": False}
     finally:
         srv.httpd.shutdown()
+
+
+def test_absurdly_nested_json_is_a_plain_error_not_a_crash():
+    with pytest.raises(HarError):
+        parse_har("[" * 100000)
+
+
+def test_a_recording_spanning_decades_is_refused_before_it_can_eat_memory():
+    es = [{"startedDateTime": "1971-01-01T00:00:00Z", "request": {"url": "https://a.example.com/"}},
+          {"startedDateTime": "2099-01-01T00:00:00Z", "request": {"url": "https://b.example.com/"}}]
+    with pytest.raises(HarError):
+        parse_har({"log": {"entries": es}})

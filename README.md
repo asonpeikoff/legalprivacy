@@ -1,4 +1,4 @@
-# legalPrivacy v2.9
+# legalPrivacy
 
 legalPrivacy makes believable background browsing, searches and DNS lookups from your
 computer, so that bulk analysis of your traffic tells much less about you. It runs in a
@@ -227,12 +227,12 @@ different sites per minute, plus a list of site names with counts that you can d
 removes it too. The ML test can use a recording of at least 2 hours; it rebuilds approximate visits
 from the saved counts and site names, so revisit habits are approximate.
 
-## Is it working? (leak check, panic, Tor exits)
+## Is it working? (leak check and panic)
 
 - **Proof tab → "Is it working?"** shows each check as *what you want to see*, *what we saw* and a plain verdict:
   ✓ working, ✗ not working (with what to do), ℹ for your information, ? not tested yet. It checks that noise is on,
-  that your DNS choice isn't being redirected by your network, that Tor is connected and really leaves from a
-  different address than yours, and that the noise runs in a real browser that looks like yours. Nothing changes your settings.
+  that your DNS choice isn't being redirected by your network, that Tor is connected (and, when Tor is on, that a test request really goes out through Tor from a
+  different address than yours), and that the noise runs in a real browser that looks like yours. Nothing changes your settings.
 - **Settings → Panic**: stop now; or also clear the log, the noise browser's cookies and any signed-in account sessions
   (see "Signed-in accounts"; you would have to sign in again); or also stop Tor and delete what legalPrivacy recorded
   about connections. Your settings are never deleted.
@@ -266,6 +266,24 @@ from the saved counts and site names, so revisit habits are approximate.
   affect its ads and recommendations, and Google or Microsoft may ask you to verify, or restrict, an account that looks
   automated. A spare account is safer. Nothing is ever sent, deleted or changed in the mailbox. Google sometimes refuses
   sign-in in an automated browser; if so, the account simply can't be used.
+
+## Antivirus (ClamAV), offline-first
+
+An optional **Security** tab (web and native app) manages the ClamAV you install yourself. legalPrivacy never bundles ClamAV (it is GPL); it only runs your `clamscan`, `freshclam` and `sigtool`, found on `PATH` or in the usual Windows, macOS and Homebrew folders, and shows the install hint for your system when they are missing.
+
+**What contacts the internet.** Per [docs.clamav.net](https://docs.clamav.net/), only `freshclam`, the signature updater, does: a DNS TXT lookup of `current.cvd.clamav.net`, then an HTTPS download from `database.clamav.net`. Nothing documented says `clamscan` connects anywhere, and this feature does not assume that: it proves it.
+
+**How it is prevented.**
+- Signatures live in an app-owned folder (`<app folder>/av/db`). Scans always run `clamscan --database=<that folder> --recursive --infected`, so the system's ClamAV configuration is never read or changed. `clamdscan` is detected but never used.
+- `freshclam` is never run on a schedule, as a daemon, or by a scan, detect, state or import. It runs only from the **Update signatures (contacts ClamAV's servers)** button, after a confirmation that names exactly what is contacted, with a generated minimal config (`--config-file`, `--datadir`). If you would rather stay fully offline, **Import** `main`/`daily`/`bytecode` `.cvd`/`.cld` files you downloaded elsewhere: each is checked (`sigtool --info` must report a valid digital signature, and `clamscan` must load it) in a private copy before it enters the folder; failures are rejected.
+- On Linux the scanner runs with its network removed: `unshare --net`, else `unshare -rn` (no root needed), else `firejail --net=none`. A one-time probe checks that the method really leaves only the loopback interface, caches the result, and the tab says which is active.
+- Network is not removed on Windows and macOS (no unprivileged way); there the tab says "Detection only".
+
+**How it is proven (every OS).** The scanner's whole process tree is watched with psutil about every 100 ms for any non-loopback connection or DNS lookup helper. Each result records "scanner connections: N". If N is more than 0 the scan is marked **NOT OFFLINE**, the scanner is killed and a warning is logged. The Proof tab's "Is it working?" list gets an "Antivirus scanner stays offline" row (want: 0 connections during scans), shown once you have used the tab. The **EICAR self-test** button builds the harmless standard test string at runtime from parts (it is never written whole in this repository, which would make antivirus tools flag it), scans it with the app's signatures, and deletes the file; your own antivirus may react to it.
+
+**Your files.** A scan never deletes, moves or changes anything. Each result has "Copy path" and an explicit per-file "Quarantine" (confirmation; the file goes to `<app folder>/av/quarantine`, can be restored, or deleted permanently). Panic (hard) deletes the quarantine and scan results, not your own files or the signature files.
+
+**Not verified.** Tested here with stub programs on Linux, not with real ClamAV signatures or a real `freshclam` run. The Windows and macOS code paths (tool locations, process watching, `firejail`) are untested on those systems. Without network removal the watcher can miss a connection that opens and closes between two looks; for a hard guarantee also block `clamscan` in your firewall. The Debian/Ubuntu `clamav` package may install its own background updater service; legalPrivacy does not touch it (the tab notes when a `freshclam` process is running).
 
 ## Native desktop app
 
@@ -354,7 +372,7 @@ All optional:
 
 On Tor, failures are handled like a person would: sometimes reload the page a minute or two later, sometimes move on, sometimes get a new identity first. A new identity follows 2–5 failures in a row, and circuits also change by themselves every 10–40 minutes.
 
-**Test Tor** (Tor tab) checks that traffic really leaves through Tor and that the Tor Project's onion site loads. Tor errors are shown in plain English ("onion site is offline" rather than "0xf0").
+**Test Tor** (Tor tab) is a check you start yourself: it sends one test request through Tor to confirm it works, and loads the Tor Project's onion site. The noise itself never sends ordinary web traffic through Tor. Tor errors are shown in plain English ("onion site is offline" rather than "0xf0").
 
 | Switch | Default | What it does |
 |---|---|---|
@@ -373,13 +391,39 @@ Snowflake client configuration with `legalprivacy relay gen-client --type snowfl
 **Contribute to Tor** with `legalprivacy relay gen`, which writes a middle-relay or bridge
 configuration. It never runs an exit.
 
+## Tor DNS and relays (both optional, both off by default)
+
+Both live on the Tor tab, in the web dashboard and the native app.
+
+**Tor DNS.** Switch it on and the Tor that legalPrivacy manages also answers DNS lookups on a local UDP port
+(Tor's `DNSPort`, on `127.0.0.1` unless you choose otherwise). Tor resolves the names anonymously, which means
+Tor **exit relays** do the lookup: this is a deliberate, narrow use of exits for DNS only. It does not change the
+Tor lane for noise, which stays onion-only.
+- Only A (IPv4), AAAA (IPv6) and PTR (reverse) lookups work; Tor does not handle other record types. It is slower than normal DNS.
+- **Test** sends one real lookup for `example.com` through that port and shows the answer and how long it took. The Proof tab's "Is it working?" list gains a "Tor DNS answers" row while the switch is on.
+- Operating systems send DNS to port 53, so using it for the whole computer needs a small local forwarder (for example dnsmasq or unbound) pointed at `127.0.0.1` and the port shown, or an app that lets you set a DNS port. The app does not give forwarder commands because they differ by system and have not been verified.
+- **Share on my network** is a separate, off-by-default choice. It only accepts one of this computer's private addresses (10.x.x.x, 172.16-31.x.x, 192.168.x.x, or an fc00::/7 address) that you pick from a list; `0.0.0.0` and public addresses are refused. Anyone on that network could then use your Tor exits for DNS and you would be responsible for it. Never expose it to the internet.
+- Settings: `transports.tor.dns_port` (0 = off; the port you prefer, a free one is used if it is taken), `dns_lan`, `dns_lan_addr`.
+
+**Run a relay.** "Contribute to Tor: run a relay" runs a **middle relay** or a **bridge** as a separate Tor program with its own data folder (`relay/` inside the app folder, owner-only) and its own ports (an ORPort only; no SOCKS, no control port). It uses the same generator as `legalprivacy relay gen`, which always writes `ExitPolicy reject *:*` and `ExitRelay 0`.
+- Choose the mode, nickname, a speed limit in MBytes per second (with a monthly traffic estimate), the ORPort and an optional contact. The generated settings file is shown read-only.
+- A public relay needs every item of the checklist ticked first: a public IP address or a forwarded ORPort, a computer that stays on, the speed limit, understanding that it is not an exit, and that relay IP addresses are public by design.
+- **Practice mode (not published)** is on for the first run: the ORPort listens on loopback only and nothing is announced (`PublishServerDescriptor 0`), so nobody can use it. It still downloads Tor's public relay list like any Tor program. It needs no checklist.
+- The relay never starts by itself and "running" is never remembered. Only the choice "Start the relay when this app opens" (off by default; for a public relay only after you have started it once with the checklist) starts it at launch. It stops when you quit and on Panic; Panic (hard) deletes the relay's keys and data after it has stopped.
+- **What a relay does not give you:** it is not an exit and it is not DNS. Only exit relays resolve names, and this app never runs one. The Tor lane for noise stays onion-only.
+- Router and firewall notes are in the card. See also the Tor Project's relay documentation, https://community.torproject.org/relay/.
+- Not tested here: joining the real Tor network as a public relay (this was developed where Tor could not connect out), and Windows and macOS.
+
 ## Privacy
 
 - The live log and Activity are kept in memory only and cleared when the app quits; no log file
   is written.
 - History, bookmarks and files you import are read on your computer; only site names and counts
   are used, and nothing is kept until you approve it.
-- The dashboard is reachable only from your own computer.
+- The dashboard is reachable only from your own computer, and every request needs its token.
+- Settings, the dashboard token and saved account sessions are written readable by you only
+  (owner-only permissions on Linux and macOS). Tor bridge lines are checked before they are
+  written into Tor's configuration.
 
 ## MAC address spoofing (Linux)
 
@@ -432,7 +476,9 @@ legalprivacy mac status|randomize|set|restore|rotate   # MAC address spoofing (L
 
 ## Development
 
-Tests: `python3 run_tests.py`. The real-browser test is skipped when no browser is found.
+Tests: `pip install -e ".[dev]"` then `python -m pytest -q` (about a minute; the real-browser test and the
+native-window tests skip themselves when there is no browser or display). `python3 run_tests.py` is a quick
+subset that needs no pytest. Lint: `pip install ruff` then `ruff check .` (settings in `pyproject.toml`).
 Maintainer tools: `tools/build_feed_snapshot.py` rebuilds the bundled lists, and
 `tools/build_ua_catalog.py` rebuilds the user-agent library from the official release calendars.
 Design notes: [docs/DESIGN.md](docs/DESIGN.md). Legacy Java prototype: `legacy-src/`.

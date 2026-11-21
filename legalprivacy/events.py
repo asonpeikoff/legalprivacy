@@ -11,7 +11,7 @@ import time
 from collections import deque
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Callable
+from collections.abc import Callable
 
 LEVELS = {"debug": 10, "info": 20, "warn": 30, "error": 40}
 

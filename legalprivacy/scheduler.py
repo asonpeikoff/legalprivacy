@@ -8,8 +8,8 @@ import sys
 import threading
 import time
 from collections import deque
-from dataclasses import dataclass, field
-from typing import Callable
+from dataclasses import dataclass
+from collections.abc import Callable
 
 from .config import Profile
 from .identity import Identity, make_identity
@@ -69,8 +69,8 @@ def build_lanes(profile: Profile, wordlist: list[str],
                 plain_transport: Transport | None = None) -> list[Lane]:
     """Build the active lanes.
 
-    The tor lane exists only when Tor is enabled. It carries the onion engine
-    (default) and, ONLY if the user opted in, clearnet engines too.
+    The tor lane exists only when Tor is enabled and carries the onion engine only; ordinary web noise,
+    DNS and package installs never go through Tor.
     `tor_endpoint` lets a managed Tor supply its (dynamic) socks/control address.
     """
     rng = rng or random.Random()
@@ -687,8 +687,7 @@ class Runner:
             lane.crawl_depth = 0
 
     def _make_target(self, lane: Lane, eng_name: str, identity: Identity) -> Target:
-        from .engines import (CrawlTargetFactory, DnsNoise, DohNoise,
-                              SearchTargetFactory, load_wordlist)
+        from .engines import CrawlTargetFactory, DnsNoise, SearchTargetFactory
         words = self.wordlist
         if eng_name == "onion":
             from .onion import OnionTargetFactory
@@ -730,10 +729,6 @@ class Runner:
                                                     domains=self.domains)
             return lane.crawl_factory.make(identity)
         if eng_name == "dns":
-            if lane.name == "tor":
-                # Arbitrary UDP cannot traverse Tor circuits: DoH over the circuit.
-                fac = DohNoise(rng=self.rng, words=words, domains=self.domains)
-                return fac.make(identity)
             fac = DnsNoise(rng=self.rng, words=words, domains=self.domains, plan=self.dns_plan)
             _packet, domain, server = fac.make_query()
             via = "your normal DNS" if server == "system" else self._dns_label(server)

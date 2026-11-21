@@ -100,6 +100,25 @@ def build_checks(f: dict[str, Any]) -> list[dict]:
                               "Different address, marked as Tor", saw, "ok" if ok else "bad",
                               "" if ok else "Traffic meant for Tor is not coming out of Tor. Restart Tor from the Tor tab."))
 
+    # 5b. Tor DNS answers (only when the optional Tor DNS switch is on)
+    td = f.get("tordns")
+    if td is not None:
+        want = "Answers through Tor"
+        title = "Tor DNS answers"
+        res = td.get("result")
+        if not td.get("ready"):
+            out.append(_c("tordns", title, want, "Tor isn't ready yet", "unknown",
+                          "Start Tor on the Tor tab and wait for 100%, then press “Run checks”."))
+        elif res is None:
+            out.append(_c("tordns", title, want, "Not tested yet", "unknown", "Press “Run checks”."))
+        elif res.get("ok"):
+            out.append(_c("tordns", title, want,
+                          f"{res.get('name')} answered {', '.join(res.get('answers') or [])} in {res.get('ms')} ms", "ok"))
+        else:
+            out.append(_c("tordns", title, want, res.get("error") or "No answer", "bad",
+                          "Open the Tor tab, check Tor DNS and use its Test button. Tor resolves names through its "
+                          "exit relays, so the first answer can take several seconds."))
+
     # 6. noise browser looks like yours
     if f.get("real_browser") is not None:
         out.append(_c("browser", "Noise runs in a real browser", "Real browser",
@@ -109,9 +128,25 @@ def build_checks(f: dict[str, Any]) -> list[dict]:
                                                    "Install Chrome/Edge and the Playwright package."))
     if f.get("own_ua") is not None:
         out.append(_c("ua", "Noise looks like your own browser", "Same browser and version as yours",
-                      "Matches yours" if f["own_ua"] else "Uses other browser identities", 
+                      "Matches yours" if f["own_ua"] else "Uses other browser identities",
                       "ok" if f["own_ua"] else "info",
                       "" if f["own_ua"] else "Settings → User agent → pin to your own browser's user agent."))
+
+    # 7. the optional antivirus scanner never connects (only shown once the person has used the Security tab)
+    av = f.get("av")
+    if av is not None:
+        want = "0 connections during scans"
+        if av.get("connections") is None or av.get("when") is None:
+            out.append(_c("av", "Antivirus scanner stays offline", want, "No scan yet", "unknown",
+                          "Run a scan or the self-test on the Security tab."))
+        elif av["connections"] == 0:
+            how = "network removed" if av.get("isolated") else "connections watched"
+            out.append(_c("av", "Antivirus scanner stays offline", want,
+                          f"0 connections in the last {av.get('kind') or 'scan'} ({how})", "ok"))
+        else:
+            out.append(_c("av", "Antivirus scanner stays offline", want,
+                          f"{av['connections']} connection(s) in the last {av.get('kind') or 'scan'}: NOT OFFLINE", "bad",
+                          "The scanner was stopped. Block clamscan in your firewall, and see the Live Log."))
     return out
 
 
@@ -156,10 +191,21 @@ def gather(ctl, with_network: bool = True) -> dict:
         f["tor"] = {"ready": bool(tm.ready), "state": tm.state, "pct": getattr(tm, "bootstrap_pct", 0)}
         if tm.ready and with_network:
             f["exit"] = _exit_test(tm)
+    dns_info = ctl.tor_manager().dns_info() if cfg.dns_port else None
+    if dns_info and dns_info["on"] and dns_info["managed"]:
+        res = None
+        if dns_info["ready"] and with_network:
+            from . import tordns
+            res = tordns.probe(dns_info["address"], dns_info["port"], timeout=20)
+        f["tordns"] = {"ready": dns_info["ready"], "result": res}
     bi = ctl.browser_info()
     f["real_browser"] = bool(bi.get("active"))
     ident = ctl.profile.identity
     f["own_ua"] = ident.ua_mode == "pin" and ident.ua_pin == "own"
+    try:
+        f["av"] = ctl.av.proof_fact()
+    except Exception:
+        f["av"] = None
     return f
 
 

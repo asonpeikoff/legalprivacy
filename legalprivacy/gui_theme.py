@@ -3,6 +3,7 @@ themes, and the small widgets every tab shares (tooltips, cards, buttons, the st
 Needs tkinter; the display-free logic is in gui_logic.py / gui_fields.py."""
 from __future__ import annotations
 
+import math
 import sys
 import tkinter as tk
 from tkinter import ttk
@@ -48,6 +49,8 @@ ICONS: dict[str, list[str]] = {
               ".##...##....", "..##.##.....", "...###......", "....#.......", "............", "............"],
     "plus": ["............", "............", ".....##.....", ".....##.....", ".....##.....", "############",
              ".....##.....", ".....##.....", ".....##.....", "............", "............", "............"],
+    "scan": ["....####....", "..##....##..", ".##......##.", ".##......##.", ".##......##.", "..##....##..",
+             "...####..##.", "..........##", "...........#", "............", "............", "............"],
     "web": ["....####....", "..#.####.#..", ".#..#..#..#.", "############", "#...#..#...#", "#...#..#...#",
             "############", ".#..#..#..#.", "..#.####.#..", "....####....", "............", "............"],
 }
@@ -81,6 +84,107 @@ def make_icon(root: tk.Misc, name: str, color: str, scale: int = 1) -> tk.PhotoI
     return img
 
 
+def dpi_factor(root: tk.Misc) -> float:
+    """Screen density relative to 96 dpi (1.0 normal, 1.25 / 1.5 / 2.0 on scaled or high-density screens)."""
+    try:
+        return min(3.0, max(1.0, root.winfo_fpixels("1i") / 96.0))
+    except tk.TclError:
+        return 1.0
+
+
+# ── anti-aliased shapes drawn in code (round slider handle, rounded track, legend swatches) ──────────────
+def _rgb(h: str) -> tuple:
+    h = h.lstrip("#")
+    return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def _mix(a: str, b: str, t: float) -> str:
+    """Colour a moved t of the way towards colour b (both '#rrggbb')."""
+    ca, cb = _rgb(a), _rgb(b)
+    return "#%02x%02x%02x" % tuple(int(round(ca[i] + (cb[i] - ca[i]) * t)) for i in range(3))
+
+
+def _paint(root: tk.Misc, w: int, h: int, bg: str, shade, ss: int = 4) -> tk.PhotoImage:
+    """Render shade(x, y) -> '#rrggbb' | None into a w x h image, 4x4 supersampled, None meaning the background."""
+    img = tk.PhotoImage(master=root, width=w, height=h)
+    bgc = _rgb(bg)
+    rows = []
+    for y in range(h):
+        row = []
+        for x in range(w):
+            r = g = b = 0.0
+            for j in range(ss):
+                for i in range(ss):
+                    c = shade(x + (i + .5) / ss, y + (j + .5) / ss)
+                    c = _rgb(c) if c else bgc
+                    r += c[0]
+                    g += c[1]
+                    b += c[2]
+            n = ss * ss
+            row.append("#%02x%02x%02x" % (int(r / n + .5), int(g / n + .5), int(b / n + .5)))
+        rows.append("{" + " ".join(row) + "}")
+    img.put(" ".join(rows))
+    return img
+
+
+def _disc(cx: float, cy: float, layers: list):
+    """shade function: concentric discs, outermost first; the last layer containing the point wins."""
+    def shade(x, y):
+        d2 = (x - cx) ** 2 + (y - cy) ** 2
+        out = None
+        for r, col in layers:
+            if d2 <= r * r:
+                out = col
+        return out
+    return shade
+
+
+_scale_ids = [0]
+
+
+def install_scale_styles(root: tk.Misc, s: ttk.Style, p: dict) -> None:
+    """Replace Tk's striped slider handle: a round accent handle in a panel-coloured ring on a rounded track.
+    Hover, pressed, keyboard focus and disabled each have their own image; sized for the screen density."""
+    f = dpi_factor(root)
+    D = int(round(30 * f)) // 2 * 2 or 30                       # image edge (even), handle diameter about 22*f
+    c = D / 2.0
+    k = D / 30.0
+    keep = root.__dict__.setdefault("_lp_scale_imgs", [])
+    for pref, bg in (("", p["bg"]), ("Card.", p["panel"])):
+        _scale_ids[0] += 1
+        uid = f"lp{_scale_ids[0]}"
+
+        def handle(dot: float, ring: bool = False, dim: bool = False, bg: str = bg):
+            acc = p["muted"] if dim else p["accent"]
+            layers = []
+            if ring:
+                layers += [(14.2 * k, p["fg"]), (12.4 * k, bg)]
+            layers += [(11 * k, acc), (9.8 * k, bg if not dim else p["panel"]), (dot * k, acc)]
+            return _paint(root, D, D, bg, _disc(c, c, layers))
+        normal, hover, press = handle(6.8), handle(8.2), handle(5.6)
+        focus, dis = handle(6.8, ring=True), handle(6.0, dim=True)
+        th = max(6, int(round(8 * f)) // 2 * 2)
+        tw = th * 4
+        edge = _mix(p["panel"], p["muted"], .55)
+        r = th / 2.0
+
+        def trough(x, y, tw=tw, th=th, r=r, edge=edge):
+            def inside(rad):
+                cx = min(max(x, r), tw - r)
+                return (x - cx) ** 2 + (y - r) ** 2 <= rad * rad
+            if inside(r):
+                return p["code"] if inside(r - max(1.0, f * .9)) else edge
+            return None
+        tr = _paint(root, tw, th, bg, trough)
+        keep.extend([normal, hover, press, focus, dis, tr])
+        sl_name, tr_name = f"{uid}.Horizontal.Scale.slider", f"{uid}.Horizontal.Scale.trough"
+        s.element_create(sl_name, "image", normal, ("disabled", dis), ("pressed", press), ("focus", focus),
+                         ("active", hover), sticky="")
+        s.element_create(tr_name, "image", tr, border=(int(r) + 1, 0, int(r) + 1, 0), sticky="ew")
+        s.layout(f"{pref}Horizontal.TScale", [(tr_name, {"sticky": "nswe", "children": [
+            (sl_name, {"side": "left", "sticky": ""})]})])
+
+
 # ── tooltips ────────────────────────────────────────────────────────────────
 class Tooltip:
     """A small hint that appears after the pointer rests on a widget (or the widget gets keyboard focus)."""
@@ -93,6 +197,8 @@ class Tooltip:
         widget.bind("<ButtonPress>", self._hide, add="+")
         widget.bind("<FocusIn>", self._arm, add="+")
         widget.bind("<FocusOut>", self._hide, add="+")
+        widget.bind("<Escape>", self._hide, add="+")
+        widget.bind("<Destroy>", self._hide, add="+")
 
     def _arm(self, _e=None) -> None:
         self._hide()
@@ -107,9 +213,15 @@ class Tooltip:
             y = self.widget.winfo_rooty() + self.widget.winfo_height() + 6
             self.tip = tw = tk.Toplevel(self.widget)
             tw.wm_overrideredirect(True)
+            tw.configure(bg=pal["border"])                 # a 1px hairline frame around the hint
+            lb = tk.Label(tw, text=self.text, justify="left", wraplength=340, bg=pal["panel"], fg=pal["fg"],
+                          relief="flat", borderwidth=0, padx=10, pady=6, highlightthickness=0)
+            lb.pack(padx=1, pady=1)
+            tw.update_idletasks()
+            x = max(0, min(x, self.widget.winfo_screenwidth() - tw.winfo_reqwidth() - 4))
+            if y + tw.winfo_reqheight() > self.widget.winfo_screenheight() - 4:      # no room below: show above
+                y = max(0, self.widget.winfo_rooty() - tw.winfo_reqheight() - 6)
             tw.wm_geometry(f"+{x}+{y}")
-            tk.Label(tw, text=self.text, justify="left", wraplength=340, bg=pal["panel"], fg=pal["fg"],
-                     relief="solid", borderwidth=1, padx=8, pady=5, highlightthickness=0).pack()
         except tk.TclError:
             self.tip = None
 
@@ -187,36 +299,63 @@ def apply_theme(root: tk.Misc, s: ttk.Style, p: dict, fonts: dict) -> None:
         s.configure(f"Note{tone}.TLabel", background=bg, foreground=p["fg"], padding=(10, 7))
         s.configure(f"Tone{tone}.TLabel", background=p["panel"], foreground=fg)
     # buttons: secondary (default), primary, danger, ghost
-    s.configure("TButton", background=p["panel"], foreground=p["fg"], padding=(12, 6), borderwidth=1, width=0,
-                relief="flat", bordercolor=p["border"], lightcolor=p["panel"], darkcolor=p["panel"])
-    s.map("TButton", background=[("disabled", p["bg"]), ("pressed", p["code"]), ("active", p["hover"])],
-          foreground=[("disabled", p["muted"])], bordercolor=[("focus", p["accent"]), ("active", p["muted"])])
+    fx = dpi_factor(root)
+
+    def px(n):                                                   # paddings follow the screen density
+        return int(round(n * fx))
+
+    fill, fill_hi, fill_lo = p["code"], _mix(p["code"], p["fg"], .07), _mix(p["code"], p["fg"], .14)
+    s.configure("TButton", background=fill, foreground=p["fg"], padding=(px(12), px(6)), borderwidth=1, width=0,
+                relief="flat", bordercolor=p["border"], lightcolor=fill, darkcolor=fill, focuscolor=fill,
+                focusthickness=0)
+    s.map("TButton", background=[("disabled", p["bg"]), ("pressed", fill_lo), ("active", fill_hi)],
+          foreground=[("disabled", p["muted"])], lightcolor=[("pressed", fill_lo), ("active", fill_hi)],
+          darkcolor=[("pressed", fill_lo), ("active", fill_hi)],
+          bordercolor=[("focus", p["accent"]), ("pressed", p["muted"]), ("active", p["muted"])])
+    acc_hi, acc_lo = _mix(p["accent"], p["fg"], .12), _mix(p["accent"], p["fg"], .22)
     s.configure("Primary.TButton", background=p["accent"], foreground=p["accent_fg"], bordercolor=p["accent"],
-                lightcolor=p["accent"], darkcolor=p["accent"], font=fonts["bold"])
-    s.map("Primary.TButton", background=[("disabled", p["code"]), ("pressed", p["accent"]), ("active", p["accent"])],
+                lightcolor=p["accent"], darkcolor=p["accent"], font=fonts["bold"], focuscolor=p["accent"])
+    s.map("Primary.TButton", background=[("disabled", p["code"]), ("pressed", acc_lo), ("active", acc_hi)],
+          lightcolor=[("pressed", acc_lo), ("active", acc_hi)], darkcolor=[("pressed", acc_lo), ("active", acc_hi)],
           foreground=[("disabled", p["muted"])], bordercolor=[("disabled", p["border"]), ("focus", p["fg"])])
     s.configure("Danger.TButton", foreground=p["bad"], bordercolor=p["bad"])
-    s.map("Danger.TButton", background=[("disabled", p["bg"]), ("active", p["bad_bg"])],
-          foreground=[("disabled", p["muted"])], bordercolor=[("disabled", p["border"])])
-    s.configure("Tor.TButton", background=p["tor"], foreground="#ffffff", bordercolor=p["tor"], font=fonts["bold"])
-    s.map("Tor.TButton", background=[("disabled", p["code"]), ("active", p["tor"])], foreground=[("disabled", p["muted"])])
-    s.configure("Ghost.TButton", background=p["bg"], foreground=p["muted"], borderwidth=0, padding=(10, 5))
-    s.map("Ghost.TButton", background=[("active", p["hover"])], foreground=[("active", p["fg"])])
-    s.configure("Link.TButton", background=p["panel"], foreground=p["info"], borderwidth=0, padding=(2, 2))
-    s.map("Link.TButton", foreground=[("active", p["accent"])], background=[("active", p["panel"])])
-    s.configure("Seg.TButton", background=p["bg"], foreground=p["muted"], borderwidth=1, padding=(12, 4))
-    s.map("Seg.TButton", background=[("active", p["hover"])], foreground=[("active", p["fg"])])
+    s.map("Danger.TButton", background=[("disabled", p["bg"]), ("pressed", p["bad_bg"]), ("active", p["bad_bg"])],
+          lightcolor=[("active", p["bad_bg"])], darkcolor=[("active", p["bad_bg"])],
+          foreground=[("disabled", p["muted"])], bordercolor=[("disabled", p["border"]), ("focus", p["fg"])])
+    s.configure("Tor.TButton", background=p["tor"], foreground=p["accent_fg"],
+                bordercolor=p["tor"], lightcolor=p["tor"], darkcolor=p["tor"], font=fonts["bold"], focuscolor=p["tor"])
+    s.map("Tor.TButton", background=[("disabled", p["code"]), ("active", _mix(p["tor"], p["fg"], .12))],
+          foreground=[("disabled", p["muted"])], bordercolor=[("disabled", p["border"]), ("focus", p["fg"])])
+    s.configure("Ghost.TButton", background=p["bg"], foreground=p["muted"], borderwidth=0, padding=(px(10), px(5)),
+                lightcolor=p["bg"], darkcolor=p["bg"], bordercolor=p["bg"])
+    s.map("Ghost.TButton", background=[("active", p["hover"])], foreground=[("active", p["fg"])],
+          bordercolor=[("focus", p["accent"])], lightcolor=[("active", p["hover"])], darkcolor=[("active", p["hover"])])
+    s.configure("Link.TButton", background=p["panel"], foreground=p["info"], borderwidth=0, padding=(2, 2),
+                lightcolor=p["panel"], darkcolor=p["panel"], bordercolor=p["panel"])
+    s.map("Link.TButton", foreground=[("active", p["accent"])], background=[("active", p["panel"])],
+          bordercolor=[("focus", p["accent"])])
+    s.configure("Seg.TButton", background=p["bg"], foreground=p["muted"], borderwidth=1, padding=(px(12), px(4)),
+                lightcolor=p["bg"], darkcolor=p["bg"])
+    s.map("Seg.TButton", background=[("active", p["hover"])], foreground=[("active", p["fg"])],
+          bordercolor=[("focus", p["accent"])])
     for w in ("Check", "Radio"):
         for pref, bg in (("T", p["bg"]), ("Card.T", p["panel"])):
             name = f"{pref}{w}button"
             s.configure(name, background=bg, foreground=p["fg"], indicatorcolor=p["field"], indicatormargin=(0, 2, 6, 2),
-                        focuscolor=bg)
+                        focuscolor=p["accent"], bordercolor=p["muted"], padding=(2, 2), upperbordercolor=p["muted"],
+                        lowerbordercolor=p["muted"], indicatorbackground=p["field"], indicatorforeground=p["accent_fg"])
             s.map(name, background=[("active", bg)], indicatorcolor=[("selected", p["accent"]), ("pressed", p["accent"])],
-                  foreground=[("disabled", p["muted"])])
-    s.configure("TNotebook", background=p["bg"], borderwidth=0, tabmargins=(0, 0, 0, 0))
-    s.configure("TNotebook.Tab", background=p["bg"], foreground=p["muted"], padding=(14, 9), borderwidth=0)
+                  indicatorbackground=[("selected", p["accent"]), ("pressed", p["accent"]), ("disabled", p["code"])],
+                  foreground=[("disabled", p["muted"])], bordercolor=[("focus", p["accent"])],
+                  upperbordercolor=[("focus", p["accent"])], lowerbordercolor=[("focus", p["accent"])])
+    s.configure("TNotebook", background=p["bg"], borderwidth=0, tabmargins=(px(8), px(6), px(8), 0), lightcolor=p["bg"],
+                darkcolor=p["bg"], bordercolor=p["border"])
+    s.configure("TNotebook.Tab", background=p["bg"], foreground=p["muted"], padding=(px(9), px(8)), borderwidth=1,
+                bordercolor=p["bg"], lightcolor=p["bg"], darkcolor=p["bg"], focuscolor=p["accent"])
     s.map("TNotebook.Tab", background=[("selected", p["panel"]), ("active", p["hover"])],
-          foreground=[("selected", p["fg"]), ("active", p["fg"])], expand=[("selected", (0, 0, 0, 0))])
+          foreground=[("selected", p["fg"]), ("active", p["fg"])], expand=[("selected", (0, 0, 0, 0))],
+          padding=[("selected", (px(9), px(8)))], bordercolor=[("selected", p["border"]), ("focus", p["accent"])],
+          lightcolor=[("selected", p["accent"])], darkcolor=[("selected", p["panel"])])
     s.configure("TLabelframe", background=p["bg"], bordercolor=p["border"])
     s.configure("TLabelframe.Label", background=p["bg"], foreground=p["muted"], font=fonts["bold"])
     s.configure("TSeparator", background=p["border"])
@@ -245,6 +384,10 @@ def apply_theme(root: tk.Misc, s: ttk.Style, p: dict, fonts: dict) -> None:
         s.configure(f"{pref}Horizontal.TScale", background=bg, troughcolor=p["code"], bordercolor=p["border"],
                     lightcolor=p["accent"], darkcolor=p["accent"])
         s.map(f"{pref}Horizontal.TScale", background=[("active", bg)])
+    try:
+        install_scale_styles(root, s, p)
+    except tk.TclError:                                           # a Tk build without image elements: keep the default handle
+        pass
     root.option_add("*TCombobox*Listbox.background", p["field"])
     root.option_add("*TCombobox*Listbox.foreground", p["fg"])
     root.option_add("*TCombobox*Listbox.selectBackground", p["select"])
@@ -394,26 +537,43 @@ class Banner(ttk.Label):
 
 
 class Sparkline(tk.Canvas):
-    """A small filled line chart of the last N values, drawn on a canvas."""
+    """A small filled line chart of the last N values, drawn on a canvas. Redraws are coalesced and skipped when
+    nothing changed, so a once-a-second refresh does not flicker."""
 
     def __init__(self, master, app, height=70):
         super().__init__(master, height=height, highlightthickness=0, bd=0)
         self.app, self.values, self.unit = app, [], " / min"
-        self.bind("<Configure>", lambda _e: self.redraw())
+        self._job, self._sig = None, None
+        self.bind("<Configure>", lambda _e: self._soon())
 
     def set_values(self, values: list[float]) -> None:
-        self.values = list(values)
+        values = list(values)
+        if values != self.values:
+            self.values = values
+            self._soon()
+
+    def _soon(self) -> None:
+        if self._job is None:
+            self._job = self.after_idle(self._run)
+
+    def _run(self) -> None:
+        self._job = None
         self.redraw()
 
-    def redraw(self) -> None:
+    def redraw(self, force: bool = False) -> None:
         p = self.app.pal
+        w, h = self.winfo_width(), self.winfo_height()
+        sig = (tuple(self.values), w, h, p["panel"], p["ok"])
+        if sig == self._sig and not force:
+            return
+        self._sig = sig
         self.delete("all")
         self.configure(bg=p["panel"])
-        w, h = self.winfo_width(), self.winfo_height()
         if w < 20:
             return
         for k in (0.25, 0.5, 0.75):
-            self.create_line(0, h * k, w, h * k, fill=p["grid"])
+            y = int(h * k) + .5                                   # half-pixel offsets keep 1px lines crisp
+            self.create_line(0, y, w, y, fill=p["grid"])
         vals = self.values
         if not vals or not any(vals):
             self.create_text(w / 2, h / 2, text="No hits yet in the last 30 minutes", fill=p["muted"],
@@ -423,24 +583,61 @@ class Sparkline(tk.Canvas):
         n = len(vals)
         pts = [(4 + i * (w - 8) / max(1, n - 1), h - 6 - (v / top) * (h - 14)) for i, v in enumerate(vals)]
         self.create_polygon([4, h - 6] + [c for pt in pts for c in pt] + [w - 4, h - 6], fill=p["ok_bg"], outline="")
-        self.create_line(*[c for pt in pts for c in pt], fill=p["ok"], width=2, smooth=True)
+        self.create_line(*[c for pt in pts for c in pt], fill=p["ok"], width=2, smooth=True, capstyle="round",
+                         joinstyle="round")
+        self.create_line(4, h - 5.5, w - 4, h - 5.5, fill=p["border"])
+        ex, ey = pts[-1]
+        self.create_oval(ex - 3, ey - 3, ex + 3, ey + 3, fill=p["ok"], outline=p["panel"], width=1)
         self.create_text(w - 6, 8, text=f"peak {top:g}{self.unit}", anchor="e", fill=p["muted"], font=self.app.fonts["small"])
+
+
+def swatch(canvas: tk.Canvas, x: float, y: float, r: float, color: str, shape: int = 0, outline: str = "") -> None:
+    """A small legend marker whose SHAPE differs per series (circle, square, diamond, triangle, hexagon), so a
+    series is never told apart by colour alone."""
+    k = shape % 5
+    if k == 0:
+        canvas.create_oval(x - r, y - r, x + r, y + r, fill=color, outline=outline)
+    elif k == 1:
+        canvas.create_rectangle(x - r * .85, y - r * .85, x + r * .85, y + r * .85, fill=color, outline=outline)
+    elif k == 2:
+        canvas.create_polygon(x, y - r * 1.15, x + r * 1.15, y, x, y + r * 1.15, x - r * 1.15, y, fill=color, outline=outline)
+    elif k == 3:
+        canvas.create_polygon(x, y - r, x + r * 1.1, y + r * .85, x - r * 1.1, y + r * .85, fill=color, outline=outline)
+    else:
+        canvas.create_polygon(x - r * .55, y - r * .95, x + r * .55, y - r * .95, x + r, y, x + r * .55, y + r * .95,
+                              x - r * .55, y + r * .95, x - r, y, fill=color, outline=outline)
+
+
+def _ink_on(color: str) -> str:
+    """Black or white text, whichever reads better on this fill (WCAG contrast)."""
+    def lin(c):
+        c /= 255.0
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+    r, g, b = _rgb(color)
+    lum = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+    return "#ffffff" if 1.05 / (lum + 0.05) >= 4.5 else "#10141c"
 
 
 class MixBar(ttk.Frame):
     """A stacked bar of coloured parts with one slider per part. The parts always add up to 100%: dragging one
-    makes the others give or take the difference in proportion; 0% turns a part off."""
+    makes the others give or take the difference in proportion; 0% turns a part off. The bar is drawn with
+    rounded ends and names the wide parts directly; each legend swatch has its own shape."""
+
+    BAR_H = 30
 
     def __init__(self, master, app, items: list[dict], on_change=None):
         super().__init__(master, style="CardBody.TFrame")
         self.app, self.on_change, self.items = app, on_change, []
         self.vals: list[float] = []
         self._busy = False
-        self.bar = tk.Canvas(self, height=30, highlightthickness=0, bd=0)
+        self._job = None
+        h = int(self.BAR_H * app.scale)
+        self.bar = tk.Canvas(self, height=h, highlightthickness=0, bd=0)
         self.bar.pack(fill="x", pady=(2, 8))
-        self.bar.bind("<Configure>", lambda _e: self._draw())
+        self.bar.bind("<Configure>", lambda _e: self._soon())
         self.grid_f = ttk.Frame(self, style="CardBody.TFrame")
         self.grid_f.pack(fill="x")
+        self.grid_f.columnconfigure(1, minsize=int(170 * app.scale))
         self.grid_f.columnconfigure(2, weight=1)
         self.set_items(items)
 
@@ -452,11 +649,11 @@ class MixBar(ttk.Frame):
         self.scales, self.vars, self.pcts, self.dots = [], [], [], []
         for k, it in enumerate(items):
             col = MIX_COLORS[k % len(MIX_COLORS)]
-            dot = tk.Canvas(self.grid_f, width=12, height=12, highlightthickness=0, bd=0, bg=self.app.pal["panel"])
-            dot.create_oval(1, 1, 11, 11, fill=col, outline="")
+            dot = tk.Canvas(self.grid_f, width=16, height=16, highlightthickness=0, bd=0, bg=self.app.pal["panel"])
+            swatch(dot, 8, 8, 6, col, k)
             dot.grid(row=k, column=0, padx=(0, 6), pady=3)
             self.dots.append(dot)
-            lb = ttk.Label(self.grid_f, text=it["label"], style="Card.TLabel", width=26)
+            lb = ttk.Label(self.grid_f, text=it["label"], style="Card.TLabel")
             lb.grid(row=k, column=1, sticky="w")
             var = tk.DoubleVar(value=self.vals[k])
             sc = ttk.Scale(self.grid_f, from_=0, to=100, orient="horizontal", variable=var, style="Card.Horizontal.TScale",
@@ -467,7 +664,7 @@ class MixBar(ttk.Frame):
             if it.get("hint"):
                 hl = ttk.Label(self.grid_f, text=it["hint"], style="CardMuted.TLabel")
                 hl.grid(row=k, column=4, sticky="w", padx=(8, 0))
-            tip(sc, f"{it['label']}: drag to change; the others make room so the total stays 100%. 0% turns it off.")
+            tip(sc, f"{it['label']}: drag (or use the arrow keys) to change; the others make room so the total stays 100%. 0% turns it off.")
             self.scales.append(sc)
             self.vars.append(var)
             self.pcts.append(pc)
@@ -489,25 +686,52 @@ class MixBar(ttk.Frame):
                 self.pcts[k].configure(text=F.mix_percent_text(v))
         finally:
             self._busy = False
+        self._soon()
+
+    def _soon(self) -> None:
+        """Coalesce redraws: many slider events per frame cost one repaint."""
+        if self._job is None:
+            self._job = self.after_idle(self._run)
+
+    def _run(self) -> None:
+        self._job = None
         self._draw()
 
     def _draw(self) -> None:
         c, p = self.bar, self.app.pal
-        c.delete("all")
-        c.configure(bg=p["panel"])
-        w, h = c.winfo_width(), 30
+        w, h = c.winfo_width(), int(self.BAR_H * self.app.scale)
         if w < 20:
             return
-        x = 0.0
+        c.delete("all")
+        c.configure(bg=p["panel"])
+        r = h / 2.0
+        # a rounded track, then the parts clipped to it by painting panel-coloured corners over the ends
+        parts, x = [], 0.0
         for k, v in enumerate(self.vals):
-            wd = w * v / 100.0
-            if wd <= 0.5:
-                continue
+            wd = (w - 1) * v / 100.0
+            if wd > 0.5:
+                parts.append((k, x, x + wd))
+                x += wd
+        for k, xa, xb in parts:
             col = MIX_COLORS[k % len(MIX_COLORS)]
-            c.create_rectangle(x + (1 if x else 0), 2, x + wd, h - 2, fill=col, outline="")
-            if wd > 44:
-                c.create_text(x + wd / 2, h / 2, text=F.mix_percent_text(v), fill="#ffffff", font=self.app.fonts["bold"])
-            x += wd
+            c.create_rectangle(xa + (1 if xa else 0), 1, xb, h - 1, fill=col, outline="")
+        for k, xa, xb in parts:
+            wd = xb - xa
+            label = self.items[k]["label"]
+            txt = F.mix_percent_text(self.vals[k])
+            if wd > 150:
+                txt = f"{label}  {txt}"
+            elif wd <= 40:
+                continue
+            c.create_text((xa + xb) / 2, h / 2, text=txt, fill=_ink_on(MIX_COLORS[k % len(MIX_COLORS)]), font=self.app.fonts["bold"])
+        steps = 14
+        for cx, sgn in ((r, 1), (w - 1 - r, -1)):                       # round both ends
+            for side_y in (1, -1):
+                poly = [cx - sgn * r, h / 2 + side_y * r]               # the square corner, then along the arc
+                for i in range(steps + 1):
+                    a = math.pi / 2 * i / steps
+                    poly += [cx - sgn * r * math.cos(a), h / 2 + side_y * r * math.sin(a)]
+                c.create_polygon(poly, fill=p["panel"], outline="")
 
     def values(self) -> dict:
         return {it["key"]: round(self.vals[k], 1) for k, it in enumerate(self.items)}

@@ -5,7 +5,8 @@
     legalprivacy relay gen --bandwidth 5Mbit --nickname mylegalprivacy [--bridge]
     legalprivacy relay doctor
     legalprivacy ui [--no-browser] [--port N]        dashboard (same as double-clicking)
-    legalprivacy tor status|start|stop|install|newnym
+    legalprivacy tor status|start|install|newnym
+    legalprivacy relay gen-client [--type snowflake|obfs4] | bridges
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ from .relay import RelayConfigError, RelaySpec, generate_torrc, warn_if_exit_req
 from .scheduler import MaxFailuresExceeded, Runner, build_lanes
 
 
-def _init_random(seed_env: str = "LEGALPRIVACY_SEED") -> int:
+def _init_random(seed_env: str = "LEGALPRIVACY_SEED"):
     """Deterministic seed for reproducible test runs, random otherwise."""
     import os
     import random
@@ -41,43 +42,47 @@ def cmd_run(args: argparse.Namespace) -> int:
         if tor_mgr is not None:
             gate = lambda: tor_mgr.ready                                     # noqa: E731
             endpoint = lambda: (tor_mgr.socks_addr, tor_mgr.control_addr)     # noqa: E731
-    lanes = build_lanes(profile, wordlist, rng, tor_gate=gate, tor_endpoint=endpoint)
-    for lane in lanes:
-        if lane.name == "tor" and tor_mgr is not None:
-            lane.transport.cookie_path = tor_mgr.cookie_path
-    if not lanes:
-        print("no active lanes: enable a transport in the profile", file=sys.stderr)
-        return 2
-    if args.dry_run:
+    try:
+        lanes = build_lanes(profile, wordlist, rng, tor_gate=gate, tor_endpoint=endpoint)
         for lane in lanes:
-            engines = ", ".join(f"{e} ({lane.budgets[e].remaining})"
-                                for e in lane.engines)
-            print(f"lane {lane.name:8s} transport={type(lane.transport).__name__:18s} "
-                  f"engines: {engines}")
+            if lane.name == "tor" and tor_mgr is not None:
+                lane.transport.cookie_path = tor_mgr.cookie_path
+        if not lanes:
+            print("no active lanes: enable a transport in the profile", file=sys.stderr)
+            return 2
+        if args.dry_run:
+            for lane in lanes:
+                engines = ", ".join(f"{e} ({lane.budgets[e].remaining})"
+                                    for e in lane.engines)
+                print(f"lane {lane.name:8s} transport={type(lane.transport).__name__:18s} "
+                      f"engines: {engines}")
+            return 0
+        if args.reconnect_tor:
+            for lane in lanes:
+                if hasattr(lane.transport, "reconnect"):
+                    ok = lane.transport.reconnect()
+                    if args.verbose:
+                        print(f"Tor circuit reset requested: {'OK' if ok else 'failed (control port offline)'}")
+        # one-shot runs get a fixed clock hour so tests are deterministic
+        runner = Runner(
+            profile=profile,
+            lanes=lanes,
+            wordlist=wordlist,
+            clock=time.time,
+            local_hour_fn=(lambda: 12.0) if args.once else None,
+            verbose=args.verbose,
+        )
+        if args.once:
+            runner.run_once(wait=False)
+            return 0
+        report = runner.run()
+        for lane_name, engines in report.items():
+            for eng, spent in engines.items():
+                print(f"{lane_name}/{eng}: {spent} hits")
         return 0
-    if args.reconnect_tor:
-        for lane in lanes:
-            if hasattr(lane.transport, "reconnect"):
-                ok = lane.transport.reconnect()
-                if args.verbose:
-                    print(f"Tor circuit reset requested: {'OK' if ok else 'failed (control port offline)'}")
-    # one-shot runs get a fixed clock hour so tests are deterministic
-    runner = Runner(
-        profile=profile,
-        lanes=lanes,
-        wordlist=wordlist,
-        clock=time.time,
-        local_hour_fn=(lambda: 12.0) if args.once else None,
-        verbose=args.verbose,
-    )
-    if args.once:
-        runner.run_once(wait=False)
-        return 0
-    report = runner.run()
-    for lane_name, engines in report.items():
-        for eng, spent in engines.items():
-            print(f"{lane_name}/{eng}: {spent} hits")
-    return 0
+    finally:
+        if tor_mgr is not None:        # never leave the private Tor running after the command ends
+            tor_mgr.stop()
 
 
 def _bring_up_tor(profile, verbose: bool = False):
@@ -245,7 +250,6 @@ def cmd_relay(args: argparse.Namespace) -> int:
               f"rate {spec.bandwidth_rate}, exit policy reject-all")
         return 0
     if args.relay_command == "bridges":
-        import os
         from pathlib import Path
         bridges_path = Path(__file__).resolve().parents[1] / "data" / "bridges" / "bridges.example.txt"
         if bridges_path.exists():
@@ -274,6 +278,8 @@ def cmd_relay(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    from .paths import ensure_utf8_console
+    ensure_utf8_console()
     parser = argparse.ArgumentParser(prog="legalprivacy", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
 

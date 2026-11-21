@@ -127,7 +127,7 @@ def roc_points(scores: list[tuple[float, int]], max_points: int = 60) -> list[li
     pos = sum(1 for _, y in scores if y == 1) or 1
     neg = sum(1 for _, y in scores if y == 0) or 1
     pts, tp, fp = [[0.0, 0.0]], 0, 0
-    for s, y in sorted(scores, key=lambda t: -t[0]):
+    for _s, y in sorted(scores, key=lambda t: -t[0]):
         tp, fp = tp + (y == 1), fp + (y == 0)
         pts.append([fp / neg, tp / pos])
     step = max(1, len(pts) // max_points)

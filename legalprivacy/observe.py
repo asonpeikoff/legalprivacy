@@ -28,7 +28,7 @@ import threading
 import time
 from collections import deque
 from pathlib import Path
-from typing import Callable
+from collections.abc import Callable
 
 try:
     import psutil
@@ -38,7 +38,7 @@ except ImportError:            # pragma: no cover - psutil is a declared depende
 KEEP_DAYS = 7
 
 
-_ACTIVE: "TrafficObserver | None" = None
+_ACTIVE: TrafficObserver | None = None
 
 
 def note(ip: str, name: str) -> None:
@@ -357,8 +357,13 @@ class TrafficObserver:
             data = json.loads(self.path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return
+        if not isinstance(data, dict):
+            return
         cutoff = self.clock() - KEEP_DAYS * 86400
         for k, v in data.items():
-            t = int(k)
-            if t >= cutoff:
-                self.minutes[t] = dict(v)
+            try:                                   # a damaged entry must not stop the app from starting
+                t = int(k)
+                if t >= cutoff and isinstance(v, dict):
+                    self.minutes[t] = dict(v)
+            except (TypeError, ValueError):
+                continue

@@ -105,8 +105,6 @@ class ClearnetTransport(Transport):
     def hit(self, identity: Identity, target: Target) -> HitResult:
         proxies = {"http": self.proxy, "https": self.proxy} if self.proxy else None
         headers = _identity_headers(identity)
-        if target.kind == "doh":
-            headers["Accept"] = "application/dns-json"
         if target.referer:
             headers["Referer"] = target.referer
         try:
@@ -160,8 +158,6 @@ class TorTransport(Transport):
     def hit(self, identity: Identity, target: Target) -> HitResult:
         onion = is_onion_host(target.url)
         headers = dict(TOR_BROWSER_HEADERS) if onion else _identity_headers(identity)
-        if target.kind == "doh":
-            headers["Accept"] = "application/dns-json"
         try:
             resp = requests.get(
                 target.url,

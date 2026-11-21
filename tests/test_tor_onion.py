@@ -15,7 +15,11 @@ from legalprivacy.onion import (BUILTIN_ONION_SEEDS, OnionTargetFactory,  # noqa
                                 clean_seed_list, is_onion_url, is_valid_v3_onion)
 from legalprivacy.scheduler import Runner, build_lanes  # noqa: E402
 from legalprivacy.transports import HitResult, TOR_BROWSER_HEADERS  # noqa: E402
-from legalprivacy.torcontrol import TorControl  # noqa: E402
+from legalprivacy.torcontrol import TorControl, TorControlError  # noqa: E402
+from legalprivacy.config import ConfigError  # noqa: E402
+from legalprivacy.events import EventLog  # noqa: E402
+from legalprivacy.tormanager import TorManager  # noqa: E402
+from pathlib import Path  # noqa: E402
 
 WORDS = ["weather", "news", "books"]
 GOOD = BUILTIN_ONION_SEEDS[0][1]
@@ -185,14 +189,14 @@ def test_control_null_auth_getinfo_newnym_and_circuits():
 
 def test_control_cookie_auth():
     cookie = tempfile.NamedTemporaryFile(delete=False)
-    cookie.write(b"\x01\x02\x03" * 10)
+    cookie.write(bytes(range(1, 33)))
     cookie.close()
 
     def h(line):
         if line.startswith("PROTOCOLINFO"):
             return ["250-PROTOCOLINFO 1", f'250-AUTH METHODS=COOKIE,SAFECOOKIE COOKIEFILE="{cookie.name}"', "250 OK"]
         if line.startswith("AUTHENTICATE "):
-            return ["250 OK"] if line.split()[1] == ("010203" * 10) else ["515 bad"]
+            return ["250 OK"] if line.split()[1] == bytes(range(1, 33)).hex() else ["515 bad"]
         return ["250 OK"]
     port, _ = _fake_tor(h)
     with TorControl("127.0.0.1", port):
@@ -274,3 +278,58 @@ def test_bridge_mode_validated():
         raise AssertionError("accepted a bad bridge mode")
     except ConfigError:
         pass
+
+
+def test_control_refuses_a_cookie_file_that_is_not_a_cookie():
+    """A rogue 'tor' could name any file as its cookie; only a 32-byte cookie may ever be sent."""
+    big = os.path.join(tempfile.mkdtemp(), "secret.txt")
+    with open(big, "wb") as fh:
+        fh.write(b"not a cookie " * 20)
+    sent = []
+
+    def h(line):
+        sent.append(line)
+        if line.startswith("PROTOCOLINFO"):
+            return ["250-PROTOCOLINFO 1", f'250-AUTH METHODS=COOKIE COOKIEFILE="{big}"', "250 OK"]
+        return ["250 OK"]
+    port, _ = _fake_tor(h)
+    try:
+        TorControl("127.0.0.1", port).connect()
+        raise AssertionError("expected TorControlError")
+    except TorControlError as exc:
+        assert "32 bytes" in str(exc)
+    assert not any(ln.startswith("AUTHENTICATE") for ln in sent)
+
+
+def test_control_password_cannot_smuggle_a_second_command():
+    def h(line):
+        if line.startswith("PROTOCOLINFO"):
+            return ["250-PROTOCOLINFO 1", "250-AUTH METHODS=HASHEDPASSWORD", "250 OK"]
+        return ["250 OK"]
+    port, _ = _fake_tor(h)
+    try:
+        TorControl("127.0.0.1", port, password='x"\r\nSIGNAL SHUTDOWN').connect()
+        raise AssertionError("expected TorControlError")
+    except TorControlError as exc:
+        assert "line breaks" in str(exc)
+
+
+def test_bridge_lines_cannot_inject_torrc_settings():
+    from legalprivacy.config import TransportConfig, valid_bridge_line
+    good = ["obfs4 1.2.3.4:443 AAAA cert=x iat-mode=0", "1.2.3.4:9001 AAAA", "webtunnel [2001:db8::1]:443 AB url=https://e.example/p ver=0.0.3"]
+    assert all(valid_bridge_line(b) for b in good)
+    evil = ["obfs4 1.2.3.4:443 AA\nClientTransportPlugin obfs4 exec /bin/sh -c id",
+            "ClientTransportPlugin obfs4 exec /bin/sh", "Bridge obfs4 1.2.3.4:443 AA", "../x 1.2.3.4:1", ""]
+    assert not any(valid_bridge_line(b) for b in evil)
+    try:
+        TransportConfig(bridges=[evil[0]]).validate("tor")
+        raise AssertionError("expected ConfigError")
+    except ConfigError:
+        pass
+    TransportConfig(bridges=good).validate("tor")
+    tm = TorManager(EventLog(), bridge_mode="custom", bridges=good + [evil[0]])
+    tm.binary = "/nonexistent/tor/tor"
+    tm.cookie_path = "/x"
+    tm.socks_host, tm.socks_port, tm.control_host, tm.control_port = "127.0.0.1", 1, "127.0.0.1", 2
+    text = tm._write_torrc(Path("/tmp/x")).read_text()
+    assert "/bin/sh" not in text and text.count("\nBridge ") == len(good)

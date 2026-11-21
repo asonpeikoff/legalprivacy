@@ -14,7 +14,6 @@ of activity that minute (requests, connections or visits) and hosts the number o
 from __future__ import annotations
 
 import random
-import time
 
 HAR_MIN_ACTIVE = 20          # busy minutes needed from an imported recording
 OBS_MIN_ACTIVE = 60
@@ -114,7 +113,7 @@ def select(har: dict | None, observer: list[dict], history: list[tuple[float, st
                      "state": "available" if hok else ("short" if history else "none"),
                      "note": "" if hok else ("too little to use" if history else "")})
         if hok:
-            cands.append(("history", hrows, f"{human_span((history[-1][0] - history[0][0]))} of browser history",
+            cands.append(("history", hrows, f"{human_span(history[-1][0] - history[0][0])} of browser history",
                           HIST_MIN_ACTIVE))
     out = {"sources": srcs, "howto": HOWTO}
     if cands:

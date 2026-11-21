@@ -3,12 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<script>try{var t=localStorage.getItem("lp_theme");if(t==="dark"||t==="light")document.documentElement.dataset.theme=t}catch(e){}</script>
 <title>legalPrivacy</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232f7d4f'/%3E%3Cpath d='M5 16h3l2-6 4 12 4-16 3 10h6' fill='none' stroke='%23fff' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <style>
-:root{--bg:#f5f6f8;--panel:#fff;--ink:#1c2230;--mute:#5d677b;--line:#dfe3ea;--acc:#2a7348;--acc2:#e8f3ec;--warn:#8f5a0e;--warn2:#fdf3df;--bad:#c0392b;--bad2:#fbe9e7;--tor:#7a3fb0;--tor2:#f1e8f9;--code:#f0f2f6;--info:#2a6fb0;--info2:#e6f0fa;--s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--t-sm:12px;--t-md:14px;--t-lg:17px;--t-xl:28px;--ring:0 0 0 3px rgba(47,125,79,.35)}
-@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#11141b;--panel:#1a1f2a;--ink:#e6e9f0;--mute:#8b94a8;--line:#2a3140;--acc:#4cc07d;--acc2:#183326;--warn:#e0a94a;--warn2:#35290f;--bad:#ef6a5b;--bad2:#3a1b17;--tor:#b98aea;--tor2:#2a1b3b;--code:#222938;--info:#6aaef0;--info2:#16283a;--ring:0 0 0 3px rgba(76,192,125,.45)}}
-:root[data-theme=dark]{--bg:#11141b;--panel:#1a1f2a;--ink:#e6e9f0;--mute:#8b94a8;--line:#2a3140;--acc:#4cc07d;--acc2:#183326;--warn:#e0a94a;--warn2:#35290f;--bad:#ef6a5b;--bad2:#3a1b17;--tor:#b98aea;--tor2:#2a1b3b;--code:#222938;--info:#6aaef0;--info2:#16283a;--ring:0 0 0 3px rgba(76,192,125,.45)}
+:root{color-scheme:light;--s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;--s7:48px;
+--sp-1:4px;--sp-2:8px;--sp-3:16px;--sp-4:24px;--sp-5:32px;--sp-6:48px;
+--r-sm:6px;--r-md:10px;--r-lg:14px;--r-pill:999px;
+--t-xs:clamp(.75rem,.73rem + .08vw,.8125rem);--t-sm:clamp(.8125rem,.79rem + .1vw,.875rem);--t-md:clamp(.875rem,.85rem + .15vw,.9688rem);
+--t-lg:clamp(1.0625rem,1rem + .25vw,1.1875rem);--t-xl:clamp(1.25rem,1.1rem + .6vw,1.5rem);--t-2xl:clamp(1.5rem,1.25rem + 1vw,2rem);
+--font:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;--mono:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;
+--ease:cubic-bezier(.2,.7,.2,1);--dur:.16s;--hdr-h:56px;--nav-h:44px;--bg:#f4f5f8;--panel:#fff;--raise:#fff;--ink:#1a2030;--mute:#566074;--line:#d9dee7;--line-strong:#7f889a;--acc:#26693f;--acc2:#e6f3ea;--on-acc:#fff;--warn:#855208;--warn2:#fcf1d8;--bad:#b3322a;--bad2:#fbe8e5;--on-bad:#fff;--tor:#70359f;--tor2:#f0e7f8;--on-tor:#fff;--code:#eef0f5;--info:#1f62a3;--info2:#e4eefa;
+--sh-1:0 1px 2px rgba(20,28,45,.06),0 1px 1px rgba(20,28,45,.04);--sh-2:0 6px 20px rgba(20,28,45,.12),0 2px 6px rgba(20,28,45,.06);--ring:0 0 0 3px rgba(38,105,63,.35);--scrim:rgba(10,12,18,.62)}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){color-scheme:dark;--bg:#0e1218;--panel:#161b24;--raise:#1d2430;--ink:#e8ebf2;--mute:#9aa3b6;--line:#272e3c;--line-strong:#6b768d;--acc:#4cc07d;--acc2:#16301f;--on-acc:#08170e;--warn:#e3ae52;--warn2:#32270e;--bad:#f2786a;--bad2:#3a1c18;--on-bad:#1a0806;--tor:#c19af0;--tor2:#2a1c3b;--on-tor:#1a0f26;--code:#1f2633;--info:#7ab6f2;--info2:#15273a;
+--sh-1:0 1px 2px rgba(0,0,0,.45);--sh-2:0 8px 24px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.04);--ring:0 0 0 3px rgba(76,192,125,.5);--scrim:rgba(0,0,0,.7)}}
+:root[data-theme=dark]{color-scheme:dark;--bg:#0e1218;--panel:#161b24;--raise:#1d2430;--ink:#e8ebf2;--mute:#9aa3b6;--line:#272e3c;--line-strong:#6b768d;--acc:#4cc07d;--acc2:#16301f;--on-acc:#08170e;--warn:#e3ae52;--warn2:#32270e;--bad:#f2786a;--bad2:#3a1c18;--on-bad:#1a0806;--tor:#c19af0;--tor2:#2a1c3b;--on-tor:#1a0f26;--code:#1f2633;--info:#7ab6f2;--info2:#15273a;
+--sh-1:0 1px 2px rgba(0,0,0,.45);--sh-2:0 8px 24px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.04);--ring:0 0 0 3px rgba(76,192,125,.5);--scrim:rgba(0,0,0,.7)}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
 header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
@@ -18,12 +29,12 @@ h1{font-size:17px;margin:0 8px 0 0}
 .sp{flex:1}
 button{font:inherit;padding:6px 12px;border-radius:7px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
 button:hover:not(:disabled){border-color:var(--mute)}button:disabled{opacity:.45;cursor:not-allowed}
-button.pri{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600}
-button.dng{color:var(--bad)}button.torb{background:var(--tor);border-color:var(--tor);color:#fff}
+button.pri{background:var(--acc);border-color:var(--acc);color:var(--on-acc);font-weight:600}
+button.dng{color:var(--bad)}button.torb{background:var(--tor);border-color:var(--tor);color:var(--on-tor)}
 nav{display:flex;gap:2px;padding:0 12px;background:var(--panel);border-bottom:1px solid var(--line);overflow-x:auto}
 nav button{border:0;border-bottom:3px solid transparent;border-radius:0;background:none;padding:10px 14px;color:var(--mute);font-weight:600}
 nav button.on{color:var(--ink);border-bottom-color:var(--acc)}
-nav .badge{background:var(--bad);color:#fff;border-radius:99px;font-size:11px;padding:0 6px;margin-left:5px}
+nav .badge{background:var(--bad);color:var(--on-bad);border-radius:99px;font-size:11px;padding:0 6px;margin-left:5px}
 main{padding:16px;max-width:1200px;margin:0 auto}
 .tab{display:none}.tab.on{display:block}
 .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
@@ -54,7 +65,7 @@ label.chk{display:flex;gap:8px;align-items:flex-start;margin:6px 0;cursor:pointe
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:13px}.kv b{color:var(--mute);font-weight:600}
 .spark{width:100%;height:60px}
 /* wizard */
-#wiz{position:fixed;inset:0;background:rgba(10,12,18,.72);display:none;align-items:center;justify-content:center;z-index:20;padding:12px}
+#wiz{position:fixed;inset:0;background:var(--scrim);display:none;align-items:center;justify-content:center;z-index:20;padding:12px}
 #wiz.on{display:flex}
 .wcard{background:var(--panel);border-radius:14px;max-width:560px;width:100%;padding:24px;max-height:92vh;overflow:auto}
 .opt{display:block;border:2px solid var(--line);border-radius:10px;padding:10px 14px;margin:8px 0;cursor:pointer}
@@ -130,15 +141,201 @@ tbody tr:hover td{background:var(--code)}
 @media (pointer:coarse){button,select,input[type=text],input[type=number]{min-height:44px}label.chk,.opt{padding-block:6px}nav button{min-height:48px}}
 @media (max-width:600px){header{gap:var(--s2);padding:var(--s2) var(--s3)}header .sp{display:none}#bStart,#bPause,#bStop,#bQuit{flex:1}nav button .tl{display:none}nav button .ic{margin-right:0}nav button.on .tl{display:inline;margin-left:6px}.card{padding:var(--s3)}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+/* ===== design system v2 — surfaces, type, components, accessibility ===== */
+html{scroll-padding-top:calc(var(--hdr-h) + var(--nav-h) + 16px);-webkit-text-size-adjust:100%;scrollbar-color:var(--line-strong) transparent}
+body{font-family:var(--font);font-size:var(--t-md);line-height:1.5;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;overflow-wrap:break-word}
+h1{font-size:var(--t-lg);letter-spacing:-.01em}
+h2{font-size:var(--t-xl);line-height:1.25;letter-spacing:-.01em}
+.small{font-size:var(--t-sm)}
+code,.logbox,td.url,textarea,.kv code{font-family:var(--mono)}
+table{font-size:var(--t-sm)}
+td,th,.kv,.pill,.kpi b,.big,input[type=number],.logbox,#sparkPeak,[data-mixp]{font-variant-numeric:tabular-nums}
+.sr{position:absolute!important;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.skip{position:absolute;left:var(--sp-2);top:-56px;z-index:60;background:var(--ink);color:var(--bg);padding:var(--sp-2) var(--sp-3);border-radius:var(--r-sm);text-decoration:none;font-weight:600;transition:top var(--dur) var(--ease)}
+.skip:focus{top:var(--sp-2)}
+main{container:page/inline-size;outline:none;overflow-wrap:break-word}
+main p,.note,.howto{max-width:78ch}
+.card>.small.mute{max-width:84ch}
+
+/* header + tab strip stay in view; status chips stay quiet */
+header{box-shadow:var(--sh-1);padding:var(--sp-2) var(--sp-3);min-height:56px}
+nav{position:sticky;top:var(--hdr-h);z-index:4;box-shadow:var(--sh-1);scrollbar-width:thin;scroll-snap-type:x proximity}
+nav button{box-shadow:none;min-height:44px;font-size:var(--t-sm);scroll-snap-align:start;transition:color var(--dur) var(--ease),background var(--dur) var(--ease),border-color var(--dur) var(--ease)}
+nav button:hover:not(:disabled){background:var(--code);border-radius:var(--r-sm) var(--r-sm) 0 0}
+nav button:focus-visible{outline-offset:-3px}
+.pill{font-size:var(--t-xs);padding:2px 10px;min-height:24px;line-height:1.4}
+#bTheme{padding:6px 10px}
+#bTheme .ic{margin-right:0}
+
+/* buttons: primary (filled) > secondary (outline) > danger (outline red) */
+button{font-size:var(--t-sm);font-weight:500;min-height:34px;padding:6px 14px;border-radius:var(--r-sm);border-color:var(--line-strong);box-shadow:var(--sh-1);transition:background var(--dur) var(--ease),border-color var(--dur) var(--ease),box-shadow var(--dur) var(--ease),transform 80ms var(--ease),filter var(--dur) var(--ease)}
+button:active:not(:disabled){transform:translateY(1px);box-shadow:none}
+button:disabled{box-shadow:none}
+button.pri{border-color:var(--acc)}button.torb{border-color:var(--tor)}
+button.dng{border-color:var(--bad)}
+:focus-visible{outline:3px solid var(--acc);outline-offset:2px;border-radius:var(--r-sm)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid var(--acc);outline-offset:2px;box-shadow:none}
+
+/* cards: title, helper text, control, result */
+.card{border-radius:var(--r-md);box-shadow:var(--sh-1);padding:var(--sp-3);margin-bottom:var(--sp-3)}
+.card h3{font-size:var(--t-xs);letter-spacing:.06em;font-weight:700}
+.big{font-size:var(--t-2xl);line-height:1.15}
+.kpi{border-radius:var(--r-sm)}
+.row{gap:var(--sp-2) var(--sp-3)}
+.grid,.mlgrid{gap:var(--sp-3)}
+.grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr))}
+.mlgrid{grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))}
+#t-dash .grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr))}
+#t-dash .grid{margin-bottom:var(--sp-3)}#t-dash .grid .card{margin-bottom:0}
+#dashNote:not(:empty){margin-bottom:var(--sp-3)}
+.note{border-radius:var(--r-sm);padding:var(--sp-2) var(--sp-3)}
+.note.warn::before{content:"\26A0\FE0E  ";color:var(--warn)}
+.note.bad::before{content:"\2716\FE0E  ";color:var(--bad)}
+.note.tor::before{content:"\25C9  ";color:var(--tor)}
+.howto{border-left:3px solid var(--info)}
+hr{border:0;border-top:1px solid var(--line);margin:var(--sp-3) 0}
+
+/* form controls: 3:1 borders, 34px tall, clear focus + invalid states */
+input[type=text],input[type=number],input[type=file],textarea,select{min-height:34px;border:1px solid var(--line-strong);border-radius:var(--r-sm);padding:6px 10px;font-size:var(--t-sm);transition:border-color var(--dur) var(--ease),box-shadow var(--dur) var(--ease)}
+textarea{font-size:var(--t-xs);line-height:1.5}
+select,input[type=text],input[type=file],textarea{max-width:100%;text-overflow:ellipsis}
+input::placeholder,textarea::placeholder{color:var(--mute);opacity:1}
+input[type=text]:hover,input[type=number]:hover,textarea:hover,select:hover{border-color:var(--mute)}
+input[aria-invalid=true],input:user-invalid,textarea:user-invalid{border-color:var(--bad);box-shadow:inset 3px 0 0 var(--bad)}
+.fielderr{display:block;color:var(--bad);font-size:var(--t-xs);font-weight:600;flex-basis:100%}
+.fielderr::before{content:"\2716\FE0E  "}
+input[type=checkbox],input[type=radio]{width:18px;height:18px;margin:0 6px 0 0;flex:none}
+label.chk{min-height:24px;align-items:center}
+.opt{border:1px solid var(--line);border-radius:var(--r-md);background:var(--panel);transition:border-color var(--dur) var(--ease),background var(--dur) var(--ease)}
+.opt:hover{border-color:var(--line-strong)}
+.opt:has(input:checked){border-color:var(--acc);box-shadow:inset 3px 0 0 var(--acc)}
+.opt.t:has(input:checked){box-shadow:inset 3px 0 0 var(--tor)}
+
+/* sliders: round 24px thumb, rounded track with a filled part (--p is set by script) */
+input[type=range]{-webkit-appearance:none;appearance:none;height:24px;background:transparent;cursor:pointer;--p:0%;min-width:80px;margin:0;padding:0}
+input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:var(--r-pill);background:linear-gradient(to right,var(--acc) 0 var(--p),var(--code) var(--p) 100%);box-shadow:inset 0 0 0 1px var(--line-strong)}
+input[type=range]::-moz-range-track{height:6px;border-radius:var(--r-pill);background:var(--code);box-shadow:inset 0 0 0 1px var(--line-strong)}
+input[type=range]::-moz-range-progress{height:6px;border-radius:var(--r-pill);background:var(--acc)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;box-sizing:border-box;width:24px;height:24px;margin-top:-9px;border-radius:50%;background:var(--acc);border:4px solid var(--panel);box-shadow:0 0 0 1px var(--acc),var(--sh-1);transition:transform var(--dur) var(--ease),box-shadow var(--dur) var(--ease)}
+input[type=range]::-moz-range-thumb{box-sizing:border-box;width:24px;height:24px;border-radius:50%;background:var(--acc);border:4px solid var(--panel);box-shadow:0 0 0 1px var(--acc),var(--sh-1)}
+input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.1)}
+input[type=range]:active::-webkit-slider-thumb{transform:scale(.96)}
+input[type=range]:focus-visible{outline:none}
+input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--ink)}
+input[type=range]:focus-visible::-moz-range-thumb{box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--ink)}
+input[type=range]:disabled{opacity:.45;cursor:not-allowed}
+
+/* stacked mix bar with direct labels, shaped legend swatches, one row per part */
+.mixbar{height:30px;border-radius:var(--r-pill);background:var(--code);box-shadow:inset 0 0 0 1px var(--line-strong);margin:var(--sp-2) 0 var(--sp-3)}
+.mixbar span{display:flex;align-items:center;justify-content:center;font-size:var(--t-xs);font-weight:700;white-space:nowrap;overflow:hidden;min-width:0;box-shadow:inset 1px 0 0 var(--panel);transition:width .15s var(--ease)}
+.mixbar span:first-child{box-shadow:none}
+.mixrow{display:grid;grid-template-columns:minmax(120px,200px) minmax(120px,280px) 3.5em minmax(0,1fr);align-items:center;gap:var(--sp-1) var(--sp-3);margin-bottom:var(--sp-1)}
+.mixrow .nm{display:flex;align-items:center;gap:var(--sp-2);min-width:0}
+.mixrow .pc{text-align:right;font-weight:700}
+.dot{width:12px;height:12px;flex:none;margin-right:0;vertical-align:baseline}
+.dot.s1{border-radius:3px}.dot.s2{border-radius:2px;transform:rotate(45deg) scale(.82)}.dot.s3{border-radius:0;clip-path:polygon(50% 0,100% 100%,0 100%)}.dot.s4{border-radius:0;clip-path:polygon(25% 5%,75% 5%,100% 50%,75% 95%,25% 95%,0 50%)}
+.lgd i{width:12px;height:12px}
+.lgd:nth-child(2) i{border-radius:50%}.lgd:nth-child(3) i{transform:rotate(45deg) scale(.82)}
+
+/* charts: crisp 1px lines, tabular numerals */
+.vz .ax,.act .gridl{shape-rendering:crispEdges}
+.vz svg text,.act svg text{font-variant-numeric:tabular-nums;font-family:var(--font)}
+.spark-wrap{position:relative}
+#sparkPeak{position:absolute;right:0;top:-2px;font-size:var(--t-xs);color:var(--mute)}
+.spark{height:72px;display:block}
+.spark .base{stroke:var(--line-strong);stroke-width:1;vector-effect:non-scaling-stroke}
+.spark .gl{stroke:var(--line);stroke-width:1;vector-effect:non-scaling-stroke;stroke-dasharray:2 3}
+
+/* tables */
+table{border-collapse:separate;border-spacing:0}
+th,td{padding:7px 10px}
+th{font-size:var(--t-xs);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--line-strong)}
+tbody tr:last-child td{border-bottom:0}
+.scroll{border-radius:var(--r-md);scrollbar-width:thin}
+tr:focus-within td{background:var(--code)}
+
+/* progressive disclosure: every <details> looks and behaves the same */
+details:not(.why):not([style*=inline]){border:1px solid var(--line);border-radius:var(--r-md);background:var(--raise);margin:var(--sp-2) 0}
+details:not(.why):not([style*=inline])>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-2) var(--sp-3);min-height:34px;border-radius:var(--r-md);font-size:var(--t-sm);font-weight:600;transition:background var(--dur) var(--ease)}
+details:not(.why):not([style*=inline])>summary:hover{background:var(--code)}
+details:not(.why):not([style*=inline])>summary::-webkit-details-marker{display:none}
+details:not(.why):not([style*=inline])>summary::before{content:"";width:7px;height:7px;flex:none;border-right:2px solid var(--mute);border-bottom:2px solid var(--mute);transform:rotate(-45deg);transition:transform var(--dur) var(--ease)}
+details[open]:not(.why):not([style*=inline])>summary::before{transform:rotate(45deg)}
+details[open]:not(.why):not([style*=inline]){padding-bottom:var(--sp-3)}
+details[open]:not(.why):not([style*=inline])>:not(summary){margin-left:var(--sp-3);margin-right:var(--sp-3)}
+details.why>summary{display:inline-flex;align-items:center;justify-content:center;min-width:24px;min-height:24px;opacity:1;color:var(--mute);border-radius:50%;font-size:var(--t-sm)}
+details.why>summary:hover{background:var(--code);color:var(--ink)}
+details.why[open]>div{border-radius:var(--r-sm);box-shadow:var(--sh-1);line-height:1.5}
+
+/* empty, loading, live-status states */
+.empty{display:flex;flex-direction:column;align-items:center;gap:var(--sp-2);padding:var(--sp-5) var(--sp-3);text-align:center;color:var(--mute);font-size:var(--t-sm)}
+.empty .ic{width:28px;height:28px;color:var(--line-strong)}
+.empty b{color:var(--ink);font-size:var(--t-md)}
+#lanes:empty{display:none}
+@keyframes shimmer{to{background-position:-100% 0}}
+body.loading .big,body.loading .kpi b{display:block;width:min(100%,5ch);color:transparent;border-radius:var(--r-sm);background:linear-gradient(90deg,var(--code) 30%,var(--line) 50%,var(--code) 70%);background-size:300% 100%;animation:shimmer 1.4s linear infinite;user-select:none}
+#applyBar{position:sticky;top:calc(var(--hdr-h) + var(--nav-h) + var(--sp-2));z-index:3;box-shadow:var(--sh-2);border-left-width:4px;padding:var(--sp-2) var(--sp-3);animation:rise .18s var(--ease)}
+#toast{box-shadow:var(--sh-2);animation:rise .18s var(--ease);max-width:min(92vw,560px);text-align:center;font-size:var(--t-sm);font-weight:500}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}}
+#toast{animation-name:riseX}
+@keyframes riseX{from{opacity:0;transform:translate(-50%,6px)}}
+.wcard{box-shadow:var(--sh-2);border:1px solid var(--line)}
+.steps i{transition:background var(--dur) var(--ease)}
+
+/* narrow screens: 360px and up */
+@container page (max-width:560px){
+  .mixrow{grid-template-columns:minmax(0,1fr) 3.5em}
+  .mixrow input[type=range]{grid-column:1/-1;grid-row:2;max-width:none}
+  .mixrow .hint{grid-column:1/-1}
+  .kv{grid-template-columns:1fr}.kv b{margin-top:var(--sp-1)}
+  .srcrow{grid-template-columns:1fr}.srcrow .st{text-align:left}
+  .row>input[type=text]{min-width:0}
+  .card table{display:block;max-width:100%;overflow-x:auto}
+  .scroll table{display:table}
+}
+@media (max-width:600px){
+  header{position:static}nav{top:0}
+  :root{--hdr-h:0px}
+  html{scroll-padding-top:calc(var(--nav-h) + 16px)}
+  #applyBar{top:calc(var(--nav-h) + var(--sp-2))}
+  #bTheme{flex:none}
+}
+
+/* user preference: more contrast */
+@media (prefers-contrast:more){
+  :root:root,:root[data-theme]{--line:var(--line-strong);--mute:var(--ink)}
+  .card,.note,details,.opt,button,input,select,textarea{border-width:2px}
+  :focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline-width:4px}
+  .pill{border:1px solid currentColor}
+  button:disabled{opacity:.6}
+}
+/* Windows high-contrast / forced colours: rely on system colours, keep shapes and labels */
+@media (forced-colors:active){
+  button,input,select,textarea,.pill,.card,.note,details,.opt,.kpi{border:1px solid CanvasText}
+  button.pri,button.torb{border:2px solid Highlight}
+  nav button{border:0;border-bottom:3px solid transparent}
+  nav button.on{border-bottom-color:Highlight;color:Highlight}
+  :focus-visible{outline:3px solid Highlight}
+  .bar>i{background:Highlight;forced-color-adjust:none}
+  .mixbar span,.dot,.lgd i{forced-color-adjust:none;border:1px solid CanvasText}
+  .pill::before{background:CanvasText}
+  input[type=range]::-webkit-slider-thumb{background:Highlight;border-color:Canvas}
+  .skip:focus{background:Highlight;color:HighlightText}
+}
+@media print{header,nav,#toast,#applyBar,#wiz{display:none!important}.card{box-shadow:none;break-inside:avoid}}
 </style>
 </head>
-<body>
-<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><symbol id="i-dash" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></symbol><symbol id="i-act" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></symbol><symbol id="i-log" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M13 15h4"/></symbol><symbol id="i-tor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="2"/></symbol><symbol id="i-set" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol><symbol id="i-health" viewBox="0 0 24 24"><path d="M12 21s-8-4.8-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 6.2-8 11-8 11z"/><path d="M7 12h3l1.5-2.5 2 5 1.500-2.500h2"/></symbol><symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.500 2.300c-.7.4-1 .9-1 1.700M12 17h.01"/></symbol><symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.500 6h.01M3.500 12h.01M3.500 18h.01"/></symbol><symbol id="i-ml" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></symbol><symbol id="i-proof" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 4.500 3.400 8 8 9 4.600-1 8-4.500 8-9V6z"/><path d="m8.500 12 2.500 2.500 4.500-5"/></symbol><symbol id="i-tools" viewBox="0 0 24 24"><path d="M14.500 6.500a4 4 0 0 0 5 5L21 13l-8 8-4-4 8-8z"/><path d="M3 21l3-3"/></symbol><symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.500v15l12-7.500z"/></symbol><symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol><symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol><symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3v9M6.500 6.500a8 8 0 1 0 11 0"/></symbol><symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.500 4.500 4.500L19 7.500"/></symbol><symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol><symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol><symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 3 2 20h20z"/><path d="M12 10v5M12 17.500h.01"/></symbol><symbol id="i-panic" viewBox="0 0 24 24"><path d="M8 3h8l5 5v8l-5 5H8l-5-5V8z"/><path d="M12 8v5M12 16h.01"/></symbol><symbol id="i-dl" viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></symbol><symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.500-3M4 4v4h4M4 13a8 8 0 0 0 14.500 3M20 20v-4h-4"/></symbol><symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 4.500 3.400 8 8 9 4.600-1 8-4.500 8-9V6z"/></symbol><symbol id="i-wave" viewBox="0 0 24 24"><path d="M3 12h2M7 8v8M11 4v16M15 8v8M19 6v12"/></symbol></defs></svg>
+<body class="loading">
+<a class="skip" href="#main">Skip to content</a>
+<noscript><p style="padding:16px;margin:0;background:#fdf3df;color:#4a2e00">legalPrivacy's dashboard needs JavaScript. It runs only from this computer and loads nothing from the internet.</p></noscript>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><symbol id="i-dash" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></symbol><symbol id="i-act" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></symbol><symbol id="i-log" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M13 15h4"/></symbol><symbol id="i-tor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="2"/></symbol><symbol id="i-set" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol><symbol id="i-health" viewBox="0 0 24 24"><path d="M12 21s-8-4.8-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 6.2-8 11-8 11z"/><path d="M7 12h3l1.5-2.5 2 5 1.500-2.500h2"/></symbol><symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.500 2.300c-.7.4-1 .9-1 1.700M12 17h.01"/></symbol><symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.500 6h.01M3.500 12h.01M3.500 18h.01"/></symbol><symbol id="i-ml" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></symbol><symbol id="i-proof" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 4.500 3.400 8 8 9 4.600-1 8-4.500 8-9V6z"/><path d="m8.500 12 2.500 2.500 4.500-5"/></symbol><symbol id="i-tools" viewBox="0 0 24 24"><path d="M14.500 6.500a4 4 0 0 0 5 5L21 13l-8 8-4-4 8-8z"/><path d="M3 21l3-3"/></symbol><symbol id="i-scan" viewBox="0 0 24 24"><circle cx="10.500" cy="10.500" r="6.500"/><path d="m15.500 15.500 5 5"/><path d="m8 10.500 2 2 3.500-4"/></symbol><symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.500v15l12-7.500z"/></symbol><symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol><symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol><symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3v9M6.500 6.500a8 8 0 1 0 11 0"/></symbol><symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.500 4.500 4.500L19 7.500"/></symbol><symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol><symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol><symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 3 2 20h20z"/><path d="M12 10v5M12 17.500h.01"/></symbol><symbol id="i-panic" viewBox="0 0 24 24"><path d="M8 3h8l5 5v8l-5 5H8l-5-5V8z"/><path d="M12 8v5M12 16h.01"/></symbol><symbol id="i-dl" viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></symbol><symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.500-3M4 4v4h4M4 13a8 8 0 0 0 14.500 3M20 20v-4h-4"/></symbol><symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 4.500 3.400 8 8 9 4.600-1 8-4.500 8-9V6z"/></symbol><symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.500 1.500M17.500 17.500 19 19M5 19l1.500-1.500M17.500 6.500 19 5"/></symbol><symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.500A8 8 0 0 1 9.500 4 8 8 0 1 0 20 14.500z"/></symbol><symbol id="i-wave" viewBox="0 0 24 24"><path d="M3 12h2M7 8v8M11 4v16M15 8v8M19 6v12"/></symbol></defs></svg>
 <header>
   <h1><svg class="logo" viewBox="0 0 32 32" role="img" aria-label="legalPrivacy"><rect width="32" height="32" rx="8" fill="#2f7d4f"/><path d="M5 16h3l2-6 4 12 4-16 3 10h6" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>legalPrivacy</h1>
   <svg class="ic pwr" aria-hidden="true"><use href="#i-power"/></svg><span id="pRun" class="pill">…</span><span id="pSet" class="small mute" title="Whether the running noise uses exactly the settings you saved"></span>
   <svg class="ic tori sm" aria-hidden="true"><use href="#i-tor"/></svg><span id="pTor" class="pill">Tor: off</span>
   <span class="sp"></span>
+  <button id="bTheme" type="button" aria-label="Switch colour theme" title="Switch between light and dark"><svg class="ic sm" aria-hidden="true"><use href="#i-moon"/></svg></button>
   <button id="bStart" class="pri"><svg class="ic sm" aria-hidden="true"><use href="#i-play"/></svg>Start</button>
   <button id="bPause">⏸ Pause</button>
   <button id="bStop" class="dng"><svg class="ic sm" aria-hidden="true"><use href="#i-stop"/></svg>Stop</button>
@@ -155,9 +352,10 @@ tbody tr:hover td{background:var(--code)}
   <button data-t="mylist" title="My List"><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg><span class="tl">My List</span></button>
   <button data-t="ml" title="ML"><svg class="ic" aria-hidden="true"><use href="#i-ml"/></svg><span class="tl">ML</span></button>
   <button data-t="proof" title="Proof"><svg class="ic" aria-hidden="true"><use href="#i-proof"/></svg><span class="tl">Proof</span></button>
+  <button data-t="sec" title="Security"><svg class="ic" aria-hidden="true"><use href="#i-scan"/></svg><span class="tl">Security</span></button>
   <button data-t="tools" title="Tools"><svg class="ic" aria-hidden="true"><use href="#i-tools"/></svg><span class="tl">Tools</span></button>
 </nav>
-<main>
+<main id="main" tabindex="-1">
 <div id="applyBar" class="card" style="display:none;margin-bottom:10px"><span id="applyMsg"></span></div>
 
 <!-- DASHBOARD -->
@@ -170,7 +368,7 @@ tbody tr:hover td{background:var(--code)}
     <div class="card"><h3>Last hit</h3><div class="big" id="kLast">—</div><div class="small mute" id="kLastSub"></div></div>
     <div class="card"><h3>Data today</h3><div class="big" id="kData">—</div><div class="small mute" id="kDataSub">approximate</div></div>
   </div>
-  <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-act"/></svg>Hits per minute (last 30 min)</h3><svg id="spark" class="spark" viewBox="0 0 300 60" preserveAspectRatio="none"></svg></div>
+  <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-act"/></svg>Hits per minute (last 30 min)</h3><div class="spark-wrap"><span id="sparkPeak" class="small"></span><svg id="spark" class="spark" viewBox="0 0 300 60" preserveAspectRatio="none" role="img" aria-label="Successful hits per minute, last 30 minutes"></svg><div id="sparkEmpty" class="empty" hidden><svg class="ic" aria-hidden="true"><use href="#i-act"/></svg><b>No hits yet</b><span>Bars appear here once the noise is running. Press Start, or send a test hit.</span></div></div></div>
   <div id="lanes"></div>
   <div class="row"><button id="bTest">Send one test hit now</button><span class="small mute">Fires a single noise request immediately and shows it in Activity.</span></div>
 </section>
@@ -255,6 +453,49 @@ tbody tr:hover td{background:var(--code)}
         <a href="mailto:bridges@torproject.org">email bridges@torproject.org</a> <span class="mute">(from Gmail or Riseup)</span>. Paste them above and choose “My bridges”.</div>
       <div class="small mute" id="bNow"></div>
     </div>
+  </div>
+  <div class="card" id="dnsCard"><h3><svg class="ic" aria-hidden="true"><use href="#i-wave"/></svg>Tor DNS (optional) <details class="why"><summary>ⓘ</summary><div>Tor can answer DNS lookups on a local port. Names are looked up by Tor <b>exit relays</b>, so this is a deliberate, narrow use of exits for DNS only. It does not change the Tor lane for noise, which stays onion-only. Only A (IPv4), AAAA (IPv6) and PTR (reverse) lookups work; other kinds, such as MX or TXT, are not handled.</div></details></h3>
+    <label class="chk"><input type="checkbox" id="dnsOn"><span><b>Answer DNS lookups through Tor</b> <span class="mute">(off by default; needs the Tor that legalPrivacy manages)</span></span></label>
+    <div id="dnsBody" style="display:none">
+      <div class="kv" id="dnsKv"></div>
+      <div class="row" style="margin-top:8px"><button id="dnsTest"><svg class="ic sm" aria-hidden="true"><use href="#i-check"/></svg>Test</button><span class="small" id="dnsOut"><span class="mute">Sends one real lookup for example.com through Tor and shows the answer and how long it took.</span></span></div>
+      <label class="chk"><input type="checkbox" id="dnsLan"><span><b>Also share it with other devices on my network</b> <span class="mute">(off; only on one private address you pick)</span></span></label>
+      <div class="row" id="dnsLanRow" style="display:none">Address <select id="dnsAddr"></select> <button id="dnsRefresh" title="Look at this computer's addresses again">Refresh list</button></div>
+      <div class="note bad" id="dnsLanWarn" style="display:none"><b>Warning.</b> Anyone on that network can use your Tor exits for DNS, and you are responsible for what they do. Never expose this to the internet; it is not an open resolver for the internet. Only share it on a network you trust, such as your own home.</div>
+      <details class="small" style="margin-top:6px"><summary>How to use it</summary><div class="mute">
+        <p>Your operating system sends DNS lookups to port 53, so it cannot use this port directly. To use Tor DNS for the whole computer you need a small local forwarder (for example <b>dnsmasq</b> or <b>unbound</b>) set up to forward to <b>127.0.0.1</b> and the port shown above, or an app that lets you set a DNS port yourself. The commands differ by system and we have not verified any, so none are given here; follow your forwarder's own documentation.</p>
+        <p>Tor DNS is slower than normal DNS (every name goes through Tor and an exit relay) and handles only A, AAAA and PTR lookups.</p></div></details>
+      <div class="small mute" id="dnsNote"></div>
+    </div>
+  </div>
+  <div class="card" id="relayCard"><h3><svg class="ic" aria-hidden="true"><use href="#i-tor"/></svg>Contribute to Tor: run a relay (optional)</h3>
+    <div class="note tor">A relay passes other people's encrypted Tor traffic along, which helps the network. It is <b>not an exit</b>: it never connects to websites for anyone, and legalPrivacy can never make it one. A relay or bridge also does <b>not</b> provide DNS (only exit relays look up names). Relay addresses are <b>public by design</b>: the Tor network publishes them in a list anyone can read. The relay runs as its own separate Tor program; it never starts by itself.</div>
+    <div class="row"><label class="opt t" style="flex:1;min-width:210px"><input type="radio" name="rmode" value="middle"> <b>Middle relay</b> <span class="mute">— listed publicly; carries traffic between other relays</span></label>
+      <label class="opt t" style="flex:1;min-width:210px"><input type="radio" name="rmode" value="bridge"> <b>Bridge</b> <span class="mute">— not listed publicly; helps people whose network blocks Tor</span></label></div>
+    <div class="row">Nickname <input type="text" id="rNick" size="14" maxlength="19" title="1 to 19 letters or digits">
+      Speed limit <input type="number" id="rBw" min="0.1" max="1000" step="0.1" style="width:90px"> MBytes per second &nbsp;&middot;&nbsp;
+      Port (ORPort) <input type="number" id="rPort" min="1024" max="65535" style="width:90px"></div>
+    <div class="small mute" id="rEst"></div>
+    <div class="row">Contact (optional) <input type="text" id="rContact" size="34" placeholder="you@example.org (shown publicly if you add it)"></div>
+    <label class="chk"><input type="checkbox" id="rPractice"><span><b>Practice mode (not published)</b> — the relay only listens on this computer and never announces itself, so nobody can use it. It still downloads Tor's public relay list like any Tor program. Needs no checklist. Untick it only when you are ready to join the network.</span></label>
+    <div id="rCheck"><div class="small"><b>Before a public relay</b> (tick each one):</div>
+      <label class="chk"><input type="checkbox" data-ck="address"><span>This computer has a public IP address, or my router forwards the ORPort to it.</span></label>
+      <label class="chk"><input type="checkbox" data-ck="always_on"><span>This computer stays on and connected most of the time.</span></label>
+      <label class="chk"><input type="checkbox" data-ck="bandwidth"><span>I am happy with the speed limit above and the traffic it can use each month.</span></label>
+      <label class="chk"><input type="checkbox" data-ck="not_exit"><span>I understand this is not an exit: it never reaches websites for anyone, and it cannot answer DNS.</span></label>
+      <label class="chk"><input type="checkbox" data-ck="public_ip"><span>I understand a relay's IP address is public by design.</span></label></div>
+    <div class="small mute" style="margin-top:6px">Settings file for the relay (read-only):</div>
+    <textarea id="rTorrc" rows="9" readonly aria-label="Generated torrc for the relay"></textarea>
+    <div class="row" style="margin-top:8px"><button id="rStart" class="torb"><svg class="ic sm" aria-hidden="true"><use href="#i-play"/></svg>Start relay</button>
+      <button id="rStop"><svg class="ic sm" aria-hidden="true"><use href="#i-stop"/></svg>Stop relay</button>
+      <span class="pill" id="rPill">Stopped</span><span class="small" id="rMsg"></span></div>
+    <label class="chk"><input type="checkbox" id="rAuto"><span>Start the relay when this app opens <span class="mute">(off; the relay is otherwise never started automatically)</span></span></label>
+    <div class="small mute" id="rNote"></div>
+    <div class="scroll" style="max-height:200px;margin-top:6px"><div id="rLog" class="logbox"><span class="mute">Nothing yet. The relay's own log appears here once it starts.</span></div></div>
+    <details class="small" style="margin-top:6px"><summary>Router and firewall notes</summary><div class="mute">
+      <p><b>All systems:</b> a public relay must be reachable from the internet on its ORPort (TCP). Forward that port on your router to this computer, then allow it in the computer's firewall. Router menus differ; look for "port forwarding" or "virtual server".</p>
+      <p><b>Windows:</b> allow the port in Windows Defender Firewall (Inbound Rules). <b>macOS:</b> if the firewall is on, allow incoming connections for the Tor program. <b>Linux:</b> allow the TCP port in your firewall (ufw, firewalld or nftables).</p>
+      <p>The status shows "reachable" only after Tor itself tests the port from outside, which can take a while for a new relay. See the Tor Project's relay documentation: <a href="https://community.torproject.org/relay/" target="_blank" rel="noopener">community.torproject.org/relay</a>.</p></div></details>
   </div>
   <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-log"/></svg>Tor log</h3><div class="scroll" style="max-height:260px"><div id="tLog" class="logbox"></div></div></div>
 </section>
@@ -438,8 +679,9 @@ tbody tr:hover td{background:var(--code)}
     <p><b>Activity vs Live Log.</b> Activity lists each request the noise made and what happened on it. Live Log is everything the app says, including starts and stops, Tor's own messages and warnings.</p>
     <p><b>Getting started.</b> Everything already has the recommended setting. Press <b>Start</b>; the first action comes within seconds. Settings save themselves.</p>
     <p><b>Look like yourself.</b> Add the sites you really use on <b>My List</b>, then check the <b>ML</b> tab: it shows how easily your traffic can be told apart from the noise, and which settings help.</p>
-    <p><b>Tor (optional).</b> Off by default. With Tor on, legalPrivacy can visit .onion sites through its own private Tor, which it downloads, checks and starts for you. Many .onion sites are offline at any moment; those are skipped for a while, which is normal. Sending ordinary web noise through Tor is a separate switch, off by default and not recommended.</p>
-    <p><b>Contribute to Tor.</b> <code>legalprivacy relay gen</code> writes a middle-relay or bridge configuration; it never runs an exit.</p>
+    <p><b>Tor (optional).</b> Off by default. With Tor on, legalPrivacy can visit .onion sites through its own private Tor, which it downloads, checks and starts for you. Many .onion sites are offline at any moment; those are skipped for a while, which is normal. Ordinary web noise never goes through Tor; the Tor lane visits only .onion sites.</p>
+    <p><b>Contribute to Tor.</b> <code>legalprivacy relay gen</code> writes a middle-relay or bridge configuration; it never runs an exit. The Tor tab has two optional cards, both off by default: <b>Tor DNS</b> (Tor answers A, AAAA and PTR lookups on a local port; exit relays resolve the names, so it is slower and is a deliberate, narrow use of exits for DNS only) and <b>Contribute to Tor: run a relay</b> (a middle relay or bridge as a separate Tor program; start with Practice mode, which publishes nothing). A relay is not an exit and does not provide DNS.</p>
+    <p><b>Antivirus (optional).</b> The <b>Security</b> tab manages the ClamAV you installed yourself, offline-first. Only <code>freshclam</code>, the signature updater, ever contacts the internet, and only when you press Update and confirm. Scans use <code>clamscan</code> with this app's own signature folder, with the network removed where the system allows it (Linux) and the scanner watched for any connection everywhere; a connection marks the scan NOT OFFLINE and stops it. Nothing is ever deleted or moved except by your explicit Quarantine click.</p>
     <p class="small mute">The dashboard is reachable only from this computer (127.0.0.1) and needs the token in its address.</p>
   </div>
 
@@ -447,31 +689,7 @@ tbody tr:hover td{background:var(--code)}
     <p>legalPrivacy is named in homage to <a href="https://legalizingprivacy.substack.com" target="_blank" rel="noopener">Legalizing Privacy</a> by Amy Peikoff, writing about why and how to legalize privacy, using the principles of private property and freedom of contract. <a href="https://legalizingprivacy.substack.com/about" target="_blank" rel="noopener">About the blog</a> · <a href="https://legalizingprivacy.substack.com/archive" target="_blank" rel="noopener">Archive</a></p>
   </div>
 </section>
-</main>
 
-<!-- WIZARD -->
-<div id="wiz"><div class="wcard">
-  <div class="steps"><i class="on" id="ws1"></i><i id="ws2"></i><i id="ws3"></i></div>
-  <div id="w1">
-    <h2 style="margin-top:0">⚖️ Welcome! 1 of 3</h2><p><b>How much background noise?</b></p>
-    <label class="opt"><input type="radio" name="rmode" value="random" checked> <b>Randomized</b> <span class="mute">(recommended, default) — changes every hour, busier in the evening, some hours nearly silent, like a real person</span></label>
-    <label class="opt"><input type="radio" name="rmode" value="steady"> <b>Steady</b> <span class="mute">— about the same amount every hour</span></label>
-    <div class="row" style="margin-top:10px"><span>Less</span><input type="range" id="wLevel" min="1" max="10" step="1" value="5" style="flex:1"><span>More</span></div>
-    <div class="note small" id="wLevelInfo"></div>
-  </div>
-  <div id="w2" style="display:none">
-    <h2 style="margin-top:0">2 of 3</h2><p><b>Add Tor darknet (.onion) noise?</b></p>
-    <label class="opt t"><input type="radio" name="tor" value="off" checked> <b>No</b> <span class="mute">— regular internet only (default)</span></label>
-    <label class="opt t"><input type="radio" name="tor" value="onion"> <b>Yes — visit onion sites</b> <span class="mute">— fully automatic: legalPrivacy installs and runs its own private Tor for you</span></label>
-    <div class="note small">You can change this any time on the 🧅 Tor tab. Sending ordinary web traffic <i>through</i> Tor is a separate, advanced switch that stays off.</div>
-  </div>
-  <div id="w3" style="display:none">
-    <h2 style="margin-top:0">3 of 3</h2><p><b>Start automatically whenever you open legalPrivacy?</b></p>
-    <label class="opt"><input type="radio" name="auto" value="1" checked> <b>Yes</b> <span class="mute">— just double-click and it runs</span></label>
-    <label class="opt"><input type="radio" name="auto" value="0"> <b>No</b> <span class="mute">— I'll press Start myself</span></label>
-  </div>
-  <div class="row" style="justify-content:space-between;margin-top:16px"><button id="wBack">Back</button><button id="wNext" class="pri">Next</button></div>
-</div></div>
 <!-- MY LIST -->
 <section id="t-mylist" class="tab">
   <div class="card"><h3>My List</h3>
@@ -592,6 +810,53 @@ tbody tr:hover td{background:var(--code)}
   </div>
 </section>
 
+<!-- SECURITY (optional antivirus, offline-first) -->
+<section id="t-sec" class="tab">
+  <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-scan"/></svg>ClamAV on this computer <details class="why"><summary>ⓘ</summary><div>legalPrivacy never bundles ClamAV. It only runs the copy you installed (clamscan, freshclam, sigtool), found on your PATH or in the usual install folders. It makes no network calls of its own.</div></details></h3>
+    <div id="avTools"></div>
+    <div id="avInstall"></div>
+    <div id="avNotes"></div>
+    <div class="row"><button id="avDetect"><svg class="ic sm" aria-hidden="true"><use href="#i-refresh"/></svg>Detect again</button><a href="https://docs.clamav.net/" target="_blank" rel="noopener">ClamAV documentation (docs.clamav.net)</a></div>
+  </div>
+  <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-proof"/></svg>Stays offline <details class="why"><summary>ⓘ</summary><div>What contacts the internet, how that is prevented, and how it is checked.</div></details></h3>
+    <p class="small">Only <b>freshclam</b>, ClamAV's signature updater, is documented as contacting the internet: a DNS TXT check at <code>current.cvd.clamav.net</code>, then an HTTPS download from <code>database.clamav.net</code>. It runs <b>only</b> when you press Update. Scans use <code>clamscan</code> with this app's own signature folder, never freshclam and never the system's ClamAV settings.</p>
+    <div class="row"><span id="avIso" class="pill">Checking…</span><span id="avIsoTxt" class="small"></span></div>
+    <p class="small mute">On every system the scanner and anything it starts are watched about every 100 ms for any connection that is not to this computer itself, or for a DNS lookup helper. If one appears, the scan is marked <b>NOT OFFLINE</b> and the scanner is stopped. The Proof tab's “Is it working?” list shows the result of the last scan.</p>
+    <div class="row"><button id="avProbe"><svg class="ic sm" aria-hidden="true"><use href="#i-refresh"/></svg>Check isolation again</button></div>
+  </div>
+  <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-scan"/></svg>Signatures</h3>
+    <p class="small mute" id="avDbNote"></p>
+    <table><thead><tr><th>File</th><th>Version</th><th>Signatures</th><th>Size</th><th>Age</th></tr></thead><tbody id="avDb"></tbody></table>
+    <div class="note small" id="avDbEmpty" style="display:none">No signature files yet. Import .cvd/.cld files you downloaded yourself, or use Update.</div>
+    <div class="row" style="margin-top:8px"><button id="avUpdate"><svg class="ic sm" aria-hidden="true"><use href="#i-refresh"/></svg>Update signatures (contacts ClamAV's servers)</button></div>
+    <div class="small" style="margin:6px 0 2px"><b>Import offline:</b> paths of <code>main</code>, <code>daily</code> and <code>bytecode</code> files (.cvd or .cld) on this computer, one per line. Each is verified (sigtool must report a valid digital signature and clamscan must load it) before it is copied into the app's own folder; files that fail are rejected. Nothing is contacted.</div>
+    <textarea id="avImpPaths" rows="3" aria-label="Signature files to import, one path per line" placeholder="/home/me/Downloads/daily.cvd"></textarea>
+    <div class="row" style="margin-top:6px"><button id="avImport"><svg class="ic sm" aria-hidden="true"><use href="#i-dl"/></svg>Import signature files</button></div>
+    <div class="small" id="avUpdTxt"></div>
+  </div>
+  <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-scan"/></svg>Scan</h3>
+    <p class="small mute">Folders or files to scan, one path per line. Nothing is ever deleted, moved or changed by a scan.</p>
+    <textarea id="avPaths" rows="3" aria-label="Folders or files to scan, one path per line" placeholder="/home/me/Downloads"></textarea>
+    <div class="row" style="margin-top:6px"><button id="avScan" class="pri"><svg class="ic sm" aria-hidden="true"><use href="#i-play"/></svg>Start scan</button><button id="avStop"><svg class="ic sm" aria-hidden="true"><use href="#i-stop"/></svg>Stop</button><span id="avSpin" class="small mute"></span></div>
+    <div class="row"><span id="avVerdict" class="pill" style="white-space:normal">No scan yet</span><span id="avStatus" class="small mute"></span></div>
+    <table><thead><tr><th>Path</th><th>Signature</th><th>Size</th><th></th></tr></thead><tbody id="avRes"></tbody></table>
+    <div class="note small" id="avResEmpty">Nothing found yet. Infected files appear here after a scan.</div>
+  </div>
+  <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Self-test (EICAR)</h3>
+    <p class="small mute">Writes the standard, harmless EICAR antivirus test string to a temporary file, scans it with this app's signatures, shows whether it was detected, and deletes it. <b>Your own antivirus may react to that file.</b></p>
+    <div class="row"><button id="avSelf"><svg class="ic sm" aria-hidden="true"><use href="#i-play"/></svg>Run the self-test</button></div>
+    <div class="small" id="avSelfTxt"></div>
+  </div>
+  <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg>Quarantine</h3>
+    <table><thead><tr><th>Original place</th><th>Signature</th><th>When</th><th></th></tr></thead><tbody id="avQ"></tbody></table>
+    <div class="note small" id="avQEmpty">Nothing in quarantine.</div>
+  </div>
+  <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-log"/></svg>Antivirus log</h3>
+    <div class="logbox" id="avLog" style="max-height:200px;overflow:auto" role="log"></div>
+    <p class="small mute">The scanner's results, and freshclam's output while an update runs. Panic (hard) deletes the quarantine and scan results; your own files and the signature files stay.</p>
+  </div>
+</section>
+
 <section id="t-tools" class="tab">
   <div class="card"><h3>How much data will this use?</h3>
     <p class="small mute">A rough estimate from your current settings (amount, mix, real browser, low-data mode, active hours, cap). Real pages vary a lot.</p>
@@ -629,6 +894,30 @@ tbody tr:hover td{background:var(--code)}
     <div class="small mute" style="margin-top:6px">No log file is kept. The only file legalPrivacy writes is that config file.</div>
   </div>
 </section>
+</main>
+<!-- WIZARD -->
+<div id="wiz"><div class="wcard">
+  <div class="steps"><i class="on" id="ws1"></i><i id="ws2"></i><i id="ws3"></i></div>
+  <div id="w1">
+    <h2 style="margin-top:0">⚖️ Welcome! 1 of 3</h2><p><b>How much background noise?</b></p>
+    <label class="opt"><input type="radio" name="rmode" value="random" checked> <b>Randomized</b> <span class="mute">(recommended, default) — changes every hour, busier in the evening, some hours nearly silent, like a real person</span></label>
+    <label class="opt"><input type="radio" name="rmode" value="steady"> <b>Steady</b> <span class="mute">— about the same amount every hour</span></label>
+    <div class="row" style="margin-top:10px"><span>Less</span><input type="range" id="wLevel" min="1" max="10" step="1" value="5" style="flex:1"><span>More</span></div>
+    <div class="note small" id="wLevelInfo"></div>
+  </div>
+  <div id="w2" style="display:none">
+    <h2 style="margin-top:0">2 of 3</h2><p><b>Add Tor darknet (.onion) noise?</b></p>
+    <label class="opt t"><input type="radio" name="tor" value="off" checked> <b>No</b> <span class="mute">— regular internet only (default)</span></label>
+    <label class="opt t"><input type="radio" name="tor" value="onion"> <b>Yes — visit onion sites</b> <span class="mute">— fully automatic: legalPrivacy installs and runs its own private Tor for you</span></label>
+    <div class="note small">You can change this any time on the 🧅 Tor tab. Ordinary web noise never goes through Tor; Tor is used only for .onion sites.</div>
+  </div>
+  <div id="w3" style="display:none">
+    <h2 style="margin-top:0">3 of 3</h2><p><b>Start automatically whenever you open legalPrivacy?</b></p>
+    <label class="opt"><input type="radio" name="auto" value="1" checked> <b>Yes</b> <span class="mute">— just double-click and it runs</span></label>
+    <label class="opt"><input type="radio" name="auto" value="0"> <b>No</b> <span class="mute">— I'll press Start myself</span></label>
+  </div>
+  <div class="row" style="justify-content:space-between;margin-top:16px"><button id="wBack">Back</button><button id="wNext" class="pri">Next</button></div>
+</div></div>
 <div id="toast"></div>
 
 <script>
@@ -684,7 +973,9 @@ $('#bQuit').onclick=async()=>{if(confirm('Stop everything and quit legalPrivacy?
 ['tStart','tStop','tRestart','tNym','tInstall'].forEach(id=>$('#'+id).onclick=()=>act('/api/tor/'+{tStart:'start',tStop:'stop',tRestart:'restart',tNym:'newnym',tInstall:'install'}[id]));
 
 // ---------- polling
+let pollBusy=false;                                   // a slow answer must not stack up more requests behind it
 async function poll(){
+  if(pollBusy)return;pollBusy=true;
   try{
     S=await api('/api/state');
     if(S.log_epoch!==undefined&&S.log_epoch!==logEpoch){          // the app cleared its log: empty our copy too
@@ -697,6 +988,7 @@ async function poll(){
       const b=$('#errBadge');b.style.display=errCount?'':'none';b.textContent=errCount}
     render();
   }catch(e){$('#pRun').className='pill bad';$('#pRun').textContent='disconnected'}
+  finally{pollBusy=false}
 }
 setInterval(poll,1000);
 let pMap=null,pTimer=null;
@@ -705,10 +997,12 @@ async function pollTrace(){
   try{const d=await api('/api/browser/trace');
     $('#trHead').textContent=!d.running?'The noise browser isn\'t running right now.':(d.blocked?`${d.blocked} jump${d.blocked>1?'s':''} to other sites blocked since noise started.`:'No jumps to other sites so far.');
     $('#trList').innerHTML=d.items.map(n=>`<div><span class="mute">${new Date(n.ts*1000).toLocaleTimeString()}</span> tab ${n.tab} · <code>${esc(shortUrl(n.url))}</code> <span style="color:var(${n.why.startsWith('blocked')?'--warn':'--mute'})">${esc(n.why)}</span></div>`).join('')||'<span class="mute">Nothing yet.</span>'}catch(e){}}
+let proofBusy=false;
 async function pollProof(){
   if($('#t-proof').classList.contains('on'))pollTrace();
-  if(!proofOn())return;
-  try{const o=await api('/api/observe');renderProof(o)}catch(e){}
+  if(!proofOn()||proofBusy)return;
+  proofBusy=true;
+  try{const o=await api('/api/observe');renderProof(o)}catch(e){}finally{proofBusy=false}
 }
 // When the map has nothing to show, say why instead of staying blank.
 function mapWhyEmpty(o){
@@ -734,6 +1028,64 @@ function renderLeak(o){
   $('#lkRun').disabled=!!run;$('#lkRun').textContent=run?'Checking…':'Run checks';
   if(run)setTimeout(loadLeak,1200)}
 $('#lkRun').onclick=async()=>{await act('/api/leakcheck/run');loadLeak()};
+// ---------- Security: optional ClamAV, offline-first (see legalprivacy/av.py)
+let AV=null,avTimer=null;
+const avSize=n=>n==null?'':n>1073741824?(n/1073741824).toFixed(1)+' GB':n>1048576?(n/1048576).toFixed(1)+' MB':n>1024?(n/1024).toFixed(0)+' KB':n+' B';
+const avPaths=id=>$(id).value.split('\n').map(x=>x.trim()).filter(Boolean);
+const AV_UPDATE_CONFIRM="Update signatures now?\n\nThis is the ONLY thing in this feature that connects to the internet. It will:\n\n  1. look up a DNS TXT record at current.cvd.clamav.net, then\n  2. download signature files over HTTPS from database.clamav.net.\n\nIt runs ClamAV's own freshclam once, with a minimal generated config, into this app's own signature folder. Nothing else is contacted, and it never runs by itself.";
+async function loadAv(){try{renderAv(await api('/api/av'))}catch(e){toast(e.message,1)}}
+async function avAct(action,body){try{renderAv(await api('/api/av/'+action,body||{}))}catch(e){toast(e.message,1)}}
+function renderAv(o){
+  AV=o;const busy=o.busy;
+  $('#avTools').innerHTML=Object.entries(o.tools).map(([n,t])=>`<div class="row"><span class="pill ${t.path?'ok':''}">${esc(n)}</span>${t.path?`<code>${esc(t.path)}</code> <span class="small mute">${esc(t.version||(n==='freshclam'?'version not asked: only the Update button ever runs it':''))}${n==='clamdscan'?' (found, never used)':''}</span>`:'<span class="small mute">not found</span>'}</div>`).join('');
+  $('#avInstall').innerHTML=o.install?`<div class="note small warn"><b>ClamAV is not installed.</b><br>${o.install.lines.map(esc).join('<br>')}<br><a href="${esc(o.install.url)}" target="_blank" rel="noopener">docs.clamav.net</a></div>`:'';
+  $('#avNotes').innerHTML=(o.notes||[]).map(n=>`<div class="note small">${esc(n)}</div>`).join('');
+  const iso=o.isolation||{};$('#avIso').className='pill '+(iso.isolated?'ok':'warn');$('#avIso').textContent=iso.isolated?'Network removed':'Detection only';$('#avIsoTxt').textContent=iso.label||'';
+  $('#avDbNote').textContent="Signature folder (owned by this app; the system's ClamAV settings are never read or changed): "+o.db.dir;
+  $('#avDb').innerHTML=o.db.files.map(f=>`<tr><td>${esc(f.name)}</td><td>${esc(f.version||'')}</td><td>${esc(f.signatures||'')}</td><td>${avSize(f.size)}</td><td>${f.age_days<1?'today':Math.round(f.age_days)+' days old'}</td></tr>`).join('');
+  $('#avDbEmpty').style.display=o.db.files.length?'none':'';
+  $('#avUpdate').disabled=!o.can_update||!!busy;$('#avImport').disabled=!!busy;$('#avScan').disabled=!o.can_scan||!!busy;$('#avSelf').disabled=!o.can_scan||!!busy;$('#avStop').disabled=!['scan','selftest','update'].includes(busy);
+  const up=o.update||{},im=o.import||{};let ut='';
+  if(busy==='update')ut='Updating… (freshclam is running; its output is in the log below)';
+  else if(busy==='import')ut='Verifying the files…';
+  else if(im.when&&(!up.when||im.when>up.when))ut='Imported: '+esc((im.imported||[]).join(', ')||'nothing')+'.'+(im.rejected||[]).map(r=>'<br>Rejected '+esc(r.path)+': '+esc(r.reason)).join('');
+  else if(up.text)ut=esc(up.text);
+  $('#avUpdTxt').innerHTML=ut;
+  const last=o.last_scan,live=o.scan||{},pr=o.proof;
+  const shown=last;
+  let vt,vc;
+  if(busy==='scan'||busy==='selftest'){vt='Scanning…';vc='';$('#avStatus').textContent=`${live.found||0} found so far · ${live.elapsed||0} s · connections watched continuously (clamscan prints only infected files, so there is no per-file progress)`}
+  else{
+    if(!pr||pr.connections==null){vt='No scan yet';vc=''}
+    else if(pr.connections){vt='NOT OFFLINE: scanner connections: '+pr.connections;vc='bad'}
+    else{vt='Stayed offline: scanner connections: 0 ('+(pr.isolated?'network removed':'connections watched')+')';vc='ok'}
+    $('#avStatus').textContent=shown?[shown.verdict,(shown.infected||[]).length+' infected',shown.summary&&shown.summary.scanned?shown.summary.scanned+' files scanned':'',(shown.errors||[]).length?(shown.errors.length+(shown.more_errors||0))+' could not be read':'',shown.elapsed+' s',shown.not_offline?'details: '+(shown.connection_details||[]).join('; '):''].filter(Boolean).join(' · '):''}
+  $('#avVerdict').className='pill '+vc;$('#avVerdict').textContent=vt;$('#avSpin').innerHTML=busy?'<span class="spin">⟳</span> working…':'';
+  const inf=(last&&last.infected)||[];
+  $('#avRes').innerHTML=inf.slice(0,2000).map((i,k)=>`<tr><td class="url">${esc(i.path)}</td><td>${esc(i.signature)}</td><td>${avSize(i.size)}</td><td style="white-space:nowrap"><button data-k="${k}" data-do="copy">Copy path</button> <button data-k="${k}" data-do="quar"${busy?' disabled':''}>Quarantine…</button></td></tr>`).join('');
+  $('#avResEmpty').style.display=inf.length?'none':'';
+  const s=o.selftest||{};$('#avSelfTxt').textContent=busy==='selftest'?'Running the self-test…':(s.text||'');
+  const q=o.quarantine||[];
+  $('#avQ').innerHTML=q.map(x=>`<tr><td class="url">${esc(x.original)}</td><td>${esc(x.signature)}</td><td>${new Date(x.when*1000).toLocaleString()}</td><td style="white-space:nowrap"><button data-id="${esc(x.id)}" data-do="restore">Restore</button> <button data-id="${esc(x.id)}" data-do="del" class="dng">Delete permanently…</button></td></tr>`).join('');
+  $('#avQEmpty').style.display=q.length?'none':'';
+  const lb=$('#avLog'),stick=lb.scrollTop+lb.clientHeight>=lb.scrollHeight-8;
+  lb.innerHTML=(o.log||[]).map(l=>`<div class="${l.level==='warn'||l.level==='error'?l.level:''}">${esc(l.t)}  ${esc(l.text)}</div>`).join('');if(stick)lb.scrollTop=lb.scrollHeight;
+  clearTimeout(avTimer);if(busy&&$('#t-sec').classList.contains('on'))avTimer=setTimeout(loadAv,900)}
+$('#avDetect').onclick=()=>avAct('detect');
+$('#avProbe').onclick=()=>avAct('probe');
+$('#avUpdate').onclick=()=>{if(confirm(AV_UPDATE_CONFIRM))avAct('update',{confirmed:true})};
+$('#avImport').onclick=()=>{const p=avPaths('#avImpPaths');if(!p.length)return toast('Type the path of at least one .cvd or .cld file.',1);avAct('import',{paths:p})};
+$('#avScan').onclick=()=>{const p=avPaths('#avPaths');if(!p.length)return toast('Type at least one folder or file to scan.',1);avAct('scan',{paths:p})};
+$('#avStop').onclick=()=>avAct('stop');
+$('#avSelf').onclick=()=>{if(confirm('This writes the harmless EICAR test string to a temporary file and scans it. Your own antivirus may react to that file. Continue?'))avAct('selftest')};
+$('#avRes').onclick=async e=>{const b=e.target.closest('button');if(!b||!AV)return;const i=AV.last_scan.infected[+b.dataset.k];if(!i)return;
+  if(b.dataset.do==='copy'){try{await navigator.clipboard.writeText(i.path);toast('Path copied')}catch(x){window.prompt('Copy this path:',i.path)}}
+  else if(confirm("Move this file into legalPrivacy's quarantine folder?\n\n"+i.path+"\n\nIt is removed from where it is now and kept there, unreadable as a program, until you restore or delete it. You can restore it from the Quarantine list at any time."))avAct('quarantine',{path:i.path})};
+$('#avQ').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.do==='restore')avAct('restore',{id:b.dataset.id});
+  else if(confirm('Delete the selected quarantined file for good? This cannot be undone.'))avAct('delete',{id:b.dataset.id})};
+$$('#nav button').forEach(b=>{if(b.dataset.t==='sec')b.addEventListener('click',()=>loadAv())});
+
 function renderProof(o){
   $('#pObs').checked=o.enabled;
   $('#pHead').innerHTML=!o.available?'<span class="warnc">Connection watching isn\'t available on this computer (the psutil package is missing).</span>':
@@ -917,7 +1269,9 @@ function renderSpark(){
   const now=Date.now()/1000,bins=new Array(30).fill(0);
   hits.forEach(h=>{const a=Math.floor((now-h.ts)/60);if(a>=0&&a<30&&h.ok)bins[29-a]++});
   const mx=Math.max(1,...bins),w=300/30;
-  $('#spark').innerHTML=bins.map((v,i)=>`<rect x="${i*w+1}" y="${60-55*v/mx}" width="${w-2}" height="${55*v/mx}" fill="var(--acc)" rx="1"/>`).join('');
+  const tot=bins.reduce((a,b)=>a+b,0);
+  $('#spark').style.display=tot?'':'none';$('#sparkEmpty').hidden=!!tot;$('#sparkPeak').textContent=tot?'peak '+Math.max(...bins)+' / min':'';
+  $('#spark').innerHTML=`<line class="gl" x1="0" x2="300" y1="5" y2="5"/><line class="gl" x1="0" x2="300" y1="32.500" y2="32.500"/><line class="base" x1="0" x2="300" y1="59.500" y2="59.500"/>`+bins.map((v,i)=>`<rect x="${i*w+1}" y="${59-54*v/mx}" width="${w-2}" height="${54*v/mx}" fill="var(--acc)" rx="1"><title>${v} hit${v===1?'':'s'}, ${29-i} min ago</title></rect>`).join('');
 }
 // activity
 ['aLane','aEng','aErr','aQ'].forEach(id=>$('#'+id).oninput=renderAct);
@@ -998,6 +1352,7 @@ function renderTorStatus(){
   const t=S.tor;
   renderBridges(t);
   renderTorSelftest(t);
+  renderDns(t);
   $('#tState').textContent=({stopped:'Stopped',installing:'Installing…',starting:'Starting…',bootstrapping:'Connecting…',ready:'Ready 🧅',error:'Error'})[t.state]||t.state;
   $('#tBar').style.width=(t.state==='installing'?t.install_progress*100:t.bootstrap_pct)+'%';
   $('#tSum').textContent=(t.error?t.error:t.state==='installing'?'Downloading & verifying the official Tor bundle…':t.bootstrap_summary||'')+(t.hint?'  ⚠ '+t.hint:'');
@@ -1016,14 +1371,85 @@ function fillTor(force){
   $('#tSeeds').value=((c.onion_seeds&&c.onion_seeds.length)?c.onion_seeds:S.builtin_onion_seeds.map(b=>b.url)).join('\n');$('#tBridges').value=(c.bridges||[]).join('\n');
   (document.querySelector(`input[name=bmode][value=${c.bridge_mode||'off'}]`)||{}).checked=true;$('#bAuto').checked=c.bridge_auto!==false;
   $('#tBuiltin').innerHTML=S.builtin_onion_seeds.map(b=>`<div>${esc(b.name)}: <code>${esc(b.url)}</code></div>`).join('');
+  $('#dnsOn').checked=(c.dns_port||0)>0;$('#dnsLan').checked=!!c.dns_lan;fillDnsAddrs();showDns();
   dirty.tor=false;
 }
 $$('#t-tor input,#t-tor textarea').forEach(i=>i.oninput=()=>{dirty.tor=true;$('#tExt').style.display=$('#tManage').checked?'none':'flex';$('#tSaved').textContent='unsaved changes'});
 async function saveTor(auto){
-  try{await api('/api/config',{transports:{tor:{enabled:$('#tEnable').checked,onion:$('#tOnion').checked,manage:$('#tManage').checked,socks:$('#tSocks').value,control:$('#tCtl').value||null,onion_seeds:$('#tSeeds').value,bridges:$('#tBridges').value,bridge_mode:(document.querySelector('input[name=bmode]:checked')||{}).value||'off',bridge_auto:$('#bAuto').checked}}});
+  try{await api('/api/config',{transports:{tor:{enabled:$('#tEnable').checked,onion:$('#tOnion').checked,manage:$('#tManage').checked,socks:$('#tSocks').value,control:$('#tCtl').value||null,onion_seeds:$('#tSeeds').value,bridges:$('#tBridges').value,bridge_mode:(document.querySelector('input[name=bmode]:checked')||{}).value||'off',bridge_auto:$('#bAuto').checked,dns_port:$('#dnsOn').checked?((S&&S.profile.transports.tor.dns_port)||19053):0,dns_lan:$('#dnsOn').checked&&$('#dnsLan').checked&&!!$('#dnsAddr').value,dns_lan_addr:$('#dnsAddr').value||''}}});
     dirty.tor=false;$('#tSaved').textContent='Saved ✓ '+(S&&S.running?(needApply(),'(going live…)'):'');await poll()}catch(e){$('#tSaved').textContent='Not saved: '+e.message;if(!auto)toast(e.message,1)}
 }
 $('#tSave').onclick=()=>saveTor(false);
+// tor dns (optional)
+let dnsAddrs=null;
+async function loadDnsAddrs(){try{dnsAddrs=(await api('/api/tor/dns/addresses')).addresses}catch(e){dnsAddrs=[]}fillDnsAddrs()}
+function fillDnsAddrs(){
+  if(!S)return;const c=S.profile.transports.tor,sel=$('#dnsAddr'),cur=sel.value||c.dns_lan_addr||'',list=[...(dnsAddrs||[])];
+  if(c.dns_lan_addr&&!list.includes(c.dns_lan_addr))list.push(c.dns_lan_addr);
+  sel.innerHTML=list.map(a=>`<option ${a===cur?'selected':''}>${esc(a)}</option>`).join('')||'<option value="">no private address found</option>'}
+function showDns(){
+  const on=$('#dnsOn').checked,lan=$('#dnsLan').checked;
+  $('#dnsBody').style.display=on?'':'none';$('#dnsLanRow').style.display=on&&lan?'flex':'none';$('#dnsLanWarn').style.display=on&&lan?'':'none';
+  if(on&&lan&&dnsAddrs===null)loadDnsAddrs()}
+['dnsOn','dnsLan'].forEach(id=>$('#'+id).addEventListener('change',showDns));
+$('#dnsRefresh').onclick=loadDnsAddrs;
+function renderDns(t){
+  const d=t.dns||{},c=S.profile.transports.tor;
+  if(!d.on){$('#dnsKv').innerHTML='';return}
+  $('#dnsKv').innerHTML=[['Status',!d.managed?'Needs the Tor that legalPrivacy manages':d.ready?'Listening':'Waiting for Tor to be ready'],
+    ['Address',d.port?`<code>${esc(d.address)}:${d.port}</code> (UDP)`:'Chosen when Tor starts (loopback)'],
+    ['Reachable from',d.lan?`other devices on your network (${esc(d.address)})`:'this computer only']].map(([k,v])=>`<b>${k}</b><span>${v}</span>`).join('');
+  const r=t.dns_test,o=$('#dnsOut');
+  if(r&&!$('#dnsTest').disabled)o.innerHTML=r.ok?`<span class="ok">&#10003; ${esc(r.name)} answered ${esc((r.answers||[]).join(', '))}</span> in ${r.ms} ms`:`<span class="bad">&#10007; ${esc(r.error||'no answer')}</span>`;
+  $('#dnsNote').textContent=S.running||t.state!=='stopped'?'Changing these settings restarts the Tor that legalPrivacy manages.':''}
+$('#dnsTest').onclick=async()=>{
+  const b=$('#dnsTest');b.disabled=true;$('#dnsOut').textContent='Testing (the first lookup can take several seconds)…';
+  try{const r=await api('/api/tor/dns/test',{});S.tor.dns_test=r;b.disabled=false;renderDns(S.tor)}
+  catch(e){b.disabled=false;$('#dnsOut').innerHTML=`<span class="bad">${esc(e.message)}</span>`}};
+
+// relay (optional; never started automatically)
+$$('#relayCard input').forEach(x=>x.oninput=null);
+let R=null,rFilled=false,rBusy=false,rPrevT=null;
+const rCk=()=>$$('#rCheck [data-ck]');
+function rBody(){const ck={};rCk().forEach(x=>ck[x.dataset.ck]=x.checked);
+  return {mode:(document.querySelector('input[name=rmode]:checked')||{}).value||'middle',nickname:$('#rNick').value,bandwidth_mb:parseFloat($('#rBw').value),
+    or_port:parseInt($('#rPort').value,10),contact:$('#rContact').value,practice:$('#rPractice').checked,checklist:ck}}
+function rEstimate(){const mb=parseFloat($('#rBw').value);
+  $('#rEst').textContent=mb>0?`At full speed that is up to about ${Math.round(mb*86400*30/1000).toLocaleString()} GB a month each way (${Math.round(mb*86400*30/500).toLocaleString()} GB in total). A relay usually uses much less. Tor needs at least about 0.08 MBytes per second.`:''}
+function rGate(){
+  const st=R?R.status.state:'stopped',up=st==='starting'||st==='running',b=rBody(),all=rCk().every(x=>x.checked);
+  $('#rCheck').style.opacity=b.practice?.55:1;
+  let why='';
+  if(R&&!R.tor_found)why='Tor is not installed yet. Press Start Tor above once (it installs the official bundle), then come back.';
+  else if(!b.practice&&!all)why='Tick every item on the checklist to start a public relay, or keep practice mode on.';
+  $('#rStart').disabled=up||!!why||rBusy;$('#rStop').disabled=!up;
+  $('#rMsg').textContent=up?'':why;
+  $$('#relayCard input:not(#rAuto)').forEach(x=>x.disabled=up)}
+function rPreview(){clearTimeout(rPrevT);rPrevT=setTimeout(async()=>{
+  try{const r=await api('/api/relay/preview',rBody());if(r.error){$('#rTorrc').value='';$('#rMsg').textContent=r.error}else $('#rTorrc').value=r.torrc;rGate()}catch(e){}},350)}
+$$('#relayCard input').forEach(x=>{if(x.id==='rAuto')return;const h=()=>{rEstimate();rGate();rPreview()};x.addEventListener('input',h);x.addEventListener('change',h)});
+function renderRelay(){
+  if(!R)return;const st=R.status,s=R.settings,up=st.state==='starting'||st.state==='running';
+  if(!rFilled||up){
+    if(!rFilled||!$('#relayCard').contains(document.activeElement)){
+      (document.querySelector(`input[name=rmode][value=${s.mode}]`)||{}).checked=true;$('#rNick').value=s.nickname;$('#rBw').value=s.bandwidth_mb;
+      $('#rPort').value=s.or_port;$('#rContact').value=s.contact;$('#rPractice').checked=s.practice;$('#rTorrc').value=R.torrc;rEstimate()}
+    $('#rAuto').checked=s.autostart;rFilled=true}
+  const pill=$('#rPill');
+  const label={stopped:'Stopped',starting:'Starting…',running:st.practice?'Running (practice, not published)':st.reachable?'Running, reachable':'Running',error:'Error'}[st.state]||st.state;
+  pill.textContent=label;pill.className='pill '+({running:'ok',starting:'warn',error:'bad'}[st.state]||'');
+  $('#rNote').textContent=st.error||st.hint||(st.state==='running'&&st.fingerprint?`Relay fingerprint: ${st.fingerprint}`:'');
+  $('#rLog').innerHTML=st.log.length?st.log.map(l=>`<div class="${/\[err\]/.test(l)?'error':/\[warn\]/.test(l)?'warn':''}">${esc(l)}</div>`).join(''):'<span class="mute">Nothing yet. The relay\'s own log appears here once it starts.</span>';
+  const box=$('#rLog').parentElement;box.scrollTop=box.scrollHeight;rGate()}
+async function pollRelay(){if(!$('#t-tor').classList.contains('on'))return;try{R=await api('/api/relay');renderRelay()}catch(e){}}
+setInterval(pollRelay,2500);$$('#nav button').forEach(b=>{if(b.dataset.t==='tor')b.addEventListener('click',()=>setTimeout(pollRelay,0))});
+$('#rStart').onclick=async()=>{rBusy=true;rGate();
+  try{R=await api('/api/relay/start',rBody());toast('Relay starting…');renderRelay()}catch(e){toast(e.message,1);$('#rMsg').textContent=e.message}
+  finally{rBusy=false;rGate()}};
+$('#rStop').onclick=async()=>{try{R=await api('/api/relay/stop',{});renderRelay();toast('Relay stopped')}catch(e){toast(e.message,1)}};
+$('#rAuto').onchange=async()=>{try{await api('/api/config',{contribute:{relay:{autostart:$('#rAuto').checked}}});
+  toast($('#rAuto').checked?'The relay will start when the app opens (a public relay only after you have started it once with the checklist).':'The relay will not start by itself.')}
+  catch(e){toast(e.message,1);$('#rAuto').checked=false}};
 // my list
 let ML=null, mFound=[];
 function fmtTime(t){return new Date(t*1000).toLocaleString()}
@@ -1264,18 +1690,20 @@ function autoSave(root,fn,skip){let t=null;const h=e=>{const el=e.target;
   root.addEventListener('input',h);root.addEventListener('change',h)}
 autoSave($('#t-set'),()=>saveSettings(true),'#uaCard');
 autoSave($('#uaCard'),()=>saveUA(null,true),'#uSearch');
-autoSave($('#t-tor'),()=>saveTor(true),null);
+autoSave($('#t-tor'),()=>saveTor(true),'#relayCard');
 autoSave($('#t-mylist').querySelector('.card'),()=>mlChanged(),'#mAdd');
 // A mix that always adds up to 100%: one coloured bar, one slider per part. Moving a slider
 // takes (or gives) the difference from the other parts in proportion. 0% = that part is off.
 const MIXC=['#2f7d4f','#3b6fb6','#c27a1a','#8a4fb3','#b23a48','#2a9d9b','#7a7a2a','#5b5b8f','#a0522d'];
+function mixInk(hex){const n=parseInt(hex.slice(1),16),f=c=>{c/=255;return c<=.03928?c/12.92:Math.pow((c+.055)/1.055,2.4)},L=.2126*f(n>>16)+.7152*f(n>>8&255)+.0722*f(n&255);return (1.05)/(L+.05)>=4.5?'#fff':'#10141c'}
 function MixBar(root,items,onChange){
   let vals=items.map(i=>Math.max(0,+i.value||0));const t0=vals.reduce((a,b)=>a+b,0);
   vals=t0?vals.map(v=>100*v/t0):vals.map(()=>100/vals.length);
-  root.innerHTML=`<div class="mixbar">${items.map((it,k)=>`<span data-seg="${k}" title="${esc(it.label)}" style="background:${MIXC[k%MIXC.length]}"></span>`).join('')}</div>`+
-    items.map((it,k)=>`<div class="row"><span style="width:200px"><i class="dot" style="background:${MIXC[k%MIXC.length]}"></i>${esc(it.label)}</span><input type="range" min="0" max="100" step="1" data-mix="${k}" style="flex:1;max-width:260px"> <b class="small" data-mixp="${k}" style="min-width:40px"></b>${it.hint?` <span class="small mute">${esc(it.hint)}</span>`:''}</div>`).join('');
-  const paint=()=>items.forEach((_,k)=>{root.querySelector(`[data-seg="${k}"]`).style.width=vals[k]+'%';
-    root.querySelector(`[data-mix="${k}"]`).value=Math.round(vals[k]);root.querySelector(`[data-mixp="${k}"]`).textContent=(vals[k]<10&&vals[k]>0?(Math.round(vals[k]*10)/10):Math.round(vals[k]))+'%'});
+  root.innerHTML=`<div class="mixbar" role="img">${items.map((it,k)=>`<span data-seg="${k}" title="${esc(it.label)}" style="background:${MIXC[k%MIXC.length]};color:${mixInk(MIXC[k%MIXC.length])}"></span>`).join('')}</div>`+
+    items.map((it,k)=>`<div class="row mixrow"><span class="nm"><i class="dot s${k%5}" style="background:${MIXC[k%MIXC.length]}"></i>${esc(it.label)}</span><input type="range" min="0" max="100" step="1" data-mix="${k}" aria-label="${esc(it.label)} share of the mix"><b class="small pc" data-mixp="${k}"></b>${it.hint?`<span class="small mute hint">${esc(it.hint)}</span>`:''}</div>`).join('');
+  const pct=v=>(v<10&&v>0?(Math.round(v*10)/10):Math.round(v))+'%';
+  const paint=()=>{items.forEach((it,k)=>{const sg=root.querySelector(`[data-seg="${k}"]`);sg.textContent=vals[k]>=14?it.label+' '+pct(vals[k]):vals[k]>=6?pct(vals[k]):'';});root.querySelector('.mixbar').setAttribute('aria-label','Mix: '+items.map((it,k)=>it.label+' '+pct(vals[k])).join(', '));items.forEach((_,k)=>{root.querySelector(`[data-seg="${k}"]`).style.width=vals[k]+'%';
+    root.querySelector(`[data-mix="${k}"]`).value=Math.round(vals[k]);root.querySelector(`[data-mixp="${k}"]`).textContent=(vals[k]<10&&vals[k]>0?(Math.round(vals[k]*10)/10):Math.round(vals[k]))+'%'})};
   root.querySelectorAll('[data-mix]').forEach(el=>el.addEventListener('input',()=>{
     const k=+el.dataset.mix,v=Math.min(100,Math.max(0,+el.value)),left=100-v;
     const rest=vals.reduce((a,b,j)=>j===k?a:a+b,0),n=vals.length-1;
@@ -1448,6 +1876,91 @@ $('#wNext').onclick=async()=>{
   try{await api('/api/wizard',{rate_mode:v('rmode'),level:parseFloat($('#wLevel').value),tor:v('tor'),autostart:v('auto')==='1'});$('#wiz').classList.remove('on');dirty={set:false,tor:false};await api('/api/start',{});toast('Running! Watch it live on the Activity and Live Log tabs.');poll()}catch(e){toast(e.message,1)}
 };
 poll();
+</script>
+<script>
+/* UI enhancements (presentation only): theme toggle, slider fill, sticky offsets, loading state. */
+(()=>{
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const root=document.documentElement;
+const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+const mq=matchMedia('(prefers-color-scheme: dark)');
+const eff=()=>root.dataset.theme||(mq.matches?'dark':'light');
+function paintTheme(){const d=eff()==='dark',b=$('#bTheme');if(!b)return;b.querySelector('use').setAttribute('href',d?'#i-sun':'#i-moon');const l=d?'Switch to light theme':'Switch to dark theme';b.setAttribute('aria-label',l);b.title=l}
+$('#bTheme').addEventListener('click',()=>{const n=eff()==='dark'?'light':'dark';root.dataset.theme=n;store.set('lp_theme',n);paintTheme()});
+if(mq.addEventListener)mq.addEventListener('change',paintTheme);
+paintTheme();
+// slider: paint the filled part of the track (CSS reads --p)
+function syncRanges(){$$('input[type=range]').forEach(r=>{const lo=+r.min||0,hi=+r.max||100,v=(hi>lo?Math.min(100,Math.max(0,(r.value-lo)*100/(hi-lo))):0)+'%';if(r.style.getPropertyValue('--p')!==v)r.style.setProperty('--p',v)})}
+document.addEventListener('input',e=>{if(e.target.type==='range')syncRanges()},true);
+setInterval(()=>{if(!document.hidden)syncRanges()},400);syncRanges();
+// the sticky header and tab strip: tell CSS how tall they are so anchors and focus never hide under them
+const hd=$('header'),nv=$('nav');
+function sizes(){root.style.setProperty('--hdr-h',(getComputedStyle(hd).position==='sticky'?hd.offsetHeight:0)+'px');root.style.setProperty('--nav-h',nv.offsetHeight+'px')}
+sizes();addEventListener('resize',sizes);if(window.ResizeObserver){const ro=new ResizeObserver(sizes);ro.observe(hd);ro.observe(nv)}
+// skeleton shimmer until the first state arrives
+const run=$('#pRun'),done=()=>document.body.classList.remove('loading');
+if(run)new MutationObserver(()=>{if(run.textContent.trim()!=='…')done()}).observe(run,{childList:true,characterData:true,subtree:true});
+setTimeout(done,6000);
+})();
+
+/* Accessibility layer (WCAG 2.2 AA): tabs pattern, headings, live regions, labels, keyboard access, validation. */
+(()=>{
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+// 1. tabs: tablist / tab / tabpanel with a roving tabindex and arrow-key navigation
+const nav=$('nav'),tabs=$$('#nav button[data-t]');
+nav.setAttribute('role','tablist');nav.setAttribute('aria-label','Sections');nav.setAttribute('aria-orientation','horizontal');
+tabs.forEach(b=>{const t=b.dataset.t,p=$('#t-'+t);b.id='tab-'+t;b.setAttribute('role','tab');b.setAttribute('aria-controls','t-'+t);b.setAttribute('aria-label',b.title||b.textContent.trim());
+  if(p){p.setAttribute('role','tabpanel');p.setAttribute('aria-labelledby',b.id);p.setAttribute('tabindex','0');
+    const h=document.createElement('h2');h.className='sr';h.textContent=b.title||b.textContent.trim();p.insertBefore(h,p.firstChild)}});
+function syncTabs(){tabs.forEach(b=>{const on=b.classList.contains('on');b.setAttribute('aria-selected',on?'true':'false');b.tabIndex=on?0:-1})}
+syncTabs();new MutationObserver(syncTabs).observe(nav,{attributes:true,attributeFilter:['class'],subtree:true});
+nav.addEventListener('keydown',e=>{const i=tabs.indexOf(document.activeElement);if(i<0)return;
+  const k={ArrowRight:i+1,ArrowLeft:i-1,Home:0,End:tabs.length-1}[e.key];if(k===undefined)return;
+  e.preventDefault();const n=tabs[(k+tabs.length)%tabs.length];n.focus();n.click();n.scrollIntoView({block:'nearest',inline:'nearest'})});
+// 2. live regions: the apply strip and toasts are announced politely
+const live=document.createElement('div');live.id='srLive';live.className='sr';live.setAttribute('role','status');live.setAttribute('aria-live','polite');live.setAttribute('aria-atomic','true');document.body.appendChild(live);
+let lastSaid='';const say=t=>{t=(t||'').replace(/\s+/g,' ').trim();if(t&&t!==lastSaid){lastSaid=t;live.textContent='';setTimeout(()=>{live.textContent=t},60)}};
+const am=$('#applyMsg'),ts=$('#toast');
+if(am)new MutationObserver(()=>say(am.textContent)).observe(am,{childList:true,characterData:true,subtree:true});
+if(ts)new MutationObserver(()=>say(ts.textContent)).observe(ts,{childList:true,characterData:true,subtree:true});
+// 3. names for controls that only have a placeholder or a nearby caption
+const named={aLane:'Lane',aEng:'Engine',aErr:'Errors only',aQ:'Filter by URL',lLevel:'Log level',lQ:'Search the log',lFollow:'Follow new lines',sLevel:'How much noise',sRand:'How random',lDl:'Download the log'};
+function label(el){if(el.labels&&el.labels.length||el.getAttribute('aria-label')||el.getAttribute('aria-labelledby'))return;
+  let n=named[el.id]||el.getAttribute('placeholder')||el.title;
+  if(!n){let p=el.previousSibling;while(p&&!(p.textContent||'').trim())p=p.previousSibling;n=p&&(p.textContent||'').trim().slice(0,60)}
+  if(!n){const r=el.closest('.row,label,div');n=r&&(r.textContent||'').trim().split('\n')[0].slice(0,60)}
+  if(n)el.setAttribute('aria-label',n)}
+$$('input:not([type=hidden]),select,textarea').forEach(label);
+new MutationObserver(m=>m.forEach(r=>r.addedNodes.forEach(n=>{if(n.nodeType!==1)return;[...(n.matches('input,select,textarea')?[n]:[]),...n.querySelectorAll('input,select,textarea')].forEach(label);n.querySelectorAll('details.why>summary').forEach(whyLabel)}))).observe(document.body,{childList:true,subtree:true});
+function whyLabel(s){if(!s.getAttribute('aria-label'))s.setAttribute('aria-label','More information')}
+$$('details.why>summary').forEach(whyLabel);
+$$('thead th').forEach(th=>th.setAttribute('scope','col'));
+// 4. clickable chips and table rows work from the keyboard too
+function chipSync(){$$('#lChips .chip').forEach(c=>{c.setAttribute('role','button');c.tabIndex=0;c.setAttribute('aria-pressed',c.classList.contains('off')?'false':'true')})}
+const chips=$('#lChips');if(chips){new MutationObserver(chipSync).observe(chips,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});chips.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.classList.contains('chip')){e.preventDefault();e.target.click()}})}
+const ab=$('#aBody');if(ab){new MutationObserver(()=>$$('#aBody tr').forEach(r=>{if(r.tabIndex!==0)r.tabIndex=0})).observe(ab,{childList:true});
+  ab.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.tagName==='TR'){e.preventDefault();e.target.click()}})}
+// 5. empty states for the two long lists
+function emptyState(src,after,id,title,text,count){const d=document.createElement('div');d.id=id;d.className='empty';d.hidden=true;d.innerHTML='<svg class="ic" aria-hidden="true"><use href="#i-act"/></svg><b></b><span></span>';d.children[1].textContent=title;d.children[2].textContent=text;after.after(d);
+  const f=()=>{d.hidden=count()>0};new MutationObserver(f).observe(src,{childList:true});f()}
+if(ab)emptyState(ab,ab.closest('.scroll'),'aEmpty','Nothing to show yet','Hits appear here as the noise runs. Change the filters above if you expect to see some.',()=>ab.children.length);
+const lb=$('#lBox');if(lb)emptyState(lb,lb.closest('.scroll'),'lEmpty','The log is empty','Events from the app, the scheduler and Tor show up here as they happen.',()=>lb.children.length);
+// 6. inline validation for number fields (never blocks typing; says what is wrong, in text)
+document.addEventListener('input',e=>{const el=e.target;if(!el||el.type!=='number')return;
+  let m=el.nextElementSibling&&el.nextElementSibling.classList&&el.nextElementSibling.classList.contains('fielderr')?el.nextElementSibling:null;
+  if(el.validity&&!el.validity.valid&&el.value!==''){const lo=el.min,hi=el.max,msg=el.validity.badInput?'Enter a number.':(lo!==''&&hi!==''?`Enter a number from ${lo} to ${hi}.`:'This value is not allowed.');
+    el.setAttribute('aria-invalid','true');if(!m){m=document.createElement('span');m.className='fielderr';m.setAttribute('role','alert');el.after(m)}m.textContent=msg}
+  else{el.removeAttribute('aria-invalid');if(m)m.remove()}},true);
+// 7. the welcome wizard is a modal dialog: label it, move focus in, keep Tab inside, hide the page behind it
+const wiz=$('#wiz');
+if(wiz){wiz.setAttribute('role','dialog');wiz.setAttribute('aria-modal','true');const h=wiz.querySelector('h2');if(h){h.id=h.id||'wizTitle';wiz.setAttribute('aria-labelledby',h.id)}
+  let back=null;const behind=()=>[$('header'),nav,$('main')].filter(Boolean);
+  const focusables=()=>$$('#wiz button,#wiz input,#wiz select,#wiz textarea,#wiz [href]').filter(x=>!x.disabled&&x.offsetParent!==null);
+  new MutationObserver(()=>{const open=wiz.classList.contains('on');behind().forEach(x=>open?x.setAttribute('inert',''):x.removeAttribute('inert'));
+    if(open){back=document.activeElement;setTimeout(()=>{const f=focusables()[0];f&&f.focus()},30)}else if(back&&back.focus){back.focus();back=null}}).observe(wiz,{attributes:true,attributeFilter:['class']});
+  wiz.addEventListener('keydown',e=>{if(e.key!=='Tab')return;const f=focusables();if(!f.length)return;const a=f[0],z=f[f.length-1];
+    if(e.shiftKey&&document.activeElement===a){e.preventDefault();z.focus()}else if(!e.shiftKey&&document.activeElement===z){e.preventDefault();a.focus()}})}
+})();
 </script>
 <!--NETMAP-->
 </body>

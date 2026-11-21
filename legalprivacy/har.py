@@ -22,6 +22,7 @@ from pathlib import Path
 MAX_BYTES = 50 * 1024 * 1024
 MAX_ENTRIES = 500_000
 TOP_HOSTS = 50
+MAX_SPAN_DAYS = 400
 MAX_MINUTES = 200_000                       # keeps the saved file small even for odd recordings
 
 _TS = re.compile(r"^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:[.,](\d+))?)?\s*(Z|[+-]\d{2}(?::?\d{2})?)?$")
@@ -90,7 +91,7 @@ def parse_har(source, denylist: set[str] | None = None) -> dict:
             raise HarError("The file is empty.")
         try:
             source = json.loads(source)
-        except ValueError:
+        except (ValueError, RecursionError):
             raise HarError("That doesn't look like a HAR file: it isn't valid JSON (a partly saved or "
                            "cut-off file will do this). Export it again from the Network tab.") from None
     log = source.get("log") if isinstance(source, dict) else None
@@ -126,6 +127,9 @@ def parse_har(source, denylist: set[str] | None = None) -> dict:
                        "Make sure the Network tab was recording while you browsed.")
     if len(per_min) > MAX_MINUTES:
         raise HarError("That recording spans too many separate minutes. Record a shorter session.")
+    if last - first > MAX_SPAN_DAYS * 86400:        # also keeps the per-minute baseline table a sane size
+        raise HarError(f"That recording spans more than {MAX_SPAN_DAYS} days between its first and last "
+                       "request, which a normal browsing session never does. Record a shorter session.")
     tops = [[h, n] for h, n in totals.most_common() if not denylist or _ok(h, denylist)][:TOP_HOSTS]
     return {"entries": used, "skipped": skipped, "first": first, "last": last,
             "minutes": {mn: [v[0], len(v[1])] for mn, v in per_min.items()}, "top_hosts": tops}

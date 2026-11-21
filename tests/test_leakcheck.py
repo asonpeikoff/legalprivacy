@@ -1,6 +1,7 @@
-import os, tempfile
+import os
+import tempfile
 from legalprivacy import leakcheck as L
-from legalprivacy.config import Profile, apply_overrides, ConfigError
+from legalprivacy.config import ConfigError
 from legalprivacy.controller import Controller
 
 

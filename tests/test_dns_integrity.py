@@ -1,4 +1,5 @@
-import random, struct
+import random
+import struct
 from legalprivacy import dnsplan as D
 
 

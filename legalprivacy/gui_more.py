@@ -4,13 +4,13 @@ from __future__ import annotations
 import time
 import tkinter as tk
 import webbrowser
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, ttk
 
 from . import gui_fields as F
 from . import gui_logic as L
 from .gui_base import Tab
 from .gui_charts import BaselineChart, Chart
-from .gui_theme import Banner, Card, ScrollFrame, Sparkline, autowrap, pill, set_pill, tip
+from .gui_theme import Card, ScrollFrame, Sparkline, autowrap, pill, tip
 
 GAP = 12
 BLOG = "https://legalizingprivacy.substack.com"
@@ -552,8 +552,7 @@ class ToolsTab(Tab):
     def _rows(self, out, rows: list[tuple]) -> None:
         for w in out.winfo_children():
             w.destroy()
-        p = self.app.pal
-        for i, (tone, name, detail, advice) in enumerate(rows):
+        for tone, name, detail, advice in rows:
             row = ttk.Frame(out, style="CardBody.TFrame")
             row.pack(fill="x", pady=3)
             pl = pill(row, name, tone)
@@ -661,7 +660,17 @@ class HelpTab(Tab):
                                     "Tor, which it downloads, checks and starts for you. Many .onion sites are offline at any "
                                     "moment; those are skipped for a while, which is normal."),
                 ("Contribute to Tor.", "“legalprivacy relay gen” writes a middle-relay or bridge configuration; it never runs "
-                                       "an exit."),
+                                       "an exit. The Tor tab has two optional cards, both off by default: Tor DNS (Tor answers "
+                                       "A, AAAA and PTR lookups on a local port; exit relays resolve the names, so it is slower "
+                                       "and is a deliberate, narrow use of exits for DNS only) and Contribute to Tor: run a "
+                                       "relay (a middle relay or bridge as a separate Tor program; start with Practice mode, "
+                                       "which publishes nothing). A relay is not an exit and does not provide DNS."),
+                ("Antivirus (optional).", "The Security tab manages the ClamAV you installed yourself, offline-first. Only "
+                                          "freshclam, the signature updater, ever contacts the internet, and only when you press "
+                                          "Update and confirm. Scans use clamscan with this app's own signature folder, with "
+                                          "the network removed where the system allows (Linux) and the scanner watched for any "
+                                          "connection everywhere; a connection marks the scan NOT OFFLINE and stops it. Nothing "
+                                          "is ever deleted or moved except by your explicit Quarantine click."),
                 ("Keyboard.", "F5 Start, F6 Pause or Resume, F7 Stop, Ctrl+1 to Ctrl+9 jump between tabs, Ctrl+Q quit. Tab and "
                               "Shift+Tab move between controls; Space presses a button.")):
             lb = ttk.Label(c.body, text=(head + " " if head else "") + text, style="Card.TLabel", justify="left")

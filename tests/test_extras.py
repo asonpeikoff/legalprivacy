@@ -358,7 +358,7 @@ def test_data_scientist_persona_is_followed_mostly_not_perfectly():
 
 
 def test_popular_data_science_sites_come_up_more_and_real_searches_are_used():
-    from legalprivacy.interests import CATEGORIES, Persona, real_queries
+    from legalprivacy.interests import Persona, real_queries
     rng = random.Random(5)
     p = Persona(rng, "Data scientist")
     picks = [p.site() for _ in range(6000)]

@@ -8,15 +8,18 @@ the 2016 Java prototype lives on in `legacy-src/`.
 
 legalPrivacy v2 generates realistic, privacy-preserving web noise so that
 mass bulk analysis of any one person's browsing is less useful. It mixes
-three engine families over two transports, with per-identity consistent
-fingerprints and human-cadence pacing.
+engine families (search, crawl, DNS, optional package installs and optional
+`.onion` visits) over two transports (clearnet and an optional private Tor),
+with per-identity consistent fingerprints and human-cadence pacing. Ordinary
+web noise and DNS never go through Tor; the Tor lane visits only `.onion`
+sites.
 
 ## Concept — what a "job" is
 
 A **job** is one round of noise-by-an-identity:
 
 ```
-identity = (fingerprint, tor-or-clearnet circuit, timing persona)
+identity = (fingerprint, clearnet proxy or Tor circuit, timing persona)
 job      = pick engine → pick target(s) → hit with pacing & retries → settle
 ```
 
@@ -28,11 +31,16 @@ no periodic signature.
 ## Interface
 
 ```
+legalprivacy ui [--no-browser] [--port N]          # the local dashboard (same as legalprivacy-launch)
 legalprivacy run [--profile PROFILE] [--once] [--dry-run] [--verbose]
 legalprivacy doctor [--profile PROFILE]
+legalprivacy tor status|start|install|newnym
 legalprivacy relay gen --bandwidth 5Mbit --nickname mylegalprivacy [--bridge]
-legalprivacy relay install --config OUT --restart-tor
+legalprivacy relay gen-client [--type snowflake|obfs4] | bridges | doctor
 ```
+
+The dashboard (`legalprivacy-launch`), the native Tk window (`legalprivacy-gui`) and the optional web-view
+window (`legalprivacy-desktop`) all drive the same `Controller`; settings save and apply live.
 
 Profile YAML reference:
 
@@ -61,7 +69,7 @@ profile:
     clearnet:
       enabled: true
       proxy: null                 # or "http://user:pass@proxy:8080", socks5://...
-    tor:
+    tor:                          # optional; the Tor lane carries only .onion visits
       enabled: true
       socks: 127.0.0.1:9050
       control: 127.0.0.1:9051     # optional, enables new-circuit control
@@ -88,23 +96,28 @@ profile:
   circuits/lifetime across the run.
 - **Transport split**: engines emit neutral `Target` objects; transports own
   connection, IP diversity, and failure semantics. Tor lane forces absolute
-  isolation between identities; clearnet lane rotates proxy pool entries.
+  isolation between identities; the clearnet transport can use a proxy (and
+  keeps a health-checked proxy pool when given one).
 - **Pacing**: lognormal inter-hit delays with fast/slow persona multipliers,
   burst suppression, exponential backoff on 403/429/timeouts, soft budget
   floors so the schedule always finishes.
-- **Crafted DNS packets** on clearnet (raw UDP, stdlib only), DoH-over-Tor on
-  the tor lane (arbitrary UDP user queries cannot traverse Tor circuits).
+- **Crafted DNS packets** on clearnet (raw UDP, stdlib only) to your normal
+  resolver and/or a resolver table, with integrity checks. There is no DNS noise
+  over Tor: arbitrary UDP queries cannot traverse Tor circuits, so the Tor lane
+  only visits `.onion` sites (which need no DNS).
 
 ## Tor vs clearnet — separate logic on purpose
 
-- Tor lane: everything through one local SOCKS daemon; identities get *fresh
-  circuits* (SOCKS5 user/pass isolation or `NEWNYM` via control port), no
-  cookie/DNS bleed-through, no HTTP keep-alive across identities. Absolute
-  DNS: any host resolution is remote-resolved by the circuit — the local
-  resolver never sees a query.
-- Clearnet lane: direct or pooled出 proxies; identities bound to a proxy +
+- Tor lane: only `.onion` sites, through one local SOCKS daemon; identities
+  get *fresh circuits* (SOCKS5 user/pass isolation or `NEWNYM` via control
+  port), no cookie/DNS bleed-through, no HTTP keep-alive across identities.
+  Host names are resolved remotely by the circuit, so the local resolver never
+  sees a query. Ordinary web noise is never routed through Tor.
+- Clearnet lane: direct or through a proxy; identities bound to a proxy +
   UA + language for a lifetime; connect timeouts, retry dimming, and
-  proxy-health tracking so a dead proxy dims instead of erroring a lane.
+  proxy-health tracking so a dead proxy dims instead of erroring a lane. A
+  real browser (Chrome, Edge, Brave or Chromium) is used when installed, with
+  plain HTTP as the other clearnet transport.
 
 ## Community contribution — relay, NEVER an exit
 

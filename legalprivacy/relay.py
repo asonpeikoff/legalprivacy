@@ -11,6 +11,7 @@ path to an exit relay here.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 TORRC_HEADER = """\
@@ -33,6 +34,7 @@ class RelaySpec:
     or_port: int = 9001
     dir_port: int = 9030
     socks_policy: str = "reject *:*"
+    practice: bool = False            # True: ORPort on loopback only, nothing published (safe to try)
 
     def validate(self) -> None:
         if self.mode not in ("middle", "bridge"):
@@ -47,12 +49,26 @@ class RelaySpec:
             raise RelayConfigError("or_port and dir_port must not be identical")
         if not (1 <= len(self.nickname) <= 19):
             raise RelayConfigError("nickname must be 1-19 chars, letters/digits")
-        if not all(c.isalnum() for c in self.nickname):
+        if not (self.nickname.isascii() and all(c.isalnum() for c in self.nickname)):
             raise RelayConfigError("nickname must be alphanumeric")
+        # these two are written into the torrc: no line breaks, so they can never add another setting
+        if self.contact and any(c in self.contact for c in "\r\n\0"):
+            raise RelayConfigError("contact must be a single line")
+        if not re.fullmatch(r"[0-9]+(?:\.[0-9]+)? ?[A-Za-z]*", self.bandwidth_rate or ""):
+            raise RelayConfigError("bandwidth must look like 5Mbit or 500KBytes")
 
 
-def generate_torrc(spec: RelaySpec) -> str:
-    """Emit a non-exit relay torrc. Bridges get bridge-specific lines."""
+def _safe_path(path: str) -> str:
+    if any(c in path for c in "\r\n\0\""):
+        raise RelayConfigError("data directory path must be a single line without quotes")
+    return path.replace("\\", "/")
+
+
+def generate_torrc(spec: RelaySpec, data_dir: str | None = None) -> str:
+    """Emit a non-exit relay torrc. Bridges get bridge-specific lines.
+
+    data_dir (optional) adds a DataDirectory and logging to stdout, for a relay the app runs itself.
+    spec.practice binds the ORPort to loopback and publishes nothing."""
     spec.validate()
     lines = [
         TORRC_HEADER.format(mode=spec.mode).rstrip(),
@@ -62,27 +78,31 @@ def generate_torrc(spec: RelaySpec) -> str:
     if spec.contact:
         lines.append(f"ContactInfo {spec.contact}")
     dir_port_line = "DirPort 0" if spec.mode == "bridge" else f"DirPort {spec.dir_port}"
+    if spec.practice:
+        dir_port_line = "DirPort 0"
     lines += [
         f"RelayBandwidthRate {spec.bandwidth_rate}",
         f"RelayBandwidthBurst {spec.bandwidth_rate}",
-        f"ORPort {spec.or_port}",
+        f"ORPort 127.0.0.1:{spec.or_port}" if spec.practice else f"ORPort {spec.or_port}",
         dir_port_line,
         "SocksPort 0",
+        "ExitRelay 0",
         "ExitPolicy reject *:*",
         f"SocksPolicy {spec.socks_policy}",
-        "",
-        "# Safety: publish reachable, non-exit relay",
-        "AssumeReachable 0",
     ]
+    if data_dir:
+        lines += [f'DataDirectory "{_safe_path(data_dir)}"', "Log notice stdout"]
+    if spec.practice:
+        lines += ["", "# Practice mode: loopback only, nothing is published, no one can connect"]
+    else:
+        lines += ["", "# Safety: publish reachable, non-exit relay", "AssumeReachable 0"]
     if spec.mode == "bridge":
-        lines += [
-            "",
-            "# Bridge mode: no descriptor publication to the main directory",
-            "BridgeRelay 1",
-            "PublishServerDescriptor bridge",
-        ]
+        lines += ["", "# Bridge mode: no descriptor publication to the main directory", "BridgeRelay 1"]
+        lines.append("PublishServerDescriptor 0" if spec.practice else "PublishServerDescriptor bridge")
     else:
         lines += ["", "BridgeRelay 0"]
+        if spec.practice:
+            lines.append("PublishServerDescriptor 0")
     # final guard: nothing may enable exiting after our policy line
     lines += ["", "# pinned: this relay exits nothing", "ExitPolicy reject6 *:*"]
     return "\n".join(lines) + "\n"

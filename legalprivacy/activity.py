@@ -29,6 +29,13 @@ def _in_active(h: int, a: int, b: int) -> bool:
     return (a <= h < b) if a < b else (h >= a or h < b) if a > b else True
 
 
+def _local_hour_start(t: float) -> int:
+    """Start (epoch seconds) of the local clock hour containing t. Not `t // 3600 * 3600`: in zones with a
+    30- or 45-minute UTC offset (India, Nepal...) that would cut every local hour in two."""
+    lt = time.localtime(t)
+    return int(t) - lt.tm_min * 60 - lt.tm_sec
+
+
 def intended(rate: RateConfig, search_share: float, active_hours: bool = False, a: int = 8, b: int = 22,
              persona: str = "", days: int = 120, seed: int = 11) -> dict:
     """Expected requests per hour of the day: {"p10","p50","p90","mean": [24 floats], "verdict", ...}."""
@@ -88,7 +95,7 @@ def session(timeline: list[dict], plan: dict, running: bool, step: int = 10) -> 
     # judge whole local hours in which the noise was on for at least 30 minutes
     by_hour: dict[int, list] = {}
     for r in timeline:
-        by_hour.setdefault(r["t"] // 3600 * 3600, []).append(r)
+        by_hour.setdefault(_local_hour_start(r["t"]), []).append(r)
     flags = []
     for t0, rs in sorted(by_hour.items()):
         on_min = sum(1 for r in rs if r["on"])

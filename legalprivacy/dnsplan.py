@@ -98,13 +98,13 @@ def answers_a(resp: bytes) -> list[str]:
         return []
 
 
-def _ask(ip: str, name: str, timeout: float = 2.0) -> bytes | None:
+def _ask(ip: str, name: str, timeout: float = 2.0, port: int = 53) -> bytes | None:
     fam = socket.AF_INET6 if ":" in ip else socket.AF_INET
     s = socket.socket(fam, socket.SOCK_DGRAM)
     s.settimeout(timeout)
     qid = random.randint(0, 0xFFFF)
     try:
-        s.sendto(_query(name, qid), (ip, 53))
+        s.sendto(_query(name, qid), (ip, port))
         while True:
             data, addr = s.recvfrom(1500)
             if addr[0] == ip and len(data) >= 12 and struct.unpack(">H", data[:2])[0] == qid:

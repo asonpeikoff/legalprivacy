@@ -21,9 +21,9 @@ import sys
 import threading
 import time
 import urllib.parse
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
+from collections.abc import Callable
 
 # After a sign-in page, robot check or 429 the account's signed-in visits pause for a RANDOM, escalating
 # while (log-uniform, so there is no fixed length to spot): 3-12 h the first time, 12-36 h if it happens again
@@ -223,15 +223,8 @@ def _write_private(path: Path, text: str) -> None:
         path.parent.chmod(0o700)
     except OSError:
         pass
-    tmp = path.with_name(f"{path.name}.{threading.get_ident()}.tmp")
-    fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w", encoding="utf-8") as fh:
-        fh.write(text)
-    try:
-        tmp.chmod(0o600)
-    except OSError:
-        pass
-    os.replace(tmp, path)
+    from .paths import write_private
+    write_private(path, text)
 
 
 def looks_signed_in(provider: str, state: dict | None, now: float | None = None) -> bool:
@@ -320,7 +313,7 @@ def _real_visit(provider: str, url: str, state_path: str, proxy: str | None, sto
     little, read nothing but the address, title and the start of the text. Needs a real browser; not
     exercised by the unit tests."""
     from playwright.sync_api import sync_playwright
-    from .browser import PlaywrightActuator, find_browser
+    from .browser import find_browser
     from .humanize import HumanDriver
     exe = executable or find_browser()
     if not exe:

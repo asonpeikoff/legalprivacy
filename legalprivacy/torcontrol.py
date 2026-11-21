@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import binascii
-import os
 import re
 import socket
 from .paths import getenv
@@ -37,7 +36,7 @@ class TorControl:
         self._f = None
 
     # -- lifecycle ---------------------------------------------------------
-    def __enter__(self) -> "TorControl":
+    def __enter__(self) -> TorControl:
         self.connect()
         return self
 
@@ -113,6 +112,8 @@ class TorControl:
             if "NULL" in methods:
                 self.cmd("AUTHENTICATE")
             elif "HASHEDPASSWORD" in methods and self.password:
+                if any(c in self.password for c in "\r\n\0"):
+                    raise TorControlError("the control password must not contain line breaks")
                 self.cmd('AUTHENTICATE "%s"' % self.password.replace("\\", "\\\\").replace('"', '\\"'))
             elif methods & {"COOKIE", "SAFECOOKIE"}:
                 path = self.cookie_path or cookiefile
@@ -125,6 +126,8 @@ class TorControl:
                     raise TorControlError("cookie auth required but no cookie file found "
                                           "(set LEGALPRIVACY_TOR_CONTROL_COOKIE)")
                 data = Path(path).expanduser().read_bytes()
+                if len(data) != 32:      # a real cookie is exactly 32 bytes; never send some other file's contents
+                    raise TorControlError("the auth cookie file isn't a Tor control cookie (expected 32 bytes)")
                 self.cmd("AUTHENTICATE " + binascii.hexlify(data).decode())
             else:
                 raise TorControlError(f"no usable auth method (server offers {sorted(methods)})")
@@ -156,7 +159,7 @@ class TorControl:
                 continue
             circ = {"id": parts[0], "status": parts[1], "path": [], "purpose": "", "flags": ""}
             idx = 2
-            if len(parts) > 2 and not "=" in parts[2]:
+            if len(parts) > 2 and "=" not in parts[2]:
                 circ["path"] = [h.split("~")[-1] if "~" in h else h.lstrip("$")[:8]
                                 for h in parts[2].split(",")]
                 idx = 3

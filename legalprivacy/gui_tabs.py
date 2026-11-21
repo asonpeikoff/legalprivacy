@@ -13,7 +13,7 @@ from . import gui_fields as F
 from . import gui_logic as L
 from .gui_base import Tab
 from .gui_charts import BaselineChart, IntendedChart, SessionChart, TimelineChart
-from .gui_theme import Banner, Card, MixBar, ScrollFrame, Sparkline, autowrap, pill, set_pill, tip
+from .gui_theme import Banner, Card, MixBar, ScrollFrame, Sparkline, autowrap, tip
 
 GAP = 12
 
@@ -557,8 +557,11 @@ class TorTab(Tab):
         self.bridge_now = bd.note("", pady=(2, 0))
         grid_cards(mid, [sd, bd], 2)
 
+        self._build_dns(f, 5)
+        self._build_relay(f, 6)
+
         lg = Card(f, app, "Tor log", "log")
-        lg.grid(row=5, column=0, sticky="ew", pady=(0, GAP))
+        lg.grid(row=7, column=0, sticky="ew", pady=(0, GAP))
         self.log = tk.Text(lg.body, height=8, wrap="none", state="disabled", relief="flat", borderwidth=0, highlightthickness=1,
                            font=app.fonts["mono"], padx=8, pady=6)
         self.log.pack(fill="x")
@@ -567,10 +570,314 @@ class TorTab(Tab):
         self.tor: dict = {}
         self.retheme()
 
+    # -- Tor DNS (optional) --------------------------------------------------
+    def _build_dns(self, f, row: int) -> None:
+        app = self.app
+        dc = Card(f, app, "Tor DNS (optional)", "web",
+                  help="Tor can answer DNS lookups on a local port. Names are looked up by Tor exit relays, so this is a "
+                       "deliberate, narrow use of exits for DNS only. The Tor lane for noise stays onion-only. Only A, AAAA "
+                       "and PTR lookups work.")
+        dc.grid(row=row, column=0, sticky="ew", pady=(0, GAP))
+        self.dns_chk = self.f_check(dc, "tor_dns", "Answer DNS lookups through Tor",
+                                    "Off by default. Needs the Tor that legalPrivacy manages. Changing it restarts that Tor.")
+        slot = ttk.Frame(dc.body, style="CardBody.TFrame")      # fixed place for the parts that show and hide
+        slot.pack(fill="x")
+        self.dns_body = ttk.Frame(slot, style="CardBody.TFrame")
+        self.dns_status = dc.lbl(self.dns_body, "")
+        self.dns_status.pack(anchor="w", pady=(6, 0))
+        r = ttk.Frame(self.dns_body, style="CardBody.TFrame")
+        r.pack(fill="x", pady=(6, 2))
+        self.dns_test_btn = app.btn(r, "Test", "check", "secondary", self.dns_test,
+                                    "Sends one real lookup for example.com through Tor and shows the answer and how long it took.")
+        self.dns_test_btn.pack(side="left")
+        self.dns_out = ttk.Label(r, text="", style="CardMuted.TLabel", justify="left")
+        self.dns_out.pack(side="left", padx=10)
+        self.dns_lan_chk = self.f_check(dc, "tor_dns_lan", "Also share it with other devices on my network",
+                                        "Off. Only on one private address that you pick below, never on the internet.")
+        slot2 = ttk.Frame(dc.body, style="CardBody.TFrame")
+        slot2.pack(fill="x")
+        self.dns_lan_row = ttk.Frame(slot2, style="CardBody.TFrame")
+        dc.lbl(self.dns_lan_row, "Address").pack(side="left")
+        self.dns_addr = tk.StringVar()
+        self.dns_addr_cb = ttk.Combobox(self.dns_lan_row, textvariable=self.dns_addr, state="readonly", width=26)
+        self.dns_addr_cb.pack(side="left", padx=6)
+        self.dns_addr_cb.bind("<<ComboboxSelected>>", lambda _e: app.edited())
+        self._reg("tor_dns_addr", self.dns_addr.get, lambda x: self.dns_addr.set(str(x or "")))
+        app.btn(self.dns_lan_row, "Refresh list", "refresh", "secondary", self.dns_refresh,
+                "Look at this computer's addresses again.").pack(side="left")
+        self.dns_warn = Banner(slot2, "Warning: anyone on that network can use your Tor exits for DNS, and you are "
+                                        "responsible for what they do. Never expose this to the internet; it is not an open "
+                                        "resolver for the internet. Only share it on a network you trust, such as your own home.",
+                               "bad", host=slot2)
+        dc.note("How to use it: your operating system sends DNS lookups to port 53, so it cannot use this port directly. "
+                "For the whole computer you need a small local forwarder (for example dnsmasq or unbound) set up to forward "
+                "to 127.0.0.1 and the port shown above, or an app that lets you set a DNS port yourself. The commands differ "
+                "by system and have not been verified here, so none are given; follow your forwarder's own documentation. "
+                "Tor DNS is slower than normal DNS and handles only A, AAAA and PTR lookups.", pady=(8, 0))
+        self.dns_addrs: list[str] | None = None
+        self.dns_chk.trace_add("write", lambda *_a: self._dns_layout())
+        self.dns_lan_chk.trace_add("write", lambda *_a: self._dns_layout())
+
+    def values(self) -> dict:
+        v = super().values()
+        if not v.get("tor_dns") or (v.get("tor_dns_lan") and not v.get("tor_dns_addr")):
+            v["tor_dns_lan"] = False                  # sharing needs Tor DNS on, and a chosen private address
+        return v
+
+    def _dns_layout(self) -> None:
+        on = bool(self.dns_chk.get())
+        lan = on and bool(self.dns_lan_chk.get())
+        for w, show in ((self.dns_body, on), (self.dns_lan_row, lan), (self.dns_warn, lan)):
+            if show and not w.winfo_manager():
+                w.pack(fill="x", pady=(4, 0))
+            elif not show and w.winfo_manager():
+                w.pack_forget()
+        if lan and self.dns_addrs is None:
+            self.dns_refresh()
+
+    def dns_refresh(self) -> None:
+        def done(r):
+            self.dns_addrs = r.get("addresses") or []
+            cur = self.dns_addr.get()
+            vals = list(self.dns_addrs) + ([cur] if cur and cur not in self.dns_addrs else [])
+            self.dns_addr_cb.configure(values=vals)
+            if not self.dns_addr.get() and vals:
+                self.dns_addr.set(vals[0])
+                self.app.edited()
+            if not vals:
+                self.dns_out.configure(text="No private network address found on this computer.")
+        self.app.work(self.app.ctl.tor_dns_addresses, done, lambda e: self.app.error("Tor DNS", e))
+
+    def dns_test(self) -> None:
+        self.dns_test_btn.state(["disabled"])
+        self.dns_out.configure(text="Testing… the first lookup can take several seconds.")
+
+        def done(r):
+            self.dns_test_btn.state(["!disabled"])
+            self.dns_out.configure(text=(f"✓ {r['name']} answered {', '.join(r['answers'])} in {r['ms']} ms" if r.get("ok")
+                                         else f"✗ {r.get('error') or 'no answer'}"))
+
+        def fail(e):
+            self.dns_test_btn.state(["!disabled"])
+            self.app.error("Tor DNS test", e)
+        self.app.work(self.app.ctl.tor_dns_test, done, fail)
+
+    def _update_dns(self, t: dict) -> None:
+        d = t.get("dns") or {}
+        if not d.get("on"):
+            return
+        where = f"{d.get('address')}:{d.get('port')} (UDP)" if d.get("port") else "chosen when Tor starts (this computer only)"
+        who = f"other devices on your network ({d.get('address')})" if d.get("lan") else "this computer only"
+        state = ("Needs the Tor that legalPrivacy manages" if not d.get("managed")
+                 else "Listening" if d.get("ready") else "Waiting for Tor to be ready")
+        self.dns_status.configure(text=f"Status: {state}    Address: {where}    Reachable from: {who}")
+
+    # -- Relay (optional; separate Tor process; never starts by itself) -----------
+    CHECKS = (("address", "This computer has a public IP address, or my router forwards the ORPort to it."),
+              ("always_on", "This computer stays on and connected most of the time."),
+              ("bandwidth", "I am happy with the speed limit above and the traffic it can use each month."),
+              ("not_exit", "I understand this is not an exit: it never reaches websites for anyone, and it cannot answer DNS."),
+              ("public_ip", "I understand a relay's IP address is public by design."))
+
+    def _build_relay(self, f, row: int) -> None:
+        app = self.app
+        rc = Card(f, app, "Contribute to Tor: run a relay (optional)", "tor")
+        rc.grid(row=row, column=0, sticky="ew", pady=(0, GAP))
+        self.relay_card = rc
+        Banner(rc.body, "A relay passes other people's encrypted Tor traffic along, which helps the network. It is not an "
+                        "exit: it never connects to websites for anyone, and legalPrivacy can never make it one. A relay or "
+                        "bridge also does not provide DNS (only exit relays look up names). Relay addresses are public by "
+                        "design: the Tor network publishes them in a list anyone can read. The relay runs as its own "
+                        "separate Tor program and never starts by itself.", "tor", host=rc.body).pack(fill="x", pady=(0, 6))
+        self.r_inputs: list = []
+        self.r_mode = tk.StringVar(value="middle")
+        for val, txt, hint in (("middle", "Middle relay", "Listed publicly; carries traffic between other relays."),
+                               ("bridge", "Bridge", "Not listed publicly; helps people whose network blocks Tor.")):
+            self.r_inputs.append(rc.radio(self.r_mode, val, txt, hint, command=self._relay_changed))
+        r = rc.row((8, 2))
+        self.r_nick, self.r_bw, self.r_port, self.r_contact = (tk.StringVar() for _ in range(4))
+        rc.lbl(r, "Nickname").pack(side="left")
+        e1 = ttk.Entry(r, textvariable=self.r_nick, width=16)
+        e1.pack(side="left", padx=(6, 14))
+        tip(e1, "1 to 19 letters or digits.")
+        rc.lbl(r, "Speed limit").pack(side="left")
+        e2 = ttk.Spinbox(r, from_=0.1, to=1000, increment=0.5, width=7, textvariable=self.r_bw, command=self._relay_changed)
+        e2.pack(side="left", padx=6)
+        tip(e2, "The most the relay may send and receive each second, in megabytes.")
+        rc.lbl(r, "MBytes per second", True).pack(side="left", padx=(0, 14))
+        rc.lbl(r, "Port (ORPort)").pack(side="left")
+        e3 = ttk.Spinbox(r, from_=1024, to=65535, width=7, textvariable=self.r_port, command=self._relay_changed)
+        e3.pack(side="left", padx=6)
+        self.r_est = rc.note("", pady=(2, 2))
+        r = rc.row()
+        rc.lbl(r, "Contact (optional)").pack(side="left")
+        e4 = ttk.Entry(r, textvariable=self.r_contact, width=36)
+        e4.pack(side="left", padx=6)
+        tip(e4, "Shown publicly in the relay list if you add it, for example an email address.")
+        self.r_inputs += [e1, e2, e3, e4]
+        for v in (self.r_nick, self.r_bw, self.r_port, self.r_contact, self.r_mode):
+            v.trace_add("write", lambda *_a: self._relay_changed())
+        self.r_practice = tk.BooleanVar(value=True)
+        self.r_inputs.append(rc.check(self.r_practice, "Practice mode (not published)",
+                                      "The relay only listens on this computer and never announces itself, so nobody can use "
+                                      "it. It still downloads Tor's public relay list like any Tor program. Needs no checklist. "
+                                      "Untick it only when you are ready to join the network.", command=self._relay_changed))
+        rc.heading("Before a public relay", "tick each one")
+        self.r_checks: dict[str, tk.BooleanVar] = {}
+        for key, txt in self.CHECKS:
+            var = tk.BooleanVar(value=False)
+            self.r_checks[key] = var
+            self.r_inputs.append(rc.check(var, txt, command=self._relay_changed))
+        rc.note("The settings file for the relay (read-only):", pady=(8, 2))
+        self.r_torrc = tk.Text(rc.body, height=9, wrap="none", relief="flat", borderwidth=0, highlightthickness=1,
+                               font=app.fonts["mono"], padx=8, pady=6, state="disabled")
+        self.r_torrc.pack(fill="x")
+        app.text_widgets.append(self.r_torrc)
+        r = rc.row((8, 2))
+        self.r_start = app.btn(r, "Start relay", "play", "tor", self.relay_start)
+        self.r_stop = app.btn(r, "Stop relay", "stop", "secondary", self.relay_stop)
+        self.r_start.pack(side="left", padx=(0, 6))
+        self.r_stop.pack(side="left", padx=(0, 10))
+        from .gui_theme import pill
+        self.r_pill = pill(r, "Stopped", "off")
+        self.r_pill.pack(side="left")
+        self.r_msg = rc.note("", muted=False, pady=(4, 2))
+        self.r_auto = tk.BooleanVar(value=False)
+        self._r_loading = True
+        rc.check(self.r_auto, "Start the relay when this app opens",
+                 "Off. The relay is otherwise never started automatically.", command=self.relay_autostart)
+        self.r_note = rc.note("", pady=(2, 2))
+        self.r_log = tk.Text(rc.body, height=7, wrap="none", state="disabled", relief="flat", borderwidth=0,
+                             highlightthickness=1, font=app.fonts["mono"], padx=8, pady=6)
+        self.r_log.pack(fill="x", pady=(4, 0))
+        app.text_widgets.append(self.r_log)
+        self.r_log.configure(state="normal")
+        self.r_log.insert("end", "Nothing yet. The relay's own log appears here once it starts.\n")
+        self.r_log.configure(state="disabled")
+        rc.note("Router and firewall notes. All systems: a public relay must be reachable from the internet on its ORPort "
+                "(TCP). Forward that port on your router to this computer, then allow it in the computer's firewall; router "
+                "menus differ, so look for \"port forwarding\". Windows: allow the port in Windows Defender Firewall "
+                "(Inbound Rules). macOS: if the firewall is on, allow incoming connections for the Tor program. Linux: allow "
+                "the TCP port in your firewall (ufw, firewalld or nftables). The status shows \"reachable\" only after Tor "
+                "itself tests the port from outside, which can take a while for a new relay.", pady=(8, 2))
+        link = ttk.Label(rc.body, text="The Tor Project's relay documentation: community.torproject.org/relay",
+                         style="CardMuted.TLabel", cursor="hand2")
+        link.pack(anchor="w")
+        link.bind("<Button-1>", lambda _e: __import__("webbrowser").open("https://community.torproject.org/relay/"))
+        self._r_filled = False
+        self._r_up = False
+        self._r_prev = None
+
+    def _relay_body(self) -> dict:
+        try:
+            bw = float(self.r_bw.get())
+        except ValueError:
+            bw = 0.0
+        try:
+            port = int(self.r_port.get())
+        except ValueError:
+            port = 0
+        return {"mode": self.r_mode.get(), "nickname": self.r_nick.get(), "bandwidth_mb": bw, "or_port": port,
+                "contact": self.r_contact.get(), "practice": bool(self.r_practice.get()),
+                "checklist": {k: v.get() for k, v in self.r_checks.items()}}
+
+    def _relay_changed(self) -> None:
+        if not getattr(self, "_r_filled", False):
+            return
+        b = self._relay_body()
+        self.r_est.configure(text=L.relay_estimate_text(b["bandwidth_mb"]))
+        prev = self.app.ctl.relay_preview(b)
+        self._set_torrc(prev["torrc"])
+        self._relay_gate(prev["error"])
+
+    def _set_torrc(self, text: str) -> None:
+        self.r_torrc.configure(state="normal")
+        self.r_torrc.delete("1.0", "end")
+        self.r_torrc.insert("1.0", text)
+        self.r_torrc.configure(state="disabled")
+
+    def _relay_gate(self, error: str | None = None) -> None:
+        b = self._relay_body()
+        why = error or ""
+        if not why and not getattr(self, "_r_tor_found", True):
+            why = ("Tor is not installed yet. Press Start Tor above once (it installs the official bundle), "
+                   "then come back.")
+        elif not why and not b["practice"] and not all(b["checklist"].values()):
+            why = "Tick every item on the checklist to start a public relay, or keep practice mode on."
+        up = self._r_up
+        self.r_start.state(["!disabled"] if not up and not why else ["disabled"])
+        self.r_stop.state(["!disabled"] if up else ["disabled"])
+        for w in self.r_inputs:
+            try:
+                w.state(["disabled"] if up else ["!disabled"])
+            except (AttributeError, tk.TclError):
+                pass
+        if not up:
+            self.r_msg.configure(text=why)
+
+    def relay_start(self) -> None:
+        body = self._relay_body()
+        self.r_start.state(["disabled"])
+        self.app.work(lambda: self.app.ctl.relay_start(body), done=lambda _r: self.app.poll_now(),
+                      error=lambda e: (self.app.error("Relay", e), self._relay_gate()))
+
+    def relay_stop(self) -> None:
+        self.app.work(self.app.ctl.relay_stop, done=lambda _r: self.app.poll_now(),
+                      error=lambda e: self.app.error("Relay", e))
+
+    def relay_autostart(self) -> None:
+        on = bool(self.r_auto.get())
+        self.app.work(lambda: self.app.ctl.apply_config({"contribute": {"relay": {"autostart": on}}}),
+                      error=lambda e: (self.r_auto.set(False), self.app.error("Relay", e)))
+        self.app.flash("The relay will start when the app opens (a public relay only after you have started it once with "
+                       "the checklist)." if on else "The relay will not start by itself.", 6000)
+
+    def _update_relay(self) -> None:
+        st = self.app.ctl.relay_state()
+        s, status = st["settings"], st["status"]
+        self._r_tor_found = st["tor_found"]
+        up = status["state"] in ("starting", "running")
+        if not self._r_filled or (up and not self._r_up):
+            self._r_filled = False                   # load saved settings without triggering the change handler
+            self.r_mode.set(s["mode"])
+            self.r_nick.set(s["nickname"])
+            self.r_bw.set(f"{s['bandwidth_mb']:g}")
+            self.r_port.set(str(s["or_port"]))
+            self.r_contact.set(s["contact"])
+            self.r_practice.set(bool(s["practice"]))
+            self.r_auto.set(bool(s["autostart"]))
+            self._r_filled = True
+            self.r_est.configure(text=L.relay_estimate_text(s["bandwidth_mb"]))
+            self._set_torrc(st["torrc"])
+        self._r_up = up
+        tone = {"running": "ok", "starting": "warn", "error": "bad"}.get(status["state"], "off")
+        from .gui_theme import set_pill
+        label = {"stopped": "Stopped", "starting": "Starting…", "error": "Error",
+                 "running": ("Running (practice, not published)" if status.get("practice")
+                             else "Running, reachable" if status.get("reachable") else "Running")}[status["state"]]
+        set_pill(self.r_pill, label, tone)
+        self.r_note.configure(text=status.get("error") or status.get("hint") or (
+            f"Relay fingerprint: {status['fingerprint']}" if status["state"] == "running" and status.get("fingerprint") else ""))
+        if up:
+            self._set_torrc(st["torrc"])
+            self.r_msg.configure(text="")
+        sig = (tuple(status["log"][-80:]),)
+        if sig != self._r_prev:
+            self._r_prev = sig
+            self.r_log.configure(state="normal")
+            self.r_log.delete("1.0", "end")
+            self.r_log.insert("end", "\n".join(status["log"]) + "\n" if status["log"] else
+                              "Nothing yet. The relay's own log appears here once it starts.\n")
+            self.r_log.configure(state="disabled")
+            self.r_log.see("end")
+        self._relay_gate()
+
     def retheme(self) -> None:
         self.sf.retheme()
         p = self.app.pal
         self.log.configure(bg=p["log_bg"], fg=p["fg"], highlightbackground=p["border"], highlightcolor=p["border"])
+        for w in (self.r_torrc, self.r_log):
+            w.configure(bg=p["log_bg"], fg=p["fg"], highlightbackground=p["border"], highlightcolor=p["border"])
 
     # -- actions
     def act(self, action: str) -> None:
@@ -640,6 +947,8 @@ class TorTab(Tab):
             else "Using Tor found on this computer." if t.get("binary")
             else "Tor is not installed yet; it will be downloaded automatically when needed."))
         self.test_note.configure(text=L.tor_test_text(t.get("selftest")))
+        self._update_dns(t)
+        self._update_relay()
         circs = t.get("circuits") or []
         self.circ_head.configure(text=f"{t.get('circuits_built') or 0} built. Purposes starting with HS_CLIENT are onion-service connections.")
         self.circ.delete(*self.circ.get_children())

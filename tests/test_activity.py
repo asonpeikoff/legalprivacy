@@ -122,3 +122,22 @@ def test_activity_endpoint():
         assert d["baseline"]["state"] in ("none", "early", "short") and d["session"]["state"] == "empty"
     finally:
         srv.httpd.shutdown()
+
+
+def test_session_judges_whole_local_hours_in_half_hour_timezones():
+    if not hasattr(time, "tzset"):
+        return
+    old = os.environ.get("TZ")
+    os.environ["TZ"] = "Asia/Kolkata"        # UTC+5:30: UTC hour boundaries fall mid local hour
+    time.tzset()
+    try:
+        plan = _plan()
+        start = DAY + 3600 * 5 + 1800          # 05:30 UTC = 11:00 local
+        res = ac.session(_timeline(start, 60, lambda i: plan["p50"][11] / 60), plan, True)   # one whole local hour
+        assert res["state"] == "ok", res["verdict"]
+    finally:
+        if old is None:
+            os.environ.pop("TZ", None)
+        else:
+            os.environ["TZ"] = old
+        time.tzset()

@@ -10,6 +10,7 @@ import copy
 import hashlib
 import json
 import platform
+import re
 import random
 import socket
 import sys
@@ -21,8 +22,7 @@ from typing import Any
 import yaml
 
 from . import __version__
-from .config import (ConfigError, Profile, apply_overrides, load_profile,
-                     profile_to_dict, save_profile)
+from .config import (ConfigError, Profile, apply_overrides, profile_to_dict)
 from .engines import ENGINE_NAMES, SEARCH_WEIGHTS, load_wordlist
 from .dnsplan import DnsPlan
 from .domains import DomainPool
@@ -31,7 +31,7 @@ from .events import EventLog
 from .feeds import FeedStore
 from .queries import QueryConfig, QuerySource
 from .onion import BUILTIN_ONION_SEEDS, clean_seed_list
-from .paths import app_dir, config_path, resolve_resource
+from .paths import app_dir, config_path, resolve_resource, write_private
 from .scheduler import MaxFailuresExceeded, Runner, build_lanes
 from .tormanager import TorManager, find_tor_binary, port_open
 
@@ -60,7 +60,6 @@ class Controller:
         wipe_old_log_files()                      # older versions wrote cricket.log to disk
         self.log = EventLog()                     # live log is memory-only (never written to disk)
         self._save_lock = threading.RLock()       # autosave: concurrent saves are serialised
-        threading.Thread(target=self._ml_auto_loop, daemon=True, name="ml-auto").start()
         self.profile_path = profile_path or str(config_path())
         self.first_run = not Path(self.profile_path).exists()
         self.app: dict[str, Any] = dict(APP_DEFAULTS)
@@ -80,6 +79,8 @@ class Controller:
         self._hist_thread: threading.Thread | None = None
         self.observer.baseline_fn = self._baseline
         self._feed_timer_started = False
+        from .relayrun import RelayManager
+        self.relay = RelayManager(self.log)        # optional relay: its own Tor process, never started automatically
         from .accounts import AccountsManager
         self.accounts = AccountsManager(          # optional signed-in accounts; clearnet only, never Tor
             self.log, config=lambda: self.profile.accounts,
@@ -87,6 +88,8 @@ class Controller:
             proxy=lambda: self.profile.transports["clearnet"].proxy,
             tor_addrs=lambda: tuple(filter(None, (getattr(self.tor, "socks_addr", None),
                                                   self.profile.transports["tor"].socks))))
+        from .av import AvManager
+        self.av = AvManager(self.log)             # optional ClamAV manager; runs nothing until you press a button
         self.runner: Runner | None = None
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
@@ -94,6 +97,7 @@ class Controller:
         self.log.info("app", f"legalPrivacy {__version__} on {platform.system()} {platform.release()} "
                              f"(Python {platform.python_version()})")
         self.log.info("app", f"Config: {self.profile_path}")
+        threading.Thread(target=self._ml_auto_loop, daemon=True, name="ml-auto").start()   # needs self.app, so last
 
     # ── config ──────────────────────────────────────────────────────────────
     def _load(self) -> None:
@@ -115,9 +119,7 @@ class Controller:
             data["app"] = self.app
             path = Path(self.profile_path)
             path.parent.mkdir(parents=True, exist_ok=True)
-            tmp = path.with_name(f"{path.name}.{threading.get_ident()}.tmp")
-            tmp.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
-            tmp.replace(path)
+            write_private(path, yaml.safe_dump(data, sort_keys=False))     # holds bridges and passwords
             self.first_run = False
 
     def wizard(self, answers: dict[str, Any]) -> dict:
@@ -180,13 +182,16 @@ class Controller:
         mode = "managed" if cfg.manage else "external"
         if self.tor is None or self.tor.mode != mode or self.tor.ext_socks != cfg.socks \
                 or self.tor.bridges != [b.strip() for b in cfg.bridges if b.strip()] \
-                or self.tor.configured_bridge_mode != cfg.bridge_mode or self.tor.bridge_auto != cfg.bridge_auto:
+                or self.tor.configured_bridge_mode != cfg.bridge_mode or self.tor.bridge_auto != cfg.bridge_auto \
+                or (self.tor.dns_port_cfg, self.tor.dns_lan, self.tor.dns_lan_addr) != (
+                    cfg.dns_port, cfg.dns_lan, cfg.dns_lan_addr):
             if self.tor and self.tor.state not in ("stopped",):
                 self.tor.stop()
             self.tor = TorManager(self.log, mode=mode, socks=cfg.socks, control=cfg.control,
                                   control_password=cfg.control_password,
                                   bridges=cfg.bridges, auto_install=cfg.auto_install,
-                                  bridge_mode=cfg.bridge_mode, bridge_auto=cfg.bridge_auto)
+                                  bridge_mode=cfg.bridge_mode, bridge_auto=cfg.bridge_auto,
+                                  dns_port=cfg.dns_port, dns_lan=cfg.dns_lan, dns_lan_addr=cfg.dns_lan_addr)
         return self.tor
 
     # ── DNS resolver table: health + verification ──────────────────────────
@@ -275,9 +280,10 @@ class Controller:
         plan.cfg = self.profile.dns
         if self.profile.dns.mode != "system":
             plan.check_async()
-            if not getattr(self, "_dns_timer", False):
+            with self._lock:
+                first = not getattr(self, "_dns_timer", False)
                 self._dns_timer = True
-
+            if first:
                 def loop():
                     while True:
                         time.sleep(600)
@@ -519,7 +525,10 @@ class Controller:
 
     def mylist_scan(self, days: float) -> dict:
         from .history import top_sites
-        days = max(1.0, min(365.0, float(days)))
+        try:
+            days = max(1.0, min(365.0, float(days)))
+        except (TypeError, ValueError):
+            raise ConfigError("days must be a number") from None
         res = top_sites(time.time() - days * 86400, denylist=self.feeds.denylist())
         self.log.info("mylist", f"Scanned browser history (last {days:g} days): {len(res['sites'])} sites found.")
         return res
@@ -528,8 +537,11 @@ class Controller:
         from .history import top_sites
         ml = self.profile.mylist
         if action == "start":
-            self.apply_config({"mylist": {"watch_started": time.time(),
-                                          "watch_hours": float(hours or ml.watch_hours)}})
+            try:
+                length = float(hours or ml.watch_hours)
+            except (TypeError, ValueError):
+                raise ConfigError("hours must be a number") from None
+            self.apply_config({"mylist": {"watch_started": time.time(), "watch_hours": length}})
             self.log.info("mylist", f"Recording your sites for {self.profile.mylist.watch_hours:g} hours.")
             return self.mylist_state()
         if action == "cancel":
@@ -550,6 +562,8 @@ class Controller:
         extracts just the links and sends those, never titles)."""
         from .history import bookmark_sites, sites_from_urls
         if urls is not None:
+            if not isinstance(urls, list):
+                raise ConfigError("urls must be a list of addresses")
             res = sites_from_urls([str(u) for u in urls[:50_000]], self.feeds.denylist())
         else:
             res = bookmark_sites(self.feeds.denylist())
@@ -628,7 +642,122 @@ class Controller:
         d["enabled"] = self._tor_cfg().enabled
         d["circuits"] = tm.circuits()
         d["selftest"] = getattr(self, "tor_test", None)
+        d["dns_test"] = getattr(self, "_dns_test", None)
         return d
+
+    # ── Tor DNS (optional) ──────────────────────────────────────────────────
+    def tor_dns_addresses(self) -> dict:
+        """This computer's private addresses, for the 'share on my network' picker (nothing is sent)."""
+        from . import tordns
+        return {"addresses": tordns.local_private_addresses()}
+
+    def tor_dns_test(self) -> dict:
+        """User-initiated: one real A query through Tor's DNSPort for a neutral name."""
+        from . import tordns
+        info = self.tor_manager().dns_info()
+        if not info["on"]:
+            res = {"ok": False, "error": "Tor DNS is off. Switch it on and restart Tor first."}
+        elif not info["managed"]:
+            res = {"ok": False, "error": "Tor DNS works only with the Tor that legalPrivacy manages."}
+        elif not info["ready"]:
+            res = {"ok": False, "error": "Tor isn't ready yet. Start Tor and wait for 100%, then try again."}
+        else:
+            res = tordns.probe(info["address"], info["port"])
+        res["ts"] = time.time()
+        self._dns_test = res
+        self.log.add("info" if res["ok"] else "warn", "tor",
+                     "Tor DNS test: " + (f"{res['name']} -> {', '.join(res['answers'])} in {res['ms']} ms"
+                                         if res["ok"] else res["error"]))
+        return res
+
+    # ── Relay (optional; a separate Tor process; never started automatically) ──
+    RELAY_CHECKLIST = ("address", "always_on", "bandwidth", "not_exit", "public_ip")
+
+    @staticmethod
+    def _mb_from_rate(rate: str) -> float | None:
+        m = re.fullmatch(r"([0-9]+(?:\.[0-9]+)?) ?MBytes", rate or "")
+        return float(m.group(1)) if m else None
+
+    def relay_preview(self, body: dict) -> dict:
+        """The torrc these (unsaved) settings would produce, or the plain reason they are not valid. Saves nothing."""
+        from .config import RelayConfig
+        from .relay import generate_torrc
+        cur = self.profile.relay
+        try:
+            mb = float(body.get("bandwidth_mb", self._mb_from_rate(cur.bandwidth_rate) or 1.0))
+            if not (0.1 <= mb <= 1000):
+                raise ConfigError("bandwidth cap must be between 0.1 and 1000 MBytes per second")
+            rc = RelayConfig(mode=str(body.get("mode", cur.mode)), nickname=str(body.get("nickname", cur.nickname)),
+                             contact=str(body.get("contact") or "").strip() or None,
+                             bandwidth_rate=f"{mb:g} MBytes", or_port=int(body.get("or_port", cur.or_port)),
+                             dir_port=0, practice=body.get("practice", cur.practice) is True)
+            rc.validate()
+            return {"torrc": generate_torrc(rc.spec(), data_dir="(the relay's own data folder)"), "error": None}
+        except (ConfigError, TypeError, ValueError) as exc:
+            return {"torrc": "", "error": str(exc)}
+
+    def relay_state(self) -> dict:
+        from .relayrun import monthly_estimate
+        rc = self.profile.relay
+        mb = self._mb_from_rate(rc.bandwidth_rate)
+        if mb is None:                               # a rate saved by an older version, e.g. 5Mbit
+            mb = 1.0
+        spec = rc.spec()
+        spec.dir_port = 0
+        from .relay import generate_torrc
+        torrc = self.relay.torrc if self.relay.running else generate_torrc(spec, data_dir="(the relay's own data folder)")
+        return {
+            "settings": {"mode": rc.mode, "nickname": rc.nickname, "contact": rc.contact or "",
+                         "bandwidth_mb": mb, "or_port": rc.or_port, "practice": rc.practice,
+                         "autostart": rc.autostart, "acknowledged": rc.acknowledged},
+            "status": self.relay.snapshot(), "torrc": torrc,
+            "tor_found": bool(find_tor_binary()), "estimate": monthly_estimate(mb),
+            "checklist": list(self.RELAY_CHECKLIST), "platform": sys.platform,
+        }
+
+    def relay_start(self, body: dict) -> dict:
+        """Save the relay settings and start the relay. A public relay needs every checklist item ticked."""
+        from .relay import RelayConfigError
+        cur = self.profile.relay
+        try:
+            mb = float(body.get("bandwidth_mb", self._mb_from_rate(cur.bandwidth_rate) or 1.0))
+            or_port = int(body.get("or_port", cur.or_port))
+        except (TypeError, ValueError):
+            raise ConfigError("bandwidth and port must be numbers") from None
+        if not (0.1 <= mb <= 1000):
+            raise ConfigError("bandwidth cap must be between 0.1 and 1000 MBytes per second")
+        practice = body.get("practice", cur.practice) is True
+        ticked = {str(k) for k, v in (body.get("checklist") or {}).items() if v is True} \
+            if isinstance(body.get("checklist"), dict) else set()
+        if not practice and not set(self.RELAY_CHECKLIST) <= ticked:
+            raise ConfigError("Tick every item on the checklist before starting a public relay, "
+                              "or use practice mode.")
+        raw = {"mode": str(body.get("mode", cur.mode)), "nickname": str(body.get("nickname", cur.nickname)),
+               "contact": str(body.get("contact") or "").strip() or None,
+               "bandwidth_rate": f"{mb:g} MBytes", "or_port": or_port, "dir_port": 0, "practice": practice,
+               "acknowledged": cur.acknowledged or not practice}
+        if "autostart" in body:
+            raw["autostart"] = body["autostart"] is True
+        self.apply_config({"contribute": {"relay": raw}})      # validates with relay.RelaySpec; saved on success
+        try:
+            self.relay.start(self.profile.relay.spec())
+        except RelayConfigError as exc:
+            raise ConfigError(str(exc)) from exc
+        return self.relay_state()
+
+    def relay_stop(self) -> dict:
+        self.relay.stop()
+        return self.relay_state()
+
+    def relay_autostart(self) -> None:
+        """Called once when the app opens. Starts the relay only if the person chose 'start with the app'
+        (and, for a public relay, completed the checklist before)."""
+        rc = self.profile.relay
+        if rc.autostart and (rc.practice or rc.acknowledged):
+            try:
+                self.relay.start(rc.spec())
+            except Exception as exc:
+                self.log.warn("relay", f"The relay did not start with the app: {exc}")
 
     # ── realism helpers ─────────────────────────────────────────────────────
     def browser_info(self) -> dict:
@@ -701,14 +830,16 @@ class Controller:
 
     def _start_feed_timer(self) -> None:
         """Only if the user opted in: re-fetch sources when they are ~3 months old."""
-        if self._feed_timer_started or not self.app.get("auto_refresh_sources"):
-            return
-        self._feed_timer_started = True
+        with self._lock:
+            if self._feed_timer_started or not self.app.get("auto_refresh_sources"):
+                return
+            self._feed_timer_started = True
 
         def loop():
-            while True:
+            while self.app.get("auto_refresh_sources"):     # switching it off in Settings ends the timer
                 self.feeds.refresh_async()
                 time.sleep(1800)
+            self._feed_timer_started = False
         threading.Thread(target=loop, daemon=True, name="feed-timer").start()
 
     def refresh_feeds(self) -> None:
@@ -875,6 +1006,9 @@ class Controller:
             done.append("noise stopped")
         else:
             done.append("noise was already stopped")
+        if self.relay.running:
+            self.relay.stop()
+            done.append("relay stopped")
         if level in ("medium", "hard"):
             self.log.clear()
             done.append("log cleared")
@@ -890,6 +1024,12 @@ class Controller:
                 self.observer.stop()
             except Exception:
                 pass
+            try:
+                gone = self.av.wipe()
+                if gone:
+                    done.append("antivirus results and quarantine deleted (signature files and your own files stay)")
+            except Exception:
+                pass
             for name in ("observe.json", "har.json"):
                 try:
                     (app_dir() / name).unlink()
@@ -900,6 +1040,10 @@ class Controller:
             except Exception:
                 pass
             done.append("Proof data and log files deleted")
+            if self.relay.wipe_data():            # only after the relay is stopped (above)
+                done.append("relay data deleted (a new relay would get a new identity)")
+            else:
+                done.append("relay data kept because the relay would not stop")
         self.log.info("app", f"Panic ({level}): " + ", ".join(done) + ".")
         return {"level": level, "done": done}
 
@@ -918,6 +1062,41 @@ class Controller:
         except AccountError as exc:
             raise ConfigError(str(exc)) from exc
         return {"ok": True}
+
+    # ── optional antivirus (ClamAV), offline-first: see av.py ────────────────
+    def av_state(self, redetect: bool = False) -> dict:
+        return self.av.state(redetect)
+
+    def av_action(self, action: str, body: dict) -> dict:
+        from .av import AvError
+        av = self.av
+        try:
+            if action == "scan":
+                av.start_scan(body.get("paths"))
+            elif action == "stop":
+                av.stop()
+            elif action == "update":
+                av.start_update(confirmed=body.get("confirmed") is True)
+            elif action == "import":
+                av.start_import(body.get("paths"))
+            elif action == "selftest":
+                av.start_selftest()
+            elif action == "quarantine":
+                av.quarantine(str(body.get("path", "")))
+            elif action == "restore":
+                av.restore(str(body.get("id", "")))
+            elif action == "delete":
+                av.delete_quarantined(str(body.get("id", "")))
+            elif action == "detect":
+                pass
+            elif action == "probe":
+                from .av import get_isolation
+                get_isolation(force=True)
+            else:
+                raise ConfigError("unknown antivirus action")
+        except AvError as exc:
+            raise ConfigError(str(exc)) from exc
+        return av.state(redetect=action in ("detect", "probe"))
 
     def leak_runner(self):
         from .leakcheck import LeakRunner
@@ -947,6 +1126,8 @@ class Controller:
         self.log.info("app", "Stopped.")
         if stop_tor and self.tor:
             self.tor.stop()
+        if stop_tor:
+            self.relay.stop()                     # quitting the app also stops the relay
         wipe_old_log_files()                      # the log itself lives in memory and ends with the app
 
     def pause(self, paused: bool) -> None:
@@ -1041,7 +1222,8 @@ class Controller:
         if wl:
             path = resolve_resource(wl)
             if Path(path).exists():
-                n = sum(1 for ln in open(path, encoding="utf-8", errors="ignore") if ln.strip())
+                with open(path, encoding="utf-8", errors="ignore") as fh:
+                    n = sum(1 for ln in fh if ln.strip())
                 add("Word list", "ok", f"{path} ({n:,} words)")
             else:
                 add("Word list", "warn", f"{wl} not found — built-in topics will be used")

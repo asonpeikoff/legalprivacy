@@ -25,8 +25,40 @@ def app_dir() -> Path:
             base, old = Path.home() / ".legalprivacy", Path.home() / ".noisycricket"
         if not base.exists() and old.exists():
             base = old
-    base.mkdir(parents=True, exist_ok=True)
+    if not base.exists():
+        base.mkdir(parents=True, exist_ok=True)
+        try:
+            base.chmod(0o700)                 # settings, tokens and saved sessions live here: owner only
+        except OSError:
+            pass
     return base
+
+
+def write_private(path: Path, text: str) -> None:
+    """Atomically write a text file that only its owner can read (0600 where the OS supports it)."""
+    import threading
+    path = Path(path)
+    tmp = path.with_name(f"{path.name}.{threading.get_ident()}.tmp")
+    fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.write(text)
+    try:
+        tmp.chmod(0o600)
+    except OSError:
+        pass
+    os.replace(tmp, path)
+
+
+def ensure_utf8_console() -> None:
+    """Windows consoles default to cp1252, which cannot print the symbols in our messages (a crash on the
+    first print). Switch the standard streams to UTF-8 with replacement; harmless elsewhere and when a
+    stream is missing (windowed launch) or already redirected."""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            if stream is not None and (getattr(stream, "encoding", "") or "").lower().replace("-", "") != "utf8":
+                stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError, OSError):
+            pass
 
 
 def resource_root() -> Path:
@@ -53,4 +85,15 @@ def config_path() -> Path:
 def tor_dir() -> Path:
     d = app_dir() / "tor"
     d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def relay_dir() -> Path:
+    """Where the optional relay keeps its own data (separate from the client Tor). Owner-only."""
+    d = app_dir() / "relay"
+    d.mkdir(parents=True, exist_ok=True)
+    try:
+        d.chmod(0o700)
+    except OSError:
+        pass
     return d

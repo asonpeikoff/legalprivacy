@@ -15,7 +15,7 @@ import secrets
 import subprocess
 import time
 import urllib.request
-from typing import Callable
+from collections.abc import Callable
 
 DOWN_URL = "https://speed.cloudflare.com/__down?bytes={n}"
 UP_URL = "https://speed.cloudflare.com/__up"

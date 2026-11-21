@@ -24,7 +24,7 @@ import threading
 import time
 import zipfile
 from datetime import date, timedelta
-from typing import Callable
+from collections.abc import Callable
 
 import requests
 

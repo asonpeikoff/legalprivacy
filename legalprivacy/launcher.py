@@ -27,6 +27,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--port", type=int, help="dashboard port (default 8765)")
     ap.add_argument("--profile", help="use this profile YAML instead of the saved config")
     args = ap.parse_args(argv)
+    from .paths import ensure_utf8_console
+    ensure_utf8_console()
     if args.text:
         return _text_menu()
     try:

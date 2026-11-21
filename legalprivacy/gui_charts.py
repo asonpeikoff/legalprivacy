@@ -5,6 +5,7 @@ import time
 import tkinter as tk
 
 from .gui_logic import hours_label, nice_max, scale
+from .gui_theme import swatch
 
 PAD_L, PAD_R, PAD_T, PAD_B = 46, 14, 14, 26
 
@@ -15,14 +16,24 @@ class Chart(tk.Canvas):
     def __init__(self, master, pal: dict, height: int = 170, **kw):
         super().__init__(master, height=height, highlightthickness=0, bd=0, **kw)
         self.pal, self.data = pal, None
-        self.bind("<Configure>", lambda _e: self.redraw())
+        self._job, self._sig = None, None
+        self.bind("<Configure>", lambda _e: self._soon())
 
     def set_palette(self, pal: dict) -> None:
         self.pal = pal
-        self.redraw()
+        self.redraw(force=True)
 
     def update_data(self, data) -> None:
         self.data = data
+        self._soon()
+
+    def _soon(self) -> None:
+        """Coalesce redraw requests (resize bursts, repeated refreshes) into one repaint per idle moment."""
+        if self._job is None:
+            self._job = self.after_idle(self._run)
+
+    def _run(self) -> None:
+        self._job = None
         self.redraw()
 
     # -- drawing helpers
@@ -36,19 +47,23 @@ class Chart(tk.Canvas):
     def y_axis(self, top: float, unit: str = "") -> None:
         x0, y0, x1, y1 = self.box()
         for frac in (0, 0.5, 1):
-            y = scale(frac, 0, 1, y1, y0)
+            y = round(scale(frac, 0, 1, y1, y0)) + .5            # half-pixel offsets keep 1px lines crisp
             self.create_line(x0, y, x1, y, fill=self.pal["grid"])
             val = top * frac
             self.create_text(x0 - 5, y, text=(f"{val:g}{unit}"), anchor="e", fill=self.pal["muted"],
-                             font=("TkDefaultFont", 8))
+                             font=("TkDefaultFont", 9))
 
     def hour_axis(self) -> None:
         x0, _y0, x1, y1 = self.box()
         for h in range(0, 24, 3):
             x = scale(h + 0.5, 0, 24, x0, x1)
-            self.create_text(x, y1 + 12, text=hours_label(h), fill=self.pal["muted"], font=("TkDefaultFont", 8))
+            self.create_text(x, y1 + 12, text=hours_label(h), fill=self.pal["muted"], font=("TkDefaultFont", 9))
 
-    def redraw(self) -> None:
+    def redraw(self, force: bool = False) -> None:
+        sig = (repr(self.data), self.winfo_width(), self.winfo_height(), self.pal["panel"], self.pal["line"])
+        if sig == self._sig and not force:               # same data, size and colours: leave the picture alone
+            return
+        self._sig = sig
         self.delete("all")
         self.configure(bg=self.pal["panel"])
         if self.winfo_width() < 60:
@@ -77,7 +92,7 @@ class IntendedChart(Chart):
         line = [c for h in range(24) for c in (scale(h + 0.5, 0, 24, x0, x1), scale(p50[h], 0, top, y1, y0))]
         self.create_line(*line, fill=self.pal["line"], width=2)
         self.create_text(x1, y0 - 2, text="requests per hour (shaded: usual range, line: typical)", anchor="e",
-                         fill=self.pal["muted"], font=("TkDefaultFont", 8))
+                         fill=self.pal["muted"], font=("TkDefaultFont", 9))
 
 
 class SessionChart(Chart):
@@ -112,9 +127,9 @@ class SessionChart(Chart):
         for k in range(5):
             t = t0 + (t1 - t0) * k / 4
             self.create_text(scale(t, t0, t1, x0, x1), y1 + 12, text=time.strftime("%H:%M", time.localtime(t)),
-                             fill=self.pal["muted"], font=("TkDefaultFont", 8))
+                             fill=self.pal["muted"], font=("TkDefaultFont", 9))
         self.create_text(x1, y0 - 2, text="requests per 10 minutes (shaded: planned range, red: off plan)",
-                         anchor="e", fill=self.pal["muted"], font=("TkDefaultFont", 8))
+                         anchor="e", fill=self.pal["muted"], font=("TkDefaultFont", 9))
 
 
 class BaselineChart(Chart):
@@ -138,11 +153,13 @@ class BaselineChart(Chart):
             if noise[h] > 0:
                 self.create_rectangle(xa + w * 0.5, scale(noise[h], 0, top, y1, y0), xa + w * 0.9, y1,
                                       fill=self.pal["noise"], outline="")
-        self.create_text(x0 + 4, y0 - 2, text="you", anchor="w", fill=self.pal["you"], font=("TkDefaultFont", 8, "bold"))
-        self.create_text(x0 + 34, y0 - 2, text="the noise", anchor="w", fill=self.pal["noise"],
-                         font=("TkDefaultFont", 8, "bold"))
+        swatch(self, x0 + 6, y0 - 6, 4, self.pal["you"], 1)               # square = you, circle = the noise
+        self.create_text(x0 + 14, y0 - 6, text="you", anchor="w", fill=self.pal["you"], font=("TkDefaultFont", 9, "bold"))
+        swatch(self, x0 + 50, y0 - 6, 4, self.pal["noise"], 0)
+        self.create_text(x0 + 58, y0 - 6, text="the noise", anchor="w", fill=self.pal["noise"],
+                         font=("TkDefaultFont", 9, "bold"))
         self.create_text(x1, y0 - 2, text="share of the day's activity, by hour", anchor="e",
-                         fill=self.pal["muted"], font=("TkDefaultFont", 8))
+                         fill=self.pal["muted"], font=("TkDefaultFont", 9))
 
 
 class TimelineChart(Chart):
@@ -171,9 +188,10 @@ class TimelineChart(Chart):
         for k in range(5):
             t = rows[0]["t"] + (rows[-1]["t"] - rows[0]["t"]) * k / 4
             self.create_text(scale(k, 0, 4, x0, x1), y1 + 12, text=time.strftime("%H:%M", time.localtime(t)),
-                             fill=self.pal["muted"], font=("TkDefaultFont", 8))
+                             fill=self.pal["muted"], font=("TkDefaultFont", 9))
         lx = x0 + 4
-        for label, col in (("your apps", self.pal["line"]), ("legalPrivacy", self.pal["noise"]), ("Tor", self.pal["tor"])):
-            self.create_rectangle(lx, y0 - 10, lx + 8, y0 - 2, fill=col, outline="")
-            self.create_text(lx + 12, y0 - 6, text=label, anchor="w", fill=self.pal["muted"], font=("TkDefaultFont", 8))
-            lx += 14 + 7 * len(label)
+        for n, (label, col) in enumerate((("your apps", self.pal["line"]), ("legalPrivacy", self.pal["noise"]),
+                                          ("Tor", self.pal["tor"]))):
+            swatch(self, lx + 4, y0 - 6, 4, col, (1, 0, 2)[n])             # square, circle, diamond
+            self.create_text(lx + 12, y0 - 6, text=label, anchor="w", fill=self.pal["muted"], font=("TkDefaultFont", 9))
+            lx += 20 + 7 * len(label)

@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import glob
 import os
-import platform
 import random
 import re
 import shutil
@@ -28,7 +27,7 @@ import threading
 import time
 import urllib.parse
 from pathlib import Path
-from typing import Callable
+from collections.abc import Callable
 
 from .useragents import DEFAULT_DEVICE, MOBILE_DEVICES
 from .humanize import HumanDriver, lognormal_clipped

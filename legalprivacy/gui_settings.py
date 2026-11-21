@@ -10,7 +10,7 @@ from tkinter import messagebox, ttk
 from . import gui_fields as F
 from . import gui_logic as L
 from .gui_base import Tab
-from .gui_theme import Banner, Card, MixBar, ScrollFrame, autowrap, pill, set_pill, tip
+from .gui_theme import Banner, Card, MixBar, ScrollFrame, pill, set_pill
 
 GAP = 12
 HOURS = [(h, f"{h:02d}:00") for h in range(24)]

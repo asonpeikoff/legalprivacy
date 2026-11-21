@@ -96,10 +96,12 @@ def build_app_class():
 
     from . import gui_theme as T
     from .gui_more import HealthTab, HelpTab, MLTab, MyListTab, ToolsTab
+    from .gui_security import SecurityTab
     from .gui_settings import SettingsTab
     from .gui_tabs import ActivityTab, DashboardTab, LogTab, ProofTab, TorTab
 
-    TABS = [DashboardTab, ActivityTab, LogTab, TorTab, SettingsTab, MyListTab, MLTab, ProofTab, ToolsTab, HealthTab, HelpTab]
+    TABS = [DashboardTab, ActivityTab, LogTab, TorTab, SettingsTab, MyListTab, MLTab, ProofTab, SecurityTab, ToolsTab,
+            HealthTab, HelpTab]
 
     class App:
         def __init__(self, root: tk.Tk, ctl, web_port: int = 8765):
@@ -238,10 +240,7 @@ def build_app_class():
             chips.grid(row=0, column=7, sticky="e")
             self.tor_chip = ttk.Label(chips, text="Tor: off", style="Pilloff.TLabel")
             self.tor_chip.pack(side="left", padx=(0, 6))
-            self.set_chip = ttk.Label(chips, text="Settings saved", style="Pilloff.TLabel")
-            self.set_chip.pack(side="left")
             T.tip(self.tor_chip, "Whether Tor (used only for .onion noise) is connected")
-            T.tip(self.set_chip, "Whether the running noise uses exactly the settings that are saved")
             ttk.Separator(r, orient="horizontal").grid(row=0, column=0, sticky="sew")
 
             self.nb = ttk.Notebook(r)
@@ -253,6 +252,7 @@ def build_app_class():
                 self.nb.add(t, text=" " + t.title, image=self.icon(t.icon, "muted"), compound="left")
                 self.tabs.append(t)
             self.nb.bind("<<NotebookTabChanged>>", lambda _e: self._tab_changed())
+            self.nb.bind("<Configure>", lambda _e: self._fit_tabs(), add="+")
 
             ttk.Separator(r, orient="horizontal").grid(row=2, column=0, sticky="ew")
             sb = ttk.Frame(r, style="Header.TFrame", padding=(16, 6))
@@ -261,7 +261,11 @@ def build_app_class():
             self.msg_var, self.apply_var = tk.StringVar(), tk.StringVar()
             ttk.Label(sb, textvariable=self.msg_var, style="HeaderMuted.TLabel").grid(row=0, column=0, sticky="w")
             self.apply_lbl = ttk.Label(sb, textvariable=self.apply_var, style="Header.TLabel", font=self.fonts["bold"])
-            self.apply_lbl.grid(row=0, column=1, sticky="e")
+            self.apply_lbl.grid(row=0, column=1, sticky="e", padx=(0, 10))
+            # "are the running settings the saved ones?" lives in the status bar, next to the live-apply message
+            self.set_chip = ttk.Label(sb, text="Settings saved", style="Pilloff.TLabel")
+            self.set_chip.grid(row=0, column=2, sticky="e")
+            T.tip(self.set_chip, "Whether the running noise uses exactly the settings that are saved")
 
             menu = tk.Menu(r)
             fm = tk.Menu(menu, tearoff=0)
@@ -290,7 +294,30 @@ def build_app_class():
             for i in range(1, 10):
                 r.bind(f"<Control-Key-{i}>", lambda _e, i=i: self.nb.select(i - 1))
 
+        def _fit_tabs(self) -> None:
+            """Never truncate a tab label: when all labels do not fit, only the selected tab keeps its text."""
+            try:
+                avail = self.nb.winfo_width()
+                if avail < 100:
+                    return
+                f = self.fonts["base"]
+                fx = T.dpi_factor(self.root)
+                icon, pad = 12 * self.scale + 6, 2 * 9 * fx + 4
+                need = sum(f.measure(" " + t.title) + icon + pad for t in self.tabs) + 24 * fx
+                compact = need > avail
+                if compact == getattr(self, "_compact_tabs", None) and not compact:
+                    return
+                self._compact_tabs = compact
+                sel = self.nb.select()
+                for t in self.tabs:
+                    keep = (not compact) or str(t) == str(sel)
+                    self.nb.tab(t, text=(" " + t.title) if keep else "")
+            except tk.TclError:
+                pass
+
         def _tab_changed(self) -> None:
+            if getattr(self, "_compact_tabs", False):
+                self._fit_tabs()
             try:
                 self.current_tab().on_show()
             except (tk.TclError, IndexError):
@@ -503,6 +530,8 @@ def _make_dpi_aware() -> None:
 
 
 def main(profile_path: str | None = None, port: int | None = None) -> int:
+    from .paths import ensure_utf8_console
+    ensure_utf8_console()
     from .webui import run_ui, running_instance, start_services
     try:
         import tkinter as tk
@@ -540,7 +569,7 @@ def main(profile_path: str | None = None, port: int | None = None) -> int:
     start_services(ctl)
     if first_run:
         from .gui_wizard import show_wizard
-        root.after(500, lambda: show_wizard(app))
+        root.after(500, lambda: show_wizard(app))  # noqa: F821 (closure over a name deleted after mainloop)
     try:
         root.mainloop()
     finally:

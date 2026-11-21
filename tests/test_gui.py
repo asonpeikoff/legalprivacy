@@ -4,12 +4,10 @@ import os
 import sys
 import tempfile
 import time
-import types
 
 import pytest
 
 from legalprivacy import gui_logic as L
-from legalprivacy.config import Profile
 
 
 # ── formatters ──────────────────────────────────────────────────────────────
@@ -351,7 +349,7 @@ def test_window_builds_polls_and_saves_a_change(tk_app):
     app = tk_app
     app.pump_for(1.6)
     assert [t.title for t in app.tabs] == ["Dashboard", "Activity", "Live Log", "Tor", "Settings", "My List", "ML",
-                                           "Proof", "Tools", "Health", "Help"]
+                                           "Proof", "Security", "Tools", "Health", "Help"]
     assert app.state.get("version") and app.status_var.get() == "Stopped"
     assert str(app.b_start.cget("state")) != "disabled" and "disabled" in app.b_stop.state()
     assert "Applying" not in app.set_chip.cget("text")

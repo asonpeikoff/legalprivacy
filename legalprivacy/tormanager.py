@@ -15,7 +15,6 @@ import os
 import platform
 import re
 import shutil
-import signal
 import socket
 import subprocess
 import sys
@@ -26,9 +25,11 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+from .config import valid_bridge_line
 from .events import EventLog
 from .paths import tor_dir
-from .torcontrol import TorControl, TorControlError
+from . import tordns
+from .torcontrol import TorControl, TorControlError, split_hostport
 
 DIST_BASE = "https://dist.torproject.org/torbrowser/"
 BOOTSTRAP_RE = re.compile(r"Bootstrapped (\d+)%(?: \(([^)]*)\))?: (.*)")
@@ -51,6 +52,25 @@ def _pick_port(preferred: int) -> int:
         return preferred
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+def _udp_port_free(host: str, port: int) -> bool:
+    fam = socket.AF_INET6 if ":" in host else socket.AF_INET
+    with socket.socket(fam, socket.SOCK_DGRAM) as s:
+        try:
+            s.bind((host, port))
+            return True
+        except OSError:
+            return False
+
+
+def _pick_udp_port(host: str, preferred: int) -> int:
+    if preferred and _udp_port_free(host, preferred):
+        return preferred
+    fam = socket.AF_INET6 if ":" in host else socket.AF_INET
+    with socket.socket(fam, socket.SOCK_DGRAM) as s:
+        s.bind((host, 0))
         return s.getsockname()[1]
 
 
@@ -129,7 +149,8 @@ class TorManager:
                  socks: str = "127.0.0.1:9050", control: str | None = "127.0.0.1:9051",
                  control_password: str | None = None, bridges: list[str] | None = None,
                  bridge_mode: str = "off", bridge_auto: bool = True,
-                 auto_install: bool = True):
+                 auto_install: bool = True, dns_port: int = 0, dns_lan: bool = False,
+                 dns_lan_addr: str = ""):
         self.log = log
         self.mode = mode                      # managed | external
         self.ext_socks, self.ext_control = socks, control
@@ -140,6 +161,9 @@ class TorManager:
         self.bridge_auto = bridge_auto          # try built-in bridges if a direct connection gets stuck
         self._auto_tried: list[str] = []
         self.auto_install = auto_install
+        self.dns_port_cfg, self.dns_lan, self.dns_lan_addr = dns_port, dns_lan, dns_lan_addr   # Tor DNS (optional)
+        self.dns_host = tordns.bind_address(dns_lan, dns_lan_addr)
+        self.dns_port = 0                       # the port actually in use (set when Tor is launched)
 
         self.state = "stopped"   # stopped|installing|starting|bootstrapping|ready|error
         self.error: str | None = None
@@ -249,10 +273,20 @@ class TorManager:
             "control": self.control_addr, "bridges": len(self.effective_bridges()),
             "bridge_mode": self.bridge_mode, "builtin": {k: len(v) for k, v in self.builtin_bridges().items()},
             "install_progress": self.install_progress,
+            "dns": self.dns_info(),
             "supported_platform": platform_key() is not None,
             "hint": self._hint(uptime),
             **{k: self.stats.get(k) for k in ("read", "written", "circuits_built")},
         }
+
+    def dns_info(self) -> dict:
+        """Tor DNS state: whether it is switched on, where it listens, whether Tor is serving it now."""
+        on = self.dns_port_cfg != 0
+        managed = self.mode == "managed"
+        live = bool(on and managed and self.dns_port and self.state == "ready")
+        return {"on": on, "managed": managed, "address": self.dns_host if on else None,
+                "port": self.dns_port if on and self.dns_port else None, "lan": bool(on and self.dns_lan),
+                "ready": live}
 
     def circuits(self) -> list[dict]:
         return list(self.stats.get("circuits", []))
@@ -282,7 +316,7 @@ class TorManager:
 
     def _attach_external(self) -> None:
         self.state = "starting"
-        self.socks_host, self.socks_port = _split(self.ext_socks, 9050)
+        self.socks_host, self.socks_port = split_hostport(self.ext_socks, 9050)
         candidates = [(self.socks_host, self.socks_port)]
         if self.socks_port == 9050:
             candidates.append(("127.0.0.1", 9150))     # Tor Browser default
@@ -294,7 +328,7 @@ class TorManager:
             raise RuntimeError(f"No Tor found at {self.ext_socks}. Switch to 'managed' mode "
                                "and legalPrivacy will run its own private Tor.")
         if self.ext_control:
-            self.control_host, self.control_port = _split(self.ext_control, 9051)
+            self.control_host, self.control_port = split_hostport(self.ext_control, 9051)
             if self.socks_port == 9150 and self.control_port == 9051:
                 self.control_port = 9151
         self.log.info("tor", f"Using external Tor at {self.socks_addr}")
@@ -328,6 +362,8 @@ class TorManager:
         self.control_host, self.control_port = "127.0.0.1", _pick_port(19051)
         if self.control_port == self.socks_port:
             self.control_port = _pick_port(0)
+        self.dns_port = (_pick_udp_port(self.dns_host, self.dns_port_cfg or tordns.DEFAULT_PORT)
+                         if self.dns_port_cfg else 0)
         self.cookie_path = str(tor_dir() / "control_auth_cookie")
         torrc = self._write_torrc(data_dir)
         env = os.environ.copy()
@@ -338,7 +374,7 @@ class TorManager:
         creation = 0x08000000 if _IS_WIN else 0     # CREATE_NO_WINDOW
         self._proc = subprocess.Popen(
             [self.binary, "-f", str(torrc)], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            text=True, bufsize=1, env=env, creationflags=creation)
+            text=True, encoding="utf-8", errors="replace", bufsize=1, env=env, creationflags=creation)
         self.pid = self._proc.pid
         self.started_at = time.time()
         self.state = "bootstrapping"
@@ -362,14 +398,19 @@ class TorManager:
             "SafeSocks 1",
             "Log notice stdout",
         ]
+        dns_line = tordns.torrc_line(self.dns_port, self.dns_lan, self.dns_lan_addr) if self.dns_port else None
+        if dns_line:        # optional Tor DNS: loopback unless one private LAN address was explicitly chosen
+            lines.append(dns_line)
         bundle_data = Path(self.binary).resolve().parent.parent / "data"
         for name, key in (("geoip", "GeoIPFile"), ("geoip6", "GeoIPv6File")):
             if (bundle_data / name).exists():
                 lines.append(f"{key} {_torrc_quote(bundle_data / name)}")
-        bridges = self.effective_bridges()
+        bridges = [b for b in self.effective_bridges() if valid_bridge_line(b)]   # one line each, never a setting
+        if len(bridges) != len(self.effective_bridges()):
+            self.log.warn("tor", "Ignored bridge line(s) that were not in the usual bridge format.")
         if bridges:
             lines.append("UseBridges 1")
-            for transport in sorted({b.split()[0] for b in bridges if not b.split()[0][0].isdigit()}):
+            for transport in sorted({b.split()[0] for b in bridges if re.match(r"[A-Za-z_]", b)}):
                 line = self._pt_line(transport)
                 if line:
                     lines.append(line)
@@ -482,6 +523,7 @@ class TorManager:
 
     def _monitor_loop(self) -> None:
         ctrl: TorControl | None = None
+        last_err = ""
         while not self._stop_evt.is_set() and self.state not in ("stopped", "error"):
             try:
                 if ctrl is None:
@@ -499,8 +541,13 @@ class TorManager:
                 ctrl = None
                 if self.mode == "external" or self.state == "ready":
                     self.stats.setdefault("control_error", str(exc))
-            except Exception:
+            except Exception as exc:               # a bug or odd reply: keep monitoring, but say so (once per kind)
+                if ctrl:
+                    ctrl.close()
                 ctrl = None
+                if repr(exc) != last_err:
+                    last_err = repr(exc)
+                    self.log.debug("tor", f"Tor monitor error: {last_err}")
             self._stop_evt.wait(2.0)
         if ctrl:
             ctrl.close()
@@ -596,11 +643,6 @@ class TorManager:
         self.log.info("tor", f"Tor {ver} installed to {target}")
 
 
-def _split(spec: str, default_port: int) -> tuple[str, int]:
-    host, _, port = spec.rpartition(":") if ":" in spec else (spec, "", "")
-    return (host or "127.0.0.1"), (int(port) if port else default_port)
-
-
 def _safe_extract(archive: Path, target: Path) -> None:
     root = target.resolve()
     with tarfile.open(archive, "r:gz") as tf:
@@ -608,9 +650,12 @@ def _safe_extract(archive: Path, target: Path) -> None:
             dest = (target / m.name).resolve()
             if root not in dest.parents and dest != root:
                 raise RuntimeError(f"unsafe path in archive: {m.name}")
-            if m.issym() or m.islnk():
-                continue                       # bundles don't need links; skip for safety
-            tf.extract(m, target)
+            if not (m.isreg() or m.isdir()):
+                continue                       # no links, devices or pipes: the bundle needs none of them
+            if hasattr(tarfile, "data_filter"):       # strips owner/setuid bits (Python 3.12+, and recent 3.10/3.11)
+                tf.extract(m, target, filter="data")
+            else:
+                tf.extract(m, target)
 
 
 MOAT = "https://bridges.torproject.org/moat/circumvention/settings"

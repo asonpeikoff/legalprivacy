@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "legalprivacy"
-version = "2.12.0"
+version = "2.14.0"
 description = "legalPrivacy — privacy noise generator with optional Tor/onion mode, a local dashboard, and community relay contribution"
 requires-python = ">=3.10"
 dependencies = [
@@ -36,3 +36,27 @@ include = ["legalprivacy*"]
 
 [tool.setuptools.package-data]
 legalprivacy = ["web/*.html", "web/*.js"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+extend-exclude = ["legacy-src", "nbproject", "build", "dist"]
+
+[tool.ruff.lint]
+# Real-bug rules only; style rules that would mean reformatting the code base stay off.
+select = ["E", "F", "W", "B", "UP", "SIM", "RET"]
+ignore = [
+  "E501",    # long lines: the code base uses ~120-150 columns
+  "E701", "E702", "E741",   # compact one-liners and short names (l, i) are used deliberately
+  "E402",    # imports after sys.path / env set-up in entry points
+  "SIM105",  # try/except/pass is clearer than contextlib.suppress here
+  "SIM108", "SIM102", "SIM117", "SIM110", "SIM905",
+  "UP031", "UP037", "UP035",
+  "B905",    # zip(strict=) needs py3.10+ semantics review per call; lengths are equal by construction
+  "RET501", "RET502", "RET503", "RET504", "RET505", "RET506", "RET507", "RET508",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"legalprivacy/gui_logic.py" = ["F403", "F405", "F401"]   # re-exports gui_fields for the Tk modules
+"tests/__init__.py" = ["F401"]
+"tests/*" = ["SIM115", "B007", "B011"]       # throwaway handles and loop vars in tests are fine

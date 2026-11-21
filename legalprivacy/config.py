@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -21,6 +22,16 @@ DEFAULT_SEEDS = [
 
 class ConfigError(ValueError):
     """Raised for invalid or unsafe profile configuration."""
+
+
+# One Tor bridge line: "[transport] address:port [fingerprint] [key=value ...]". It is written into Tor's
+# configuration file, so it must stay on one line and start like a bridge (never inject another setting).
+_BRIDGE_LINE = re.compile(r"^(?:[A-Za-z_][A-Za-z0-9_]*\s+)?(?:\d{1,3}(?:\.\d{1,3}){3}|\[[0-9A-Fa-f:.]+\]):\d{1,5}"
+                          r"(?:\s+[^\x00-\x1f\x7f]*)?$")
+
+
+def valid_bridge_line(line: str) -> bool:
+    return isinstance(line, str) and len(line) <= 1000 and bool(_BRIDGE_LINE.match(line.strip()))
 
 
 @dataclass
@@ -70,6 +81,9 @@ class TransportConfig:
     bridges: list[str] = field(default_factory=list)       # bridge lines for censored networks
     bridge_mode: str = "off"          # off | obfs4 | snowflake | meek (built into the Tor bundle) | custom (yours)
     bridge_auto: bool = True          # if Tor can't connect directly, try the built-in bridges by itself
+    dns_port: int = 0                 # Tor DNS (optional): 0 = off, else the preferred local UDP port for Tor's DNSPort
+    dns_lan: bool = False             # share Tor DNS on one private network address (off; loopback only by default)
+    dns_lan_addr: str = ""            # which of this computer's private addresses, when dns_lan is on
 
     def validate(self, name: str) -> None:
         if self.browser not in ("auto", "on", "off"):
@@ -80,8 +94,18 @@ class TransportConfig:
             raise ConfigError(f"transport '{name}': browser_engine must be auto, chromium or firefox")
         if self.bridge_mode not in ("off", "obfs4", "snowflake", "meek", "custom"):
             raise ConfigError("tor bridge_mode must be off, obfs4, snowflake, meek or custom")
+        for b in self.bridges:
+            if not valid_bridge_line(b):
+                raise ConfigError("a Tor bridge line isn't in the usual form (for example "
+                                  "'obfs4 192.0.2.1:443 FINGERPRINT cert=… iat-mode=0'); paste one bridge per line")
         if self.identities_per_circuit < 1:
             raise ConfigError(f"transport '{name}': identities_per_circuit >= 1")
+        if name == "tor":
+            from .tordns import TorDnsError, validate_dns
+            try:
+                validate_dns(self.dns_port, self.dns_lan, self.dns_lan_addr)
+            except TorDnsError as exc:
+                raise ConfigError(str(exc)) from exc
 
 
 @dataclass
@@ -93,13 +117,27 @@ class RelayConfig:
     bandwidth_rate: str = "5Mbit"
     or_port: int = 9001
     dir_port: int = 9030
+    practice: bool = True             # practice mode: loopback only, nothing published (the safe first run)
+    autostart: bool = False           # start the relay with the app: only after an explicit choice
+    acknowledged: bool = False        # the checklist was completed once (needed for autostart)
 
     def validate(self) -> None:
+        from .relay import RelayConfigError
         if self.mode not in ("middle", "bridge"):
             raise ConfigError(
                 "contribute.relay.mode must be 'middle' or 'bridge'; "
                 "legalPrivacy v2 never runs an exit node"
             )
+        try:             # one set of rules (including the line-break checks) for every way a torrc is made
+            self.spec().validate()
+        except RelayConfigError as exc:
+            raise ConfigError(str(exc)) from exc
+
+    def spec(self):
+        from .relay import RelaySpec
+        return RelaySpec(mode=self.mode, nickname=self.nickname, contact=self.contact or None,
+                         bandwidth_rate=self.bandwidth_rate, or_port=self.or_port,
+                         dir_port=self.dir_port, practice=self.practice)
 
 
 RECOMMENDED_RESOLVERS = [
@@ -332,14 +370,14 @@ class Profile:
     })
     relay: RelayConfig = field(default_factory=RelayConfig)
     daily_max_failures: int = 30
-    queries: "QuerySources" = field(default_factory=lambda: QuerySources())
-    rate: "RateConfig" = field(default_factory=lambda: RateConfig())
-    dns: "DnsConfig" = field(default_factory=lambda: DnsConfig())
-    identity: "IdentityConfig" = field(default_factory=lambda: IdentityConfig())
-    mylist: "MyListConfig" = field(default_factory=lambda: MyListConfig())
-    traffic: "TrafficConfig" = field(default_factory=lambda: TrafficConfig())
-    extras: "ExtrasConfig" = field(default_factory=lambda: ExtrasConfig())
-    accounts: dict[str, "AccountConfig"] = field(
+    queries: QuerySources = field(default_factory=lambda: QuerySources())
+    rate: RateConfig = field(default_factory=lambda: RateConfig())
+    dns: DnsConfig = field(default_factory=lambda: DnsConfig())
+    identity: IdentityConfig = field(default_factory=lambda: IdentityConfig())
+    mylist: MyListConfig = field(default_factory=lambda: MyListConfig())
+    traffic: TrafficConfig = field(default_factory=lambda: TrafficConfig())
+    extras: ExtrasConfig = field(default_factory=lambda: ExtrasConfig())
+    accounts: dict[str, AccountConfig] = field(
         default_factory=lambda: {n: AccountConfig() for n in ACCOUNT_PROVIDERS})
 
     def active_engines(self, transport: str) -> list[str]:
@@ -424,12 +462,28 @@ def apply_overrides(profile: Profile, raw: dict[str, Any]) -> Profile:
                 # goes back to hidden; a visible window someone chose stays visible.
                 raw_tr["browser_window"] = "visible" if raw_tr.get("browser_visible") else "hidden"
             merged = profile.transports[name].__dict__ | raw_tr
+            if name == "tor":
+                try:
+                    merged["dns_port"] = int(merged.get("dns_port") or 0)
+                except (TypeError, ValueError):
+                    raise ConfigError("Tor DNS port must be a whole number") from None
+                merged["dns_lan"] = merged.get("dns_lan") is True
+                merged["dns_lan_addr"] = str(merged.get("dns_lan_addr") or "").strip()
             t = profile.transports[name] = TransportConfig(
                 **{k: v for k, v in merged.items() if k in TransportConfig.__dataclass_fields__})
             t.browser_visible, t.browser_offscreen = t.browser_window == "visible", t.browser_window == "offscreen"
     contribute = p.get("contribute") or {}
     if "relay" in contribute:
         merged = profile.relay.__dict__ | contribute["relay"]
+        try:
+            for k in ("or_port", "dir_port"):
+                merged[k] = int(merged[k])
+        except (TypeError, ValueError):
+            raise ConfigError("relay ports must be whole numbers") from None
+        for k in ("enabled", "practice", "autostart", "acknowledged"):
+            merged[k] = merged[k] is True
+        merged["nickname"], merged["bandwidth_rate"] = str(merged["nickname"]), str(merged["bandwidth_rate"])
+        merged["contact"] = str(merged["contact"]) if merged.get("contact") else None
         profile.relay = RelayConfig(**{k: v for k, v in merged.items() if k in RelayConfig.__dataclass_fields__})
     if p.get("queries"):
         merged = profile.queries.__dict__ | p["queries"]
