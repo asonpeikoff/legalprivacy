@@ -80,7 +80,7 @@ class Controller:
         self.observer.baseline_fn = self._baseline
         self._feed_timer_started = False
         from .relayrun import RelayManager
-        self.relay = RelayManager(self.log)        # optional relay: its own Tor process, practice mode unless set up
+        self.relay = RelayManager(self.log)        # optional relay: its own Tor process, never published before the checklist
         from .accounts import AccountsManager
         self.accounts = AccountsManager(          # optional signed-in accounts; clearnet only, never Tor
             self.log, config=lambda: self.profile.accounts,
@@ -94,6 +94,7 @@ class Controller:
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
         self._lock = threading.RLock()
+        self._seq, self._seq_lock = [0], threading.Lock()      # request numbers, shared by the normal and turbo runners
         self.log.info("app", f"legalPrivacy {__version__} on {platform.system()} {platform.release()} "
                              f"(Python {platform.python_version()})")
         self.log.info("app", f"Config: {self.profile_path}")
@@ -717,7 +718,7 @@ class Controller:
                                          if res["ok"] else res["error"]))
         return res
 
-    # ── Relay (a separate Tor process; starts with the app in practice mode by default) ──
+    # ── Relay (a separate Tor process; after the checklist it starts with the app by default) ──
     RELAY_CHECKLIST = ("address", "always_on", "bandwidth", "not_exit", "public_ip")
 
     @staticmethod
@@ -777,8 +778,7 @@ class Controller:
         ticked = {str(k) for k, v in (body.get("checklist") or {}).items() if v is True} \
             if isinstance(body.get("checklist"), dict) else set()
         if not practice and not set(self.RELAY_CHECKLIST) <= ticked:
-            raise ConfigError("Tick every item on the checklist before starting a public relay, "
-                              "or use practice mode.")
+            raise ConfigError("Tick every item on the checklist before starting the relay.")
         raw = {"mode": str(body.get("mode", cur.mode)), "nickname": str(body.get("nickname", cur.nickname)),
                "contact": str(body.get("contact") or "").strip() or None,
                "bandwidth_rate": f"{mb:g} MBytes", "or_port": or_port, "dir_port": 0, "practice": practice,
@@ -797,9 +797,8 @@ class Controller:
         return self.relay_state()
 
     def relay_autostart(self) -> None:
-        """Called once when the app opens. Starts the relay if 'start with the app' is on (the default). Out of the
-        box that is practice mode: loopback only, nothing published. A public relay starts only after its
-        checklist was completed once."""
+        """Called once when the app opens. Starts the relay if 'start with the app' is on (the default) AND the
+        checklist was completed once (the first start is always by hand), so a relay is never published silently."""
         rc = self.profile.relay
         if rc.autostart and (rc.practice or rc.acknowledged):
             if not self.relay._find_binary():            # default-on: stay quiet until Tor has been installed once
@@ -945,19 +944,21 @@ class Controller:
                 self.log.clear()
                 self.log_epoch = getattr(self, "log_epoch", 0) + 1
             self.runner = Runner(profile=prof, lanes=lanes, wordlist=words, log=self.log,
-                                 onion_health=self.onion_health(),
+                                 onion_health=self.onion_health(), seq_next=self._next_seq,
                                  stop_event=self._stop, sleep_fn=lambda s: self._stop.wait(s),
                                  queries=self._query_source(words), domains=self._domain_pool(_r),
                                  rate=RatePlanner(_r.Random(), prof.rate),
                                  dns_plan=self._fresh_dns_plan(),
                                  mix=True)
             if prev is not None:                  # request numbers keep counting across restarts
-                self.runner._hit_seq = prev._hit_seq
+                self._seq[0] = max(self._seq[0], prev._hit_seq)
+                self.runner._hit_seq = self._seq[0]
                 if not self.app.get("clear_logs_on_restart", True):
                     self.runner.hit_log.extend(prev.hit_log)
             self._thread = threading.Thread(target=self._run_loop, daemon=True, name="legalprivacy-runner")
             self._thread.start()
             self.accounts.start()                 # idle unless an account is signed in AND switched on
+            self._turbo_start()                   # only if turbo mode is on
             self._note_start(reason)
             self._running_dict = profile_to_dict(prof)
             self._applied_at = time.time()
@@ -1166,8 +1167,109 @@ class Controller:
             except Exception:
                 pass
 
+    # ── turbo mode: a second, separate real-browser lane at a faster pace ───────
+    TURBO_DAILY_MAX = 4000                   # page visits per day, however fast it is set
+
+    def _next_seq(self) -> int:
+        with self._seq_lock:
+            self._seq[0] += 1
+            return self._seq[0]
+
+    def turbo_state(self) -> dict:
+        t = getattr(self, "_turbo", None)
+        alive = bool(t and t["thread"].is_alive())
+        return {"on": bool(self.profile.extras.turbo), "per_min": int(self.profile.extras.turbo_per_min),
+                "running": alive, "pages": t["pages"][0] if t else 0, "daily_max": self.TURBO_DAILY_MAX,
+                "needs_browser": not self.browser_info()["active"]}
+
+    def set_turbo(self, on: bool, per_min: int | None = None) -> dict:
+        """Switch turbo mode on or off (and its pace) without restarting the normal noise."""
+        raw = {"turbo": bool(on)}
+        if per_min is not None:
+            raw["turbo_per_min"] = int(per_min)
+        self.apply_config({"extras": raw})
+        if self.running:
+            self._turbo_stop()
+            if on:
+                self._turbo_start()
+        return self.turbo_state()
+
+    def _turbo_start(self) -> None:
+        """A second runner of its own: its own real browser, its own pace and budget, its own thread. It shares
+        nothing with the normal noise except the Activity list and the site and search sources."""
+        ex = self.profile.extras
+        t = getattr(self, "_turbo", None)
+        if not ex.turbo or not self.running or (t and t["thread"].is_alive()):
+            return
+        if not self.browser_info()["active"]:
+            self.log.warn("turbo", "Turbo mode needs the real browser (Settings → Realism); it is switched on but not running.")
+            return
+        import random as _r
+        from .scheduler import Lane
+        from .pacing import Budget
+        prof = copy.deepcopy(self.profile)
+        prof.extras.turbo = False
+        stop = threading.Event()
+        tr = self._clearnet_transport(stop)
+        if tr is None:
+            return
+        tr.scale = lambda: 0.15                     # skim pages quickly
+        engines = [n for n in ("search", "crawl") if prof.engines[n].enabled] or ["crawl"]
+        lane = Lane(name="turbo", transport=tr, engines=engines,
+                    budgets={n: Budget(per_day=self.TURBO_DAILY_MAX) for n in engines})
+        words = load_wordlist(next((e.wordlist for e in prof.engines.values() if e.enabled and e.wordlist), None))
+        runner = Runner(profile=prof, lanes=[lane], wordlist=words, log=self.log, stop_event=stop,
+                        sleep_fn=lambda s: stop.wait(min(s, 5.0)), local_hour_fn=lambda: 12.0,
+                        queries=self._query_source(words), domains=self._domain_pool(_r), seq_next=self._next_seq)
+        runner.hit_log = self.runner.hit_log        # one Activity list
+        pages = [0]
+        per_min = max(1, min(20, int(ex.turbo_per_min)))
+
+        def loop():
+            rng, day, today = _r.Random(), time.strftime("%Y-%m-%d"), 0
+            try:
+                while not stop.is_set():
+                    if time.strftime("%Y-%m-%d") != day:
+                        day, today = time.strftime("%Y-%m-%d"), 0
+                    if today >= self.TURBO_DAILY_MAX:
+                        stop.wait(300)
+                        continue
+                    t0 = time.time()
+                    try:
+                        if runner.run_once(wait=False):
+                            pages[0] += 1
+                            today += 1
+                    except MaxFailuresExceeded as exc:
+                        self.log.warn("turbo", f"Turbo stopped: {exc}")
+                        break
+                    except Exception as exc:
+                        self.log.warn("turbo", f"Turbo hit a problem and slowed down: {exc}")
+                        stop.wait(30)
+                        continue
+                    stop.wait(max(0.0, 60.0 / per_min * rng.uniform(0.7, 1.3) - (time.time() - t0)))
+            finally:
+                try:
+                    runner.close()
+                except Exception:
+                    pass
+        th = threading.Thread(target=loop, daemon=True, name="legalprivacy-turbo")
+        self._turbo = {"thread": th, "stop": stop, "pages": pages}
+        th.start()
+        self.log.info("turbo", f"Turbo mode on: about {per_min} extra real-browser visits a minute, "
+                               f"at most {self.TURBO_DAILY_MAX} a day, separate from the normal noise.")
+
+    def _turbo_stop(self) -> None:
+        t = getattr(self, "_turbo", None)
+        if not t:
+            return
+        t["stop"].set()
+        t["thread"].join(timeout=8)
+        self._turbo = None
+        self.log.info("turbo", "Turbo mode stopped.")
+
     def stop(self, stop_tor: bool = False) -> None:
         self.accounts.stop()
+        self._turbo_stop()
         with self._lock:
             self._stop.set()
             t = self._thread
@@ -1225,7 +1327,7 @@ class Controller:
             "data_cap_mb": self.profile.extras.daily_data_mb,
             "engine_names": ENGINE_NAMES, "engine_defaults": dict(zip(ENGINE_NAMES, SEARCH_WEIGHTS)),
             "profile": profile_to_dict(self.profile)["profile"],
-            "tor": self.tor_state(), "log_last_id": self.log.last_id(),
+            "tor": self.tor_state(), "log_last_id": self.log.last_id(), "turbo": self.turbo_state(),
             "builtin_onion_seeds": [{"name": n, "url": u, "health": self.onion_health().status(u)}
                                     for n, u in BUILTIN_ONION_SEEDS],
             "config_path": self.profile_path,

@@ -76,7 +76,7 @@ def test_config_reuses_relay_validators():
 
 def test_relay_defaults_are_safe():
     r = Profile(name="x").relay
-    assert r.enabled is False and r.autostart is True and r.practice is True and r.acknowledged is False
+    assert r.enabled is False and r.autostart is True and r.practice is False and r.acknowledged is False
 
 
 # ── a fake Tor ──────────────────────────────────────────────────────────────
@@ -232,22 +232,27 @@ def test_bandwidth_bounds(ctl):
 def test_state_has_estimate_and_torrc_preview(ctl):
     st = ctl.relay_state()
     assert st["estimate"]["max_gb_per_direction"] == pytest.approx(1 * 86400 * 30 / 1000, abs=0.1)
-    assert "ExitPolicy reject *:*" in st["torrc"] and "ORPort 127.0.0.1:" in st["torrc"]   # practice by default
-    assert st["settings"]["practice"] is True and st["settings"]["autostart"] is True
+    assert "ExitPolicy reject *:*" in st["torrc"] and "ExitRelay 0" in st["torrc"]       # never an exit
+    assert st["settings"]["practice"] is False and st["settings"]["autostart"] is True
 
 
 # ── never automatic, never remembered as "on" ───────────────────────────────
-def test_starts_with_the_app_by_default_in_practice_mode_only(home, tmp_path):
+def test_nothing_is_published_silently_on_first_launch(home, tmp_path):
+    """Autostart is on by default, but the checklist must have been completed once: a fresh install never
+    starts (or publishes) a relay by itself."""
     from legalprivacy.controller import Controller
     c = Controller(str(home / "config.yaml"))
     c.relay._find_binary = lambda: make_fake(tmp_path)
-    assert c.profile.relay.autostart is True and c.profile.relay.practice is True
+    assert c.profile.relay.autostart is True and c.profile.relay.acknowledged is False
     c.relay_autostart()
-    try:
-        assert c.relay_state()["status"]["state"] in ("starting", "running")
-        assert c.relay.spec.practice is True                    # nothing published
-    finally:
-        c.relay.stop()
+    assert c.relay_state()["status"]["state"] == "stopped"
+
+
+def test_the_first_start_needs_every_checklist_item(ctl):
+    with pytest.raises(ConfigError, match="checklist"):
+        ctl.relay_start({"or_port": free_port()})
+    with pytest.raises(ConfigError, match="checklist"):
+        ctl.relay_start({"or_port": free_port(), "checklist": {"address": True}})
 
 
 def test_default_autostart_is_quiet_when_tor_is_not_installed(home):

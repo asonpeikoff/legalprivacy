@@ -71,7 +71,7 @@ def fmt_bytes(n: float | None) -> str:
     return f"{n:.1f} GB"
 
 
-LANE_LABELS = {"clearnet": "Web (browser)", "clearnet-plain": "Web (plain)", "tor": "Onion (Tor)"}
+LANE_LABELS = {"turbo": "Turbo (browser)", "clearnet": "Web (browser)", "clearnet-plain": "Web (plain)", "tor": "Onion (Tor)"}
 ENGINE_LABELS = {"search": "searches", "crawl": "following links", "dns": "DNS lookups",
                  "onion": "onion sites", "packages": "package installs"}
 

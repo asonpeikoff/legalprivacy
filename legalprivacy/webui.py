@@ -337,6 +337,8 @@ class UIServer:
                         return self._json(ctl.tor_action(path.rsplit("/", 1)[1]))
                     elif path == "/api/config":
                         return self._json(ctl.apply_config(body))
+                    elif path == "/api/turbo":
+                        return self._json(ctl.set_turbo(body.get("on") is True, body.get("per_min")))
                     elif path == "/api/settings/reset":
                         return self._json(ctl.reset_recommended())
                     elif path == "/api/app":

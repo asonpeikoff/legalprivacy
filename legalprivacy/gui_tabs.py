@@ -684,12 +684,12 @@ class TorTab(Tab):
                  else "Listening" if d.get("ready") else "Waiting for Tor to be ready")
         self.dns_status.configure(text=f"Status: {state}    Address: {where}    Reachable from: {who}")
 
-    # -- Relay (separate Tor process; practice mode by default) -----------
+    # -- Relay (separate Tor process; needs the checklist) -----------
     CHECKS = (("address", "This computer has a public IP address, or my router forwards the ORPort to it."),
               ("always_on", "This computer stays on and connected most of the time."),
               ("bandwidth", "I am happy with the speed limit above and the traffic it can use each month."),
               ("not_exit", "I understand this is not an exit: it never reaches websites for anyone, and it cannot answer DNS."),
-              ("public_ip", "I understand a relay's IP address is public by design."))
+              ("public_ip", "I understand a relay's IP address is public by design: anyone can see it runs Tor, and some websites treat relay addresses with suspicion."))
 
     def _build_relay(self, f, row: int) -> None:
         app = self.app
@@ -700,7 +700,7 @@ class TorTab(Tab):
                         "exit: it never connects to websites for anyone, and legalPrivacy can never make it one. A relay or "
                         "bridge also does not provide DNS (only exit relays look up names). Relay addresses are public by "
                         "design: the Tor network publishes them in a list anyone can read. The relay runs as its own "
-                        "separate Tor program; it starts with the app in practice mode (nothing published) unless you untick that.", "tor", host=rc.body).pack(fill="x", pady=(0, 6))
+                        "separate Tor program. After you complete the checklist and start it once, it starts with the app unless you untick that.", "tor", host=rc.body).pack(fill="x", pady=(0, 6))
         self.r_inputs: list = []
         self.r_mode = tk.StringVar(value="middle")
         for val, txt, hint in (("middle", "Middle relay", "Listed publicly; carries traffic between other relays."),
@@ -729,12 +729,7 @@ class TorTab(Tab):
         self.r_inputs += [e1, e2, e3, e4]
         for v in (self.r_nick, self.r_bw, self.r_port, self.r_contact, self.r_mode):
             v.trace_add("write", lambda *_a: self._relay_changed())
-        self.r_practice = tk.BooleanVar(value=True)
-        self.r_inputs.append(rc.check(self.r_practice, "Practice mode (not published)",
-                                      "The relay only listens on this computer and never announces itself, so nobody can use "
-                                      "it. It still downloads Tor's public relay list like any Tor program. Needs no checklist. "
-                                      "Untick it only when you are ready to join the network.", command=self._relay_changed))
-        rc.heading("Before a public relay", "tick each one")
+        rc.heading("Before you start the relay", "tick each one")
         self.r_checks: dict[str, tk.BooleanVar] = {}
         for key, txt in self.CHECKS:
             var = tk.BooleanVar(value=False)
@@ -757,7 +752,7 @@ class TorTab(Tab):
         self.r_auto = tk.BooleanVar(value=True)
         self._r_loading = True
         rc.check(self.r_auto, "Start the relay when this app opens",
-                 "On by default. Until you complete the checklist this is practice mode: nothing is published.", command=self.relay_autostart)
+                 "On by default, but only after you have completed the checklist and started the relay once.", command=self.relay_autostart)
         self.r_note = rc.note("", pady=(2, 2))
         self.r_log = tk.Text(rc.body, height=7, wrap="none", state="disabled", relief="flat", borderwidth=0,
                              highlightthickness=1, font=app.fonts["mono"], padx=8, pady=6)
@@ -790,7 +785,7 @@ class TorTab(Tab):
         except ValueError:
             port = 0
         return {"mode": self.r_mode.get(), "nickname": self.r_nick.get(), "bandwidth_mb": bw, "or_port": port,
-                "contact": self.r_contact.get(), "practice": bool(self.r_practice.get()),
+                "contact": self.r_contact.get(), "practice": False,
                 "checklist": {k: v.get() for k, v in self.r_checks.items()}}
 
     def _relay_changed(self) -> None:
@@ -814,8 +809,8 @@ class TorTab(Tab):
         if not why and not getattr(self, "_r_tor_found", True):
             why = ("Tor is not installed yet. Press Start Tor above once (it installs the official bundle), "
                    "then come back.")
-        elif not why and not b["practice"] and not all(b["checklist"].values()):
-            why = "Tick every item on the checklist to start a public relay, or keep practice mode on."
+        elif not why and not all(b["checklist"].values()):
+            why = "Tick every item on the checklist to start the relay."
         up = self._r_up
         self.r_start.state(["!disabled"] if not up and not why else ["disabled"])
         self.r_stop.state(["!disabled"] if up else ["disabled"])
@@ -856,7 +851,6 @@ class TorTab(Tab):
             self.r_bw.set(f"{s['bandwidth_mb']:g}")
             self.r_port.set(str(s["or_port"]))
             self.r_contact.set(s["contact"])
-            self.r_practice.set(bool(s["practice"]))
             self.r_auto.set(bool(s["autostart"]))
             self._r_filled = True
             self.r_est.configure(text=L.relay_estimate_text(s["bandwidth_mb"]))
@@ -865,8 +859,7 @@ class TorTab(Tab):
         tone = {"running": "ok", "starting": "warn", "error": "bad"}.get(status["state"], "off")
         from .gui_theme import set_pill
         label = {"stopped": "Stopped", "starting": "Starting…", "error": "Error",
-                 "running": ("Running (practice, not published)" if status.get("practice")
-                             else "Running, reachable" if status.get("reachable") else "Running")}[status["state"]]
+                 "running": "Running, reachable" if status.get("reachable") else "Running"}[status["state"]]
         set_pill(self.r_pill, label, tone)
         self.r_note.configure(text=status.get("error") or status.get("hint") or (
             f"Relay fingerprint: {status['fingerprint']}" if status["state"] == "running" and status.get("fingerprint") else ""))

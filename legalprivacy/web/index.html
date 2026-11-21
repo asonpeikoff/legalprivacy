@@ -62,7 +62,7 @@ label.chk{display:flex;gap:8px;align-items:flex-start;margin:6px 0;cursor:pointe
 .spin{display:inline-block;animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
 .ok{color:var(--acc)}.bad{color:var(--bad)}.warnc{color:var(--warn)}
 .chip{cursor:pointer;user-select:none}.chip.off{opacity:.4}
-.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:13px}.kv b{color:var(--mute);font-weight:600}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:13px}.kv.two{grid-template-columns:auto 1fr auto 1fr;gap:4px 16px}.kv b{color:var(--mute);font-weight:600}
 .spark{width:100%;height:60px}
 /* wizard */
 #wiz{position:fixed;inset:0;background:var(--scrim);display:none;align-items:center;justify-content:center;z-index:20;padding:12px}
@@ -377,6 +377,9 @@ body.loading .big,body.loading .kpi b{display:block;width:min(100%,5ch);color:tr
     <div class="card"><h3>Data today</h3><div class="big" id="kData">—</div><div class="small mute" id="kDataSub">approximate</div></div>
   </div>
   <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-act"/></svg>Hits per minute (last 30 min)</h3><div class="spark-wrap"><span id="sparkPeak" class="small"></span><svg id="spark" class="spark" viewBox="0 0 300 60" preserveAspectRatio="none" role="img" aria-label="Successful hits per minute, last 30 minutes"></svg><div id="sparkEmpty" class="empty" hidden><svg class="ic" aria-hidden="true"><use href="#i-act"/></svg><b>No hits yet</b><span>Bars appear here once the noise is running. Press Start, or send a test hit.</span></div></div></div>
+  <div class="card" id="turboCard"><h3><svg class="ic" aria-hidden="true"><use href="#i-play"/></svg>Turbo mode <details class="why"><summary>ⓘ</summary><div>Turbo is an extra layer on top of everything else: a second, separate real browser that visits popular sites and searches at a faster pace, for more cover. It has its own pace and daily limit, never shares a tab, cookie jar or schedule with the normal noise, and stops when the noise stops. Sites are visited by the same persona and site lists as the normal noise, and each site is rested after a visit. It uses more bandwidth and CPU, so it is off by default.</div></details></h3>
+    <label class="chk"><input type="checkbox" id="turboOn"><span><b>Turbo mode</b> — extra real-browser visits, about <input type="number" id="turboRate" min="1" max="20" step="1" value="6" style="width:60px"> a minute (at most 4,000 a day)</span></label>
+    <div class="small mute" id="turboNote"></div></div>
   <div id="lanes"></div>
   <div class="row"><button id="bTest">Send one test hit now</button><span class="small mute">Fires a single noise request immediately and shows it in Activity.</span></div>
 </section>
@@ -384,7 +387,7 @@ body.loading .big,body.loading .kpi b{display:block;width:min(100%,5ch);color:tr
 <!-- ACTIVITY -->
 <section id="t-act" class="tab">
   <div class="row">
-    <select id="aLane"><option value="">All lanes</option><option>clearnet</option><option>tor</option></select>
+    <select id="aLane"><option value="">All lanes</option><option>clearnet</option><option>turbo</option><option>tor</option></select>
     <select id="aEng"><option value="">All engines</option><option>search</option><option>crawl</option><option>dns</option><option>onion</option></select>
     <label class="chk" style="margin:0"><input type="checkbox" id="aErr"> errors only</label>
     <input type="text" id="aQ" placeholder="filter URL…" style="flex:1;min-width:140px">
@@ -414,7 +417,7 @@ body.loading .big,body.loading .kpi b{display:block;width:min(100%,5ch);color:tr
   <div class="note tor"><b>Tor is optional.</b> When on, it visits real <b>🧅 .onion sites</b> (darknet noise); ordinary web noise never goes through Tor. legalPrivacy runs its <i>own private Tor</i> in the background — it never touches your system Tor or Tor Browser.</div>
   <div class="grid">
     <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-tor"/></svg>Status</h3><div class="big" id="tState">—</div><div class="bar tor" style="margin:8px 0"><i id="tBar" style="width:0"></i></div><div class="small mute" id="tSum"></div></div>
-    <div class="card"><h3>Details</h3><div class="kv" id="tKv"></div></div>
+    <div class="card"><h3>Details</h3><div class="kv two" id="tKv"></div></div>
   </div>
   <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-power"/></svg>Control</h3>
     <div class="row">
@@ -429,6 +432,7 @@ body.loading .big,body.loading .kpi b{display:block;width:min(100%,5ch);color:tr
     <div class="small mute" id="tInstallNote"></div>
     <label class="chk"><input type="checkbox" id="tEnable"><span><b>Use Tor</b> — turn the Tor lane on. Starting noise will automatically start (and if needed, install) Tor.</span></label>
     <label class="chk"><input type="checkbox" id="tOnion"><span><b>🧅 Visit onion sites</b> (darknet noise) — only .onion addresses, never leaves the Tor network.</span></label>
+    <div class="small mute" id="tMix" style="margin:2px 0 6px 26px"></div>
     <label class="chk"><input type="checkbox" id="tManage"><span><b>Let legalPrivacy manage Tor</b> (recommended, default). Untick to use an existing Tor at the address below instead.</span></label>
     <div class="row" id="tExt" style="display:none">SOCKS <input type="text" id="tSocks" size="16"> Control <input type="text" id="tCtl" size="16"></div>
     <div class="row"><button id="tSave" style="display:none" class="pri">Save Tor settings</button><span class="small mute" id="tSaved"></span></div>
@@ -440,7 +444,7 @@ body.loading .big,body.loading .kpi b{display:block;width:min(100%,5ch);color:tr
   <div class="grid">
     <div class="card"><h3>Onion seed sites</h3>
       <div class="small mute">One onion address per line — the recommended list is filled in; add, remove or edit freely. Every address is checked offline (v3 checksum) before use.</div>
-      <textarea id="tSeeds" rows="6" placeholder="http://example…56chars….onion/"></textarea>
+      <textarea id="tSeeds" style="min-height:300px" rows="6" placeholder="http://example…56chars….onion/"></textarea>
       <div class="row" style="margin-top:4px"><button id="tSeedsReset">Reset to the recommended list</button>
         <details class="small"><summary>Where these come from</summary><div class="mute">Official onion addresses of lawful public sites (news, privacy services, software, search), from the curated lists at dark.fail and tor.taxi, kept only when both agree on the address. Markets, leak and exploit forums, adult, piracy, imageboard and government/law-enforcement sites are left out. Every address is checked offline (v3 checksum) before use.</div><div id="tBuiltin" class="mute"></div></details></div>
     </div>
@@ -477,7 +481,7 @@ body.loading .big,body.loading .kpi b{display:block;width:min(100%,5ch);color:tr
     </div>
   </div>
   <div class="card" id="relayCard"><h3><svg class="ic" aria-hidden="true"><use href="#i-tor"/></svg>Contribute to Tor: run a relay (optional)</h3>
-    <div class="note tor">A relay passes other people's encrypted Tor traffic along, which helps the network. It is <b>not an exit</b>: it never connects to websites for anyone, and legalPrivacy can never make it one. A relay or bridge also does <b>not</b> provide DNS (only exit relays look up names). Relay addresses are <b>public by design</b>: the Tor network publishes them in a list anyone can read. The relay runs as its own separate Tor program; it never starts by itself.</div>
+    <div class="note tor">A relay passes other people's encrypted Tor traffic along, which helps the network. It is <b>not an exit</b>: it never connects to websites for anyone, and legalPrivacy can never make it one. A relay or bridge also does <b>not</b> provide DNS (only exit relays look up names). Relay addresses are <b>public by design</b>: the Tor network publishes them in a list anyone can read. The relay runs as its own separate Tor program; it starts with the app once you have completed the checklist and started it once.</div>
     <div class="row"><label class="opt t" style="flex:1;min-width:210px"><input type="radio" name="rmode" value="middle"> <b>Middle relay</b> <span class="mute">— listed publicly; carries traffic between other relays</span></label>
       <label class="opt t" style="flex:1;min-width:210px"><input type="radio" name="rmode" value="bridge"> <b>Bridge</b> <span class="mute">— not listed publicly; helps people whose network blocks Tor</span></label></div>
     <div class="row">Nickname <input type="text" id="rNick" size="14" maxlength="19" title="1 to 19 letters or digits">
@@ -485,19 +489,18 @@ body.loading .big,body.loading .kpi b{display:block;width:min(100%,5ch);color:tr
       Port (ORPort) <input type="number" id="rPort" min="1024" max="65535" style="width:90px"></div>
     <div class="small mute" id="rEst"></div>
     <div class="row">Contact (optional) <input type="text" id="rContact" size="34" placeholder="you@example.org (shown publicly if you add it)"></div>
-    <label class="chk"><input type="checkbox" id="rPractice"><span><b>Practice mode (not published)</b> — the relay only listens on this computer and never announces itself, so nobody can use it. It still downloads Tor's public relay list like any Tor program. Needs no checklist. Untick it only when you are ready to join the network.</span></label>
-    <div id="rCheck"><div class="small"><b>Before a public relay</b> (tick each one):</div>
+    <div id="rCheck"><div class="small"><b>Before you start the relay</b> (tick each one):</div>
       <label class="chk"><input type="checkbox" data-ck="address"><span>This computer has a public IP address, or my router forwards the ORPort to it.</span></label>
       <label class="chk"><input type="checkbox" data-ck="always_on"><span>This computer stays on and connected most of the time.</span></label>
       <label class="chk"><input type="checkbox" data-ck="bandwidth"><span>I am happy with the speed limit above and the traffic it can use each month.</span></label>
       <label class="chk"><input type="checkbox" data-ck="not_exit"><span>I understand this is not an exit: it never reaches websites for anyone, and it cannot answer DNS.</span></label>
-      <label class="chk"><input type="checkbox" data-ck="public_ip"><span>I understand a relay's IP address is public by design.</span></label></div>
+      <label class="chk"><input type="checkbox" data-ck="public_ip"><span>I understand a relay's IP address is public by design: anyone can see that it runs Tor, and some websites treat relay addresses with suspicion.</span></label></div>
     <div class="small mute" style="margin-top:6px">Settings file for the relay (read-only):</div>
     <textarea id="rTorrc" rows="9" readonly aria-label="Generated torrc for the relay"></textarea>
     <div class="row" style="margin-top:8px"><button id="rStart" class="torb"><svg class="ic sm" aria-hidden="true"><use href="#i-play"/></svg>Start relay</button>
       <button id="rStop"><svg class="ic sm" aria-hidden="true"><use href="#i-stop"/></svg>Stop relay</button>
       <span class="pill" id="rPill">Stopped</span><span class="small" id="rMsg"></span></div>
-    <label class="chk"><input type="checkbox" id="rAuto"><span>Start the relay when this app opens <span class="mute">(on by default; until you complete the checklist this is practice mode: nothing is published)</span></span></label>
+    <label class="chk"><input type="checkbox" id="rAuto"><span>Start the relay when this app opens <span class="mute">(on by default once you have completed the checklist and started the relay once; untick to stop that)</span></span></label>
     <div class="small mute" id="rNote"></div>
     <div class="scroll" style="max-height:200px;margin-top:6px"><div id="rLog" class="logbox"><span class="mute">Nothing yet. The relay's own log appears here once it starts.</span></div></div>
     <details class="small" style="margin-top:6px"><summary>Router and firewall notes</summary><div class="mute">
@@ -540,7 +543,7 @@ body.loading .big,body.loading .kpi b{display:block;width:min(100%,5ch);color:tr
     <label class="chk"><input type="checkbox" id="dQuad9"><span><b>Quad9</b> 9.9.9.9 and 149.112.112.112 <span class="mute">(blocks malware domains, DNSSEC)</span></span></label>
     <div class="row">Your own resolvers <input type="text" id="dCustom" placeholder="optional, e.g. 1.2.3.4, 5.6.7.8" style="flex:1;min-width:220px"></div>
   </div>
-  <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-wave"/></svg>Traffic mix</h3>
+  <div class="card" id="cardTraffic"><h3><svg class="ic" aria-hidden="true"><use href="#i-wave"/></svg>Traffic mix</h3>
     <div class="small mute">What kinds of noise run, and how the mix changes over time. Ordinary web noise never goes through Tor; .onion noise always does, in its own lane.</div>
     <div style="margin-top:8px"><b>How the mix changes</b></div>
     <label class="opt"><input type="radio" name="xpat" value="drift"> <b>Drift</b> <span class="mute">(recommended, default) — the shares wander slowly through the day, like a person who browses more on the phone some hours and more on the computer others</span></label>
@@ -1269,11 +1272,18 @@ function render(){
   if(s.running&&!note)note=s.browser.active?`<div class="note small">🖥 Browsing with a real browser (${esc(s.browser.detail.split(/[\\/]/).pop())}) — scrolling, reading, clicking like a person.</div>`:'<div class="note warn small">Using plain HTTP (no real browser found). Install Chrome, Edge or Chromium for far more human-looking traffic — see Health.</div>';
   $('#dashNote').innerHTML=note;
   $('#lanes').innerHTML=s.lanes.length?s.lanes.map(laneCard).join(''):'';
+  renderTurbo(s.turbo);
   renderSpark();
   if(!dirty.tor&&$('#t-tor').classList.contains('on')===false)fillTor();
   renderTorStatus();
   renderRealism();
 }
+function renderTurbo(t){if(!t)return;
+  if(!$('#turboOn').matches(':focus'))$('#turboOn').checked=t.on;
+  if(!$('#turboRate').matches(':focus'))$('#turboRate').value=t.per_min;
+  $('#turboNote').textContent=t.running?`Running: ${t.pages} extra pages so far this run.`:t.on?(t.needs_browser?'On, but the real browser is not available (Settings → Realism), so it is not running.':'On. It starts with the noise (press Start).'):'Off.'}
+async function saveTurbo(){try{const r=await api('/api/turbo',{on:$('#turboOn').checked,per_min:parseInt($('#turboRate').value,10)||6});renderTurbo(r)}catch(e){toast(e.message,1)}}
+$('#turboOn').onchange=saveTurbo;$('#turboRate').onchange=saveTurbo;
 function laneCard(l){
   const isT=l.name==='tor';
   const rows=Object.entries(l.engines).map(([e,b])=>`<tr><td style="width:90px">${e==='onion'?'🧅 ':''}${esc(e)}</td><td><div class="bar ${isT?'tor':''}"><i style="width:${Math.min(100,100*b.spent/Math.max(1,b.per_day))}%"></i></div></td><td style="width:150px" class="mute">${b.spent}/${b.per_day} this hour</td></tr>`).join('');
@@ -1300,7 +1310,7 @@ function renderAct(){
   const ln=$('#aLane').value,en=$('#aEng').value,er=$('#aErr').checked,q=$('#aQ').value.toLowerCase();
   const rows=hits.filter(h=>(!ln||h.lane===ln)&&(!en||h.engine===en)&&(!er||!h.ok)&&(!q||h.url.toLowerCase().includes(q))).slice(-400).reverse();
   $('#aCount').textContent=rows.length+' shown / '+hits.length;
-  const lane=l=>l==='tor'?'🧅 tor':l==='clearnet-plain'?'plain HTTP':'clearnet';
+  const lane=l=>l==='turbo'?'turbo':l==='tor'?'🧅 tor':l==='clearnet-plain'?'plain HTTP':'clearnet';
   const onP=s=>!s?'':s<60?Math.round(s)+' s':s<3600?Math.floor(s/60)+' m '+Math.round(s%60)+' s':'1 h+';
   $('#aBody').innerHTML=rows.map(h=>`<tr><td>${fmtT(h.ts)}</td><td class="acol">${lane(h.lane)}</td><td class="acol">${esc(h.engine)}</td><td class="url" title="${esc(h.url)}">${esc(shortUrl(h.url))}</td><td class="small">${esc([h.role==='result'?'clicked result':'',h.note,h.detail].filter(Boolean).join(' · '))}</td><td class="${h.ok?'ok':(/offline/.test(h.error||'')?'mute':'bad')}">${esc(h.status?('HTTP '+h.status):/offline/.test(h.error||'')?'site offline':(h.error||'error'))}</td><td class="acol">${h.latency_ms?Math.round(h.latency_ms)+' ms':''}</td><td class="acol">${onP(h.on_page_s)}</td></tr>`).join('');
   $$('#aBody tr').forEach(tr=>tr.onclick=()=>tr.classList.toggle('open'));
@@ -1385,6 +1395,9 @@ function fillTor(force){
   $('#tSocks').value=c.socks;$('#tCtl').value=c.control||'';$('#tExt').style.display=c.manage?'none':'flex';
   $('#tSeeds').value=((c.onion_seeds&&c.onion_seeds.length)?c.onion_seeds:S.builtin_onion_seeds.map(b=>b.url)).join('\n');$('#tBridges').value=(c.bridges||[]).join('\n');
   (document.querySelector(`input[name=bmode][value=${c.bridge_mode||'off'}]`)||{}).checked=true;$('#bAuto').checked=c.bridge_auto!==false;
+  {const tr=(S.profile&&S.profile.traffic)||{},tot=(tr.browser||0)+(tr.plain||0)+(tr.onion||0),pc=tot?Math.round(100*(tr.onion||0)/tot):0;
+   $('#tMix').innerHTML=`Onion sites are about <b>${pc}%</b> of the web-and-onion mix. <a href="#" id="tMixLink">Change the mix in Settings → Traffic mix</a>`;
+   $('#tMixLink').onclick=e=>{e.preventDefault();$('#nav button[data-t=set]').click();setTimeout(()=>$('#cardTraffic').scrollIntoView({behavior:'smooth',block:'start'}),150)}}
   $('#tBuiltin').innerHTML=S.builtin_onion_seeds.map(b=>{const h=b.health||{};const st=h.resting_until?`<span class="warnc"> resting after ${h.fails} misses, until ${new Date(h.resting_until*1000).toLocaleString()}</span>`:h.fails?`<span class="mute"> ${h.fails} miss${h.fails>1?'es':''} in a row</span>`:h.last_ok?'<span class="ok"> ✓ reachable</span>':'';return `<div>${esc(b.name)}: <code>${esc(b.url)}</code>${st}</div>`}).join('');
   $('#dnsOn').checked=(c.dns_port||0)>0;$('#dnsLan').checked=!!c.dns_lan;fillDnsAddrs();showDns();
   dirty.tor=false;
@@ -1422,21 +1435,20 @@ $('#dnsTest').onclick=async()=>{
   try{const r=await api('/api/tor/dns/test',{});S.tor.dns_test=r;b.disabled=false;renderDns(S.tor)}
   catch(e){b.disabled=false;$('#dnsOut').innerHTML=`<span class="bad">${esc(e.message)}</span>`}};
 
-// relay (separate Tor process; practice mode by default)
+// relay (separate Tor process; needs the checklist)
 $$('#relayCard input').forEach(x=>x.oninput=null);
 let R=null,rFilled=false,rBusy=false,rPrevT=null;
 const rCk=()=>$$('#rCheck [data-ck]');
 function rBody(){const ck={};rCk().forEach(x=>ck[x.dataset.ck]=x.checked);
   return {mode:(document.querySelector('input[name=rmode]:checked')||{}).value||'middle',nickname:$('#rNick').value,bandwidth_mb:parseFloat($('#rBw').value),
-    or_port:parseInt($('#rPort').value,10),contact:$('#rContact').value,practice:$('#rPractice').checked,checklist:ck}}
+    or_port:parseInt($('#rPort').value,10),contact:$('#rContact').value,practice:false,checklist:ck}}
 function rEstimate(){const mb=parseFloat($('#rBw').value);
   $('#rEst').textContent=mb>0?`At full speed that is up to about ${Math.round(mb*86400*30/1000).toLocaleString()} GB a month each way (${Math.round(mb*86400*30/500).toLocaleString()} GB in total). A relay usually uses much less. Tor needs at least about 0.08 MBytes per second.`:''}
 function rGate(){
   const st=R?R.status.state:'stopped',up=st==='starting'||st==='running',b=rBody(),all=rCk().every(x=>x.checked);
-  $('#rCheck').style.opacity=b.practice?.55:1;
   let why='';
   if(R&&!R.tor_found)why='Tor is not installed yet. Press Start Tor above once (it installs the official bundle), then come back.';
-  else if(!b.practice&&!all)why='Tick every item on the checklist to start a public relay, or keep practice mode on.';
+  else if(!all)why='Tick every item on the checklist to start the relay.';
   $('#rStart').disabled=up||!!why||rBusy;$('#rStop').disabled=!up;
   $('#rMsg').textContent=up?'':why;
   $$('#relayCard input:not(#rAuto)').forEach(x=>x.disabled=up)}
@@ -1448,10 +1460,10 @@ function renderRelay(){
   if(!rFilled||up){
     if(!rFilled||!$('#relayCard').contains(document.activeElement)){
       (document.querySelector(`input[name=rmode][value=${s.mode}]`)||{}).checked=true;$('#rNick').value=s.nickname;$('#rBw').value=s.bandwidth_mb;
-      $('#rPort').value=s.or_port;$('#rContact').value=s.contact;$('#rPractice').checked=s.practice;$('#rTorrc').value=R.torrc;rEstimate()}
+      $('#rPort').value=s.or_port;$('#rContact').value=s.contact;$('#rTorrc').value=R.torrc;rEstimate()}
     $('#rAuto').checked=s.autostart;rFilled=true}
   const pill=$('#rPill');
-  const label={stopped:'Stopped',starting:'Starting…',running:st.practice?'Running (practice, not published)':st.reachable?'Running, reachable':'Running',error:'Error'}[st.state]||st.state;
+  const label={stopped:'Stopped',starting:'Starting…',running:st.reachable?'Running, reachable':'Running',error:'Error'}[st.state]||st.state;
   pill.textContent=label;pill.className='pill '+({running:'ok',starting:'warn',error:'bad'}[st.state]||'');
   $('#rNote').textContent=st.error||st.hint||(st.state==='running'&&st.fingerprint?`Relay fingerprint: ${st.fingerprint}`:'');
   $('#rLog').innerHTML=st.log.length?st.log.map(l=>`<div class="${/\[err\]/.test(l)?'error':/\[warn\]/.test(l)?'warn':''}">${esc(l)}</div>`).join(''):'<span class="mute">Nothing yet. The relay\'s own log appears here once it starts.</span>';

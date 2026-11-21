@@ -131,6 +131,7 @@ class Runner:
     dns_plan: object | None = None     # DnsPlan: which resolver DNS noise uses
     mix: bool = False                  # app mode: lane shares + pattern from profile.traffic
     onion_health: object | None = None  # OnionHealth: which seed onions keep failing (None = kept in memory only)
+    seq_next: object | None = None     # shared request counter (two runners, one Activity list); None = own counter
 
     def __post_init__(self) -> None:
         if self.onion_health is None:
@@ -653,7 +654,7 @@ class Runner:
 
     def _record_hit(self, lane: Lane, eng_name: str, identity: Identity,
                     target: Target, result: HitResult) -> None:
-        self._hit_seq += 1
+        self._hit_seq = self.seq_next() if self.seq_next else self._hit_seq + 1
         status = f"HTTP {result.status}" if result.status else (result.error or "ERROR")
         shown = (target.url.split("/", 3)[-1] if target.kind == "dns"                # dns: just the name
                  else target.note if target.kind == "pkg" else target.url)              # pkg: "pip install numpy"

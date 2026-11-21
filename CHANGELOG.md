@@ -1,6 +1,11 @@
 # Changelog
 
 ## Unreleased
+- **Turbo mode** (Dashboard; Settings in the native app): a second, separate real-browser lane for extra cover at a faster pace (default 6 visits a minute, 1 to 20, at most 4,000 a day), with its own browser and limit, layered on the normal noise. Shown as "turbo" in Activity.
+- **Personas:** new *Objectivist* and *Objectivist data scientist* (half and half). Every persona can now visit postsocialist.com now and then.
+- **Default amount is now 7** (fairly high). New **Reset all to recommended** button (Settings; keeps your lists, accounts, bridges and relay choices).
+- **Tor tab:** Details is two columns so the Status card is no longer tall; the onion share links to Settings → Traffic mix.
+- **Relay:** practice mode removed. The relay is never published until the checklist is ticked and it is started by hand once; after that it starts with the app by default. The checklist now says relay addresses are public and some sites distrust them. Docs explain that a middle relay does not handle DNS (only exits do) and why this app never runs an exit.
 - **Unreachable onions:** instead of reloading the dead page, a coin flip chooses between trying a different onion and asking Tor for a new identity first. The **Activity details column now names the onion site** ("Tor Project", "your own onion seed", or "other onion site (found by following a link)"). **Seed sites that keep failing are rested** (3 misses in a row: 6 hours, doubling up to a week; a success clears it) and remembered across restarts in `onion_health.json` (seed addresses, miss counts, times; nothing about what you browse). The Tor tab lists which built-in sites are resting.
 - **User agent mix:** a new option, "Mix: some real, some random", with a percentage (default 70%). That share of the noise identities uses your own browser's user agent and the rest a fresh random one from the library (web Settings and native app). Needs your real user agent (Detect or paste). Setting: `identity.ua_mode: mix`, `identity.ua_own_share`.
 - **My List: one-button bookmark import** ("Import bookmarks from Firefox / Chrome"). Also finds Flatpak and `~/.config/mozilla` profiles, and when no browser is found on this computer (for example it lives in another VM or qube) says how to export an HTML file and use "From a file".

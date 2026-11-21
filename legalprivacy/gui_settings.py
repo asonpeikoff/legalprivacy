@@ -296,6 +296,12 @@ class SettingsTab(Tab):
         c.lbl(r, "to").pack(side="left")
         self.f_combo(r, "active_to", HOURS, 7).pack(side="left", padx=6)
         c.lbl(r, "your local time", True).pack(side="left")
+        self.f_check(c, "turbo", "Turbo mode",
+                     "Off by default. A second, separate real browser that makes extra visits at a faster pace, for more "
+                     "cover. It has its own pace and daily limit (4,000) and stops when the noise stops.")
+        r = c.row()
+        c.lbl(r, "Turbo pace: visits per minute").pack(side="left")
+        self.f_spin(r, "turbo_per_min", 1, 20, 1, 5).pack(side="left", padx=6)
         self.f_check(c, "browser_dns", "Look sites up like a browser does",
                      "Recommended. Also asks for IPv6 (AAAA) and HTTPS records, not just the address.")
         self.f_check(c, "typos", "More typos in searches", "Off by default. A few searches always have a small slip; this "

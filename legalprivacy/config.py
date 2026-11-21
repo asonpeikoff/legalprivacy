@@ -117,9 +117,9 @@ class RelayConfig:
     bandwidth_rate: str = "5Mbit"
     or_port: int = 9001
     dir_port: int = 9030
-    practice: bool = True             # practice mode: loopback only, nothing published (the safe first run)
-    autostart: bool = True            # start the relay with the app. On by default, but only ever in practice mode
-                                      # (loopback, nothing published); a public relay still needs the checklist once
+    practice: bool = False            # dry run (loopback only, nothing published): not offered in the apps, kept for tests
+    autostart: bool = True            # start the relay with the app. On by default, but only after the checklist was
+                                      # completed once and the relay was started once by hand
     acknowledged: bool = False        # the checklist was completed once (needed for autostart)
 
     def validate(self) -> None:
