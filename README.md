@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/logo/legalprivacy-logo.png" alt="legalPrivacy" width="560"></p>
+
 # legalPrivacy
 
 legalPrivacy makes believable background browsing, searches and DNS lookups from your
