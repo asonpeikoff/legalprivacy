@@ -99,7 +99,7 @@ class MyListTab(Tab):
         self.b_scan.pack(side="left", padx=10)
         r = f.row()
         f.lbl(r, "From bookmarks:").pack(side="left")
-        self.b_bm = app.btn(r, "Import my bookmarks", None, "secondary", self.bookmarks)
+        self.b_bm = app.btn(r, "Import bookmarks from Firefox / Chrome", None, "primary", self.bookmarks)
         self.b_bm.pack(side="left", padx=10)
         r = f.row()
         f.lbl(r, "From a file:").pack(side="left")
@@ -500,6 +500,11 @@ class ToolsTab(Tab):
         c = add_card(self, app, "How much data will this use?", "act")
         c.note("A rough estimate from your current settings (amount, mix, real browser, low-data mode, active hours, cap). Real pages vary a lot.")
         self.est = self._tool(c, "Estimate", self.estimate)
+        c = add_card(self, app, "MAC address", "proof")
+        c.note("Wi-Fi and LAN operators can log your network card's hardware address. This shows what each physical interface "
+               "uses now. Changing it needs administrator rights, so run it in a terminal: sudo legalprivacy mac randomize "
+               "--all (docs/MAC.md). On Qubes OS or any VM, run it where the physical card is (sys-net).")
+        self.mac = self._tool(c, "Check MAC addresses", self.macstatus)
         c = add_card(self, app, "Live log")
         c.note("The live log is kept in memory only. Nothing is written to disk, and it is cleared when legalPrivacy quits.")
         r = c.row()
@@ -584,6 +589,19 @@ class ToolsTab(Tab):
             else:
                 self._text(self.dns, "No resolver found in your system settings.")
         self._run(self.dns, self.app.ctl.resolvers_check, show)
+
+    def macstatus(self) -> None:
+        def show(d):
+            rows = [("ok" if i["spoofed"] else "info", i["iface"],
+                     f"now {i['current']}, factory {i['permanent']}" + (" (default route)" if i["default_route"] else ""), "")
+                    for i in d["interfaces"]]
+            if rows:
+                self._rows(self.mac, rows)
+            else:
+                self._text(self.mac, "No physical network interface here" +
+                           (" (only a Xen virtual one: a Qubes qube; the physical card is in sys-net)."
+                            if d["environment"]["xen_virtual_interfaces"] else "."))
+        self._run(self.mac, self.app.ctl.mac_status, show)
 
     def speedtest(self) -> None:
         self.speed.btn.state(["disabled"])

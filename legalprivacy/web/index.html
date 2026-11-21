@@ -712,7 +712,7 @@ body.loading .big,body.loading .kpi b{display:block;width:min(100%,5ch);color:tr
     <p class="small mute">Reads your browsers' history on this computer only. Nothing is sent anywhere. Only site names and visit counts are read, and nothing is kept until you add sites. Sites the safety filter blocks are left out.</p>
     <div class="small mute" id="mBrowsers"></div>
     <div class="row" style="margin-top:8px"><b>From history:</b> last <input type="number" id="mDays" value="30" min="1" max="365" style="width:70px"> days <span class="small mute">(30 recommended)</span> <button id="mScan">Scan my history</button></div>
-    <div class="row"><b>From bookmarks:</b> <button id="mBm">Import my bookmarks</button></div>
+    <div class="row"><b>From bookmarks:</b> <button id="mBm" class="pri">Import bookmarks from Firefox / Chrome</button></div>
     <div class="row"><b>From a file:</b> <input type="file" id="mBmFile" accept=".html,.htm,.har,.json,.txt,.csv"></div>
     <div class="small mute">Any of these work, and only the addresses are read:
       <b>a bookmarks export</b> (.html, from your browser's bookmark manager) ·
@@ -887,6 +887,12 @@ body.loading .big,body.loading .kpi b{display:block;width:min(100%,5ch);color:tr
     <p class="small mute">A rough estimate from your current settings (amount, mix, real browser, low-data mode, active hours, cap). Real pages vary a lot.</p>
     <div class="row"><button id="toolEst">Estimate</button></div>
     <div id="toolEstOut" class="small" style="margin-top:6px"></div>
+  </div>
+  <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg>MAC address</h3>
+    <p class="small mute">Wi-Fi and LAN operators can log your network card's hardware address. This shows what each physical interface uses now. Changing it needs administrator rights, so it is done from a terminal (<a href="https://github.com/asonpeikoff/legalprivacy/blob/master/docs/MAC.md" target="_blank" rel="noopener">docs/MAC.md</a>). On Qubes OS, or any virtual machine, run it in the qube that owns the physical card (sys-net), not here.</p>
+    <div class="row"><button id="toolMac">Check MAC addresses</button></div>
+    <div id="toolMacOut" class="small" style="margin-top:8px"></div>
+    <div class="small mute" style="margin-top:6px"><code>sudo legalprivacy mac randomize --all</code> &nbsp; <code>sudo legalprivacy mac restore --all</code></div>
   </div>
   <div class="card"><h3>Live log</h3>
     <p class="small mute">The live log is kept in memory only. Nothing is written to disk, and it is cleared when legalPrivacy quits.</p>
@@ -1826,6 +1832,11 @@ $('#toolEst').onclick=async()=>{try{const d=await api('/api/tools/estimate');
   $('#toolEstOut').innerHTML=`About <b>${d.mb_per_day} MB a day</b> (≈${d.gb_per_month} GB a month): ≈${d.actions_per_hour} actions an hour for ${d.hours_per_day} hours${d.real_browser?(d.low_data?', real browser without images':', real browser with images'):', plain HTTP'}${d.cap_mb?`, capped at ${d.cap_mb} MB a day`:''}.`}catch(e){$('#toolEstOut').textContent=e.message}};
 $('#toolPriv').onclick=async()=>{try{const d=await api('/api/tools/privacy');const ic={ok:'✅',warn:'⚠️',info:'ℹ️'};
   $('#toolPrivOut').innerHTML='<table><tbody>'+d.checks.map(c=>`<tr><td>${ic[c.status]||''} <b>${esc(c.name)}</b></td><td>${esc(c.detail)}${c.advice?`<div class="mute">${esc(c.advice)}</div>`:''}</td></tr>`).join('')+'</tbody></table>'}catch(e){$('#toolPrivOut').textContent=e.message}};
+$('#toolMac').onclick=async()=>{const o=$('#toolMacOut');o.textContent='Checking…';
+  try{const d=await api('/api/tools/mac');
+    if(!d.interfaces.length){o.innerHTML='<div class="mute">No physical network interface here'+(d.environment.xen_virtual_interfaces.length?' (only a Xen virtual one: this looks like a Qubes qube, so the physical card is in sys-net)':'')+'.</div>';return}
+    o.innerHTML='<table><thead><tr><th>Interface</th><th>Now</th><th>Factory</th><th></th></tr></thead><tbody>'+d.interfaces.map(i=>`<tr><td>${esc(i.iface)}</td><td><code>${esc(i.current||'?')}</code></td><td><code>${esc(i.permanent||'?')}</code></td><td>${i.spoofed?'changed':'factory'}${i.default_route?' · default route':''}</td></tr>`).join('')+'</tbody></table>'
+  }catch(e){o.textContent=e.message}};
 $('#toolClearLog').onclick=()=>act('/api/logs/clear').then(()=>{$('#toolLogNote').textContent='cleared';renderLog(true)});
 $('#fRefresh').onclick=()=>{if(confirm('Download fresh lists now from Google Trends, Wikipedia, BBC, Hugging Face and Tranco? This contacts those sites from your connection.')){act('/api/feeds/refresh');toast('Refreshing sources in the background…')}};
 $('#fAuto').onchange=()=>act('/api/app',{auto_refresh_sources:$('#fAuto').checked});

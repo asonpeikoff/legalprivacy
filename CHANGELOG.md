@@ -1,6 +1,9 @@
 # Changelog
 
 ## Unreleased
+- **My List: one-button bookmark import** ("Import bookmarks from Firefox / Chrome"). Also finds Flatpak and `~/.config/mozilla` profiles, and when no browser is found on this computer (for example it lives in another VM or qube) says how to export an HTML file and use "From a file".
+- **Tools tab: MAC address card** (read-only: each physical interface now vs factory, with the command to change it).
+- Logo concept sheet in `docs/logo-concepts/` (not used yet).
 - **The relay now starts with the app by default**, in practice mode only (loopback, nothing published, nobody can use it). A public relay still needs the checklist once, and the option can be unticked. It stays quiet until Tor is installed.
 - **Tools tab:** the data-use estimate moved down. The **DNS check** now also asks the internet which resolver really answered (`whoami.akamai.net`), explains private and Qubes virtual resolver addresses, and notes that on Qubes OS the VPN and encrypted DNS live in other qubes and can't be seen from here (the privacy check says so instead of reporting "no VPN"). New **MAC address** line in the privacy check. **Speed test fixed** (`'dict' object has no attribute 'clearnet'`); endpoints can be overridden with `LEGALPRIVACY_SPEED_DOWN_URL` / `LEGALPRIVACY_SPEED_UP_URL`. Removed the "check whether Tor is in use" link (a normal browser can only ever say no); use Test Tor on the Tor tab.
 - **Buttons:** secondary buttons are an accent-coloured outline instead of flat grey, in both the web dashboard and the native app.

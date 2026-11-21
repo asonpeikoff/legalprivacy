@@ -512,6 +512,12 @@ class Controller:
         from .nettools import privacy_check
         return privacy_check(self)
 
+    def mac_status(self) -> dict:
+        """Read-only MAC address overview for the Tools tab (changing it needs root: `legalprivacy mac`)."""
+        from .macspoof import MacSpoofer
+        sp = MacSpoofer()
+        return {"interfaces": [i for i in sp.status() if i["eligible"]], "environment": sp.environment()}
+
     def mylist_state(self) -> dict:
         from .history import history_files
         ml = self.profile.mylist
