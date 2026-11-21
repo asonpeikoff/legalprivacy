@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- **Native app polish:** the header chip now reads "✓ Settings applied 5 min ago" (it was a clock time that never changed); check boxes show real check marks instead of crosses; the Tor tab explains "Run the app's private Tor" versus "Include .onion sites in the noise" and says plainly whether Tor is mixed with the normal noise or Tor only; scroll bars are clearly visible.
 - **Tor DNS (optional, off by default).** The managed Tor can answer DNS on a local port (`DNSPort`, loopback only unless you pick one private LAN address and accept the warning). A Test button sends a real lookup through it; the Proof tab gains a "Tor DNS answers" check while it is on. Only A, AAAA and PTR lookups; names are resolved by exit relays, and the Tor lane for noise stays onion-only.
 - **Run a relay (optional, off by default).** A Tor-tab screen to run a middle relay or bridge as a separate Tor process with its own data folder: checklist before a public start, read-only torrc, speed limit with a monthly estimate, live log and status, and a "Practice mode (not published)" that listens on loopback only. Never an exit; never starts by itself; stopped on quit and on Panic (hard deletes its data). The relay generator now also writes `ExitRelay 0` and rejects non-ASCII nicknames.
 - Web dashboard and native app have the same two cards.
