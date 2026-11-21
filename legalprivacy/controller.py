@@ -80,7 +80,7 @@ class Controller:
         self.observer.baseline_fn = self._baseline
         self._feed_timer_started = False
         from .relayrun import RelayManager
-        self.relay = RelayManager(self.log)        # optional relay: its own Tor process, practice mode unless set uptically
+        self.relay = RelayManager(self.log)        # optional relay: its own Tor process, practice mode unless set up
         from .accounts import AccountsManager
         self.accounts = AccountsManager(          # optional signed-in accounts; clearnet only, never Tor
             self.log, config=lambda: self.profile.accounts,
