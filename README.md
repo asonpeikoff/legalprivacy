@@ -391,7 +391,7 @@ Snowflake client configuration with `legalprivacy relay gen-client --type snowfl
 **Contribute to Tor** with `legalprivacy relay gen`, which writes a middle-relay or bridge
 configuration. It never runs an exit.
 
-## Tor DNS and relays (both optional, both off by default)
+## Tor DNS and relays (Tor DNS is off by default; the relay starts in practice mode)
 
 Both live on the Tor tab, in the web dashboard and the native app.
 
@@ -409,7 +409,7 @@ Tor lane for noise, which stays onion-only.
 - Choose the mode, nickname, a speed limit in MBytes per second (with a monthly traffic estimate), the ORPort and an optional contact. The generated settings file is shown read-only.
 - A public relay needs every item of the checklist ticked first: a public IP address or a forwarded ORPort, a computer that stays on, the speed limit, understanding that it is not an exit, and that relay IP addresses are public by design.
 - **Practice mode (not published)** is on for the first run: the ORPort listens on loopback only and nothing is announced (`PublishServerDescriptor 0`), so nobody can use it. It still downloads Tor's public relay list like any Tor program. It needs no checklist.
-- The relay never starts by itself and "running" is never remembered. Only the choice "Start the relay when this app opens" (off by default; for a public relay only after you have started it once with the checklist) starts it at launch. It stops when you quit and on Panic; Panic (hard) deletes the relay's keys and data after it has stopped.
+- "Running" is never remembered, but **"Start the relay when this app opens" is on by default**: out of the box that starts the relay in practice mode (loopback only, nothing published), once Tor is installed. A public relay starts at launch only after you have completed the checklist once. Untick it to stop that. It stops when you quit and on Panic; Panic (hard) deletes the relay's keys and data after it has stopped.
 - **What a relay does not give you:** it is not an exit and it is not DNS. Only exit relays resolve names, and this app never runs one. The Tor lane for noise stays onion-only.
 - Router and firewall notes are in the card. See also the Tor Project's relay documentation, https://community.torproject.org/relay/.
 - Not tested here: joining the real Tor network as a public relay (this was developed where Tor could not connect out), and Windows and macOS.

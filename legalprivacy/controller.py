@@ -80,7 +80,7 @@ class Controller:
         self.observer.baseline_fn = self._baseline
         self._feed_timer_started = False
         from .relayrun import RelayManager
-        self.relay = RelayManager(self.log)        # optional relay: its own Tor process, never started automatically
+        self.relay = RelayManager(self.log)        # optional relay: its own Tor process, practice mode unless set uptically
         from .accounts import AccountsManager
         self.accounts = AccountsManager(          # optional signed-in accounts; clearnet only, never Tor
             self.log, config=lambda: self.profile.accounts,
@@ -670,7 +670,7 @@ class Controller:
                                          if res["ok"] else res["error"]))
         return res
 
-    # ── Relay (optional; a separate Tor process; never started automatically) ──
+    # ── Relay (a separate Tor process; starts with the app in practice mode by default) ──
     RELAY_CHECKLIST = ("address", "always_on", "bandwidth", "not_exit", "public_ip")
 
     @staticmethod
@@ -750,10 +750,14 @@ class Controller:
         return self.relay_state()
 
     def relay_autostart(self) -> None:
-        """Called once when the app opens. Starts the relay only if the person chose 'start with the app'
-        (and, for a public relay, completed the checklist before)."""
+        """Called once when the app opens. Starts the relay if 'start with the app' is on (the default). Out of the
+        box that is practice mode: loopback only, nothing published. A public relay starts only after its
+        checklist was completed once."""
         rc = self.profile.relay
         if rc.autostart and (rc.practice or rc.acknowledged):
+            if not self.relay._find_binary():            # default-on: stay quiet until Tor has been installed once
+                self.log.info("relay", "Relay not started: Tor is not installed yet (it installs the first time you start Tor).")
+                return
             try:
                 self.relay.start(rc.spec())
             except Exception as exc:

@@ -76,7 +76,7 @@ def test_config_reuses_relay_validators():
 
 def test_relay_defaults_are_safe():
     r = Profile(name="x").relay
-    assert r.enabled is False and r.autostart is False and r.practice is True and r.acknowledged is False
+    assert r.enabled is False and r.autostart is True and r.practice is True and r.acknowledged is False
 
 
 # ── a fake Tor ──────────────────────────────────────────────────────────────
@@ -233,26 +233,40 @@ def test_state_has_estimate_and_torrc_preview(ctl):
     st = ctl.relay_state()
     assert st["estimate"]["max_gb_per_direction"] == pytest.approx(1 * 86400 * 30 / 1000, abs=0.1)
     assert "ExitPolicy reject *:*" in st["torrc"] and "ORPort 127.0.0.1:" in st["torrc"]   # practice by default
-    assert st["settings"]["practice"] is True and st["settings"]["autostart"] is False
+    assert st["settings"]["practice"] is True and st["settings"]["autostart"] is True
 
 
 # ── never automatic, never remembered as "on" ───────────────────────────────
-def test_never_starts_by_itself(home, tmp_path):
+def test_starts_with_the_app_by_default_in_practice_mode_only(home, tmp_path):
     from legalprivacy.controller import Controller
     c = Controller(str(home / "config.yaml"))
     c.relay._find_binary = lambda: make_fake(tmp_path)
+    assert c.profile.relay.autostart is True and c.profile.relay.practice is True
+    c.relay_autostart()
+    try:
+        assert c.relay_state()["status"]["state"] in ("starting", "running")
+        assert c.relay.spec.practice is True                    # nothing published
+    finally:
+        c.relay.stop()
+
+
+def test_default_autostart_is_quiet_when_tor_is_not_installed(home):
+    from legalprivacy.controller import Controller
+    c = Controller(str(home / "config.yaml"))
+    c.relay._find_binary = lambda: None
     c.relay_autostart()
     assert c.relay_state()["status"]["state"] == "stopped"
 
 
-def test_running_is_not_saved_and_autostart_needs_an_explicit_choice(ctl, home, tmp_path):
+def test_running_is_not_saved_and_autostart_can_be_turned_off(ctl, home, tmp_path):
     from legalprivacy.controller import Controller
     ctl.relay_start({"practice": True, "or_port": free_port()})
     ctl.relay_stop()
+    ctl.apply_config({"contribute": {"relay": {"autostart": False}}})
     c2 = Controller(str(home / "config.yaml"))                 # a new launch reads the saved settings
     c2.relay._find_binary = lambda: make_fake(tmp_path)
     c2.relay_autostart()
-    assert c2.relay_state()["status"]["state"] == "stopped"
+    assert c2.relay_state()["status"]["state"] == "stopped"     # the opt-out is respected
     assert c2.profile.relay.autostart is False and c2.profile.relay.enabled is False
     c2.apply_config({"contribute": {"relay": {"autostart": True, "or_port": free_port()}}})
     c2.relay_autostart()

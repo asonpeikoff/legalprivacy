@@ -401,7 +401,7 @@ def start_services(ctl) -> None:
             ctl.start(reason="autostart on launch")
         except ConfigError as exc:
             ctl.log.error("app", str(exc))
-    ctl.relay_autostart()                 # only if "start the relay with the app" was chosen; default off
+    ctl.relay_autostart()                 # "start the relay with the app" is on by default, in practice mode (nothing published)
 
 
 def run_ui(profile_path: str | None = None, port: int | None = None, open_browser: bool | None = None,
