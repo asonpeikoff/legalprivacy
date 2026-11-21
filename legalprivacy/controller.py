@@ -365,7 +365,7 @@ class Controller:
         if st and st.get("state") == "running":
             return st
         self._speed = {"state": "running", "progress": "Starting…", "result": None}
-        proxy = self.profile.transports.clearnet.proxy
+        proxy = self.profile.transports["clearnet"].proxy
 
         def work():
             res = nettools.speed_test(proxy, progress=lambda s: self._speed.update(progress=s))

@@ -485,28 +485,29 @@ class ToolsTab(Tab):
         super().__init__(nb, app)
         page(self, app)
         self._speed_job = None
-        c = add_card(self, app, "How much data will this use?", "act")
-        c.note("A rough estimate from your current settings (amount, mix, real browser, low-data mode, active hours, cap). Real pages vary a lot.")
-        self.est = self._tool(c, "Estimate", self.estimate)
         c = add_card(self, app, "Privacy check", "proof")
         c.note("What actually protects you, checked on this computer only. Nothing is sent anywhere.")
         self.priv = self._tool(c, "Run privacy check", self.privacy)
         c = add_card(self, app, "DNS leak check", "proof")
-        c.note("Shows which DNS servers your computer is set to use, and whether any of them is one you did not choose for "
-               "noise. Each click makes one lookup of a random, never-used name.")
+        c.note("Shows which DNS servers your computer is set to use (often just a router, VPN or Qubes network qube "
+               "forwarding for you) and which resolver really answered a lookup. Each click makes two small lookups.")
         self.dns = self._tool(c, "Run DNS check", self.dnscheck)
         self.link(c, "For the authoritative external test: dnsleaktest.com", "https://www.dnsleaktest.com/")
         c = add_card(self, app, "Speed test")
         c.note("Downloads about 10 MB and uploads 2 MB once, over the normal internet (not Tor), through your clearnet proxy if "
                "you set one. Runs only when you click.")
         self.speed = self._tool(c, "Run speed test", self.speedtest)
+        c = add_card(self, app, "How much data will this use?", "act")
+        c.note("A rough estimate from your current settings (amount, mix, real browser, low-data mode, active hours, cap). Real pages vary a lot.")
+        self.est = self._tool(c, "Estimate", self.estimate)
         c = add_card(self, app, "Live log")
         c.note("The live log is kept in memory only. Nothing is written to disk, and it is cleared when legalPrivacy quits.")
         r = c.row()
         app.btn(r, "Clear live log now", None, "secondary", self.clear_log).pack(side="left")
         c = add_card(self, app, "Related checks")
         c.note("Outside links, opened in your browser only when you click them.")
-        self.link(c, "Check whether Tor is in use (check.torproject.org)", "https://check.torproject.org/")
+        c.note("To check that your traffic really leaves through Tor, use Test Tor on the Tor tab: it asks "
+               "check.torproject.org through the app's own Tor. (Opening that page in a normal browser can only say no.)")
         self.link(c, "About OpenNIC resolvers (opennicproject.org)", "https://www.opennicproject.org/")
         c = add_card(self, app, "Files")
         c.note(f"Config file: {app.ctl.profile_path}")
@@ -571,6 +572,13 @@ class ToolsTab(Tab):
     def dnscheck(self) -> None:
         def show(d):
             rows = [("info", r["ip"], str(r["verdict"]), "") for r in d.get("resolvers") or []]
+            eg = d.get("egress_resolver") or {}
+            if eg.get("ip"):
+                tail = {True: " (one of your chosen resolvers)", False: " (not one of your chosen resolvers)"}.get(eg.get("is_chosen"), "")
+                rows.append(("ok", "Answered by", f"{eg['ip']}" + (f" ({eg['name']})" if eg.get("name") else "") + tail,
+                             "This resolver sees your lookups, however many forwarders sit in front of it."))
+            if d.get("note"):
+                rows.append(("warn" if d.get("qubes") else "off", "Note", d["note"], ""))
             if rows:
                 self._rows(self.dns, rows)
             else:
@@ -593,7 +601,9 @@ class ToolsTab(Tab):
         if not res:
             self._text(self.speed, "No result yet.", True)
             return
-        txt = f"Download {res['down_mbps']} Mbit/s, upload {res['up_mbps']} Mbit/s."
+        def mb(v):
+            return "failed" if v is None else f"{v} Mbit/s"
+        txt = f"Download {mb(res['down_mbps'])}, upload {mb(res['up_mbps'])}."
         if res.get("errors"):
             txt += " " + "; ".join(res["errors"])
         self._text(self.speed, txt)

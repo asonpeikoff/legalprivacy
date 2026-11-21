@@ -83,7 +83,7 @@ def save_prefs(p: dict) -> None:
 
 
 # colour of an icon next to text, by button kind
-ICON_TONE = {"primary": "accent_fg", "tor": "#ffffff", "danger": "bad", "secondary": "fg", "ghost": "muted",
+ICON_TONE = {"primary": "accent_fg", "tor": "#ffffff", "danger": "bad", "secondary": "accent", "ghost": "muted",
              "link": "info", "seg": "muted"}
 BUTTON_STYLE = {"primary": "Primary.TButton", "secondary": "TButton", "danger": "Danger.TButton", "tor": "Tor.TButton",
                 "ghost": "Ghost.TButton", "link": "Link.TButton", "seg": "Seg.TButton"}
