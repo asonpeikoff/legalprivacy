@@ -240,7 +240,7 @@ def test_unreachable_onion_sometimes_switches_identity_first_and_sometimes_just_
         apply_overrides(p, {"transports": {"clearnet": {"enabled": False}, "tor": {"enabled": True}}})
         calls = []
         lanes = build_lanes(p, WORDS, tor_gate=lambda: True)
-        lanes[0].transport.reconnect = lambda: calls.append("newnym") or True
+        lanes[0].transport.reconnect = lambda calls=calls: calls.append("newnym") or True
         r = Runner(profile=p, lanes=lanes, wordlist=WORDS, clock=lambda: 1000.0, local_hour_fn=lambda: 12.0,
                    sleep_fn=lambda s: None,
                    probe_fn=lambda l, i, t: HitResult(None, error="0x04: Host unreachable"))

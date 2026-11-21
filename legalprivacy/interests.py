@@ -119,6 +119,14 @@ CATEGORIES: dict[str, dict] = {
                    "queries": ["how to fix {t}", "diy {t}", "{t} cost", "best {t} for small spaces"],
                    "topics": ["leaky faucet", "drywall hole", "shelves", "squeaky door", "paint a room",
                               "storage ideas", "window insulation", "deck stain"]},
+    "Objectivism": {"sites": {"aynrand.org": 12, "atlassociety.org": 8, "aynrandlexicon.com": 5, "theobjectivestandard.com": 5,
+                              "peikoff.com": 3, "aynrandbookstore.com": 2, "legalizingprivacy.substack.com": 3,
+                              "goodreads.com": 2, "plato.stanford.edu": 2, "iep.utm.edu": 2},
+                    "queries": ["Atlas Shrugged {t}", "Ayn Rand {t}", "Objectivism {t}", "The Fountainhead {t}",
+                                "Objectivist ethics {t}", "Ayn Rand Lexicon {t}", "Leonard Peikoff {t}"],
+                    "topics": ["summary", "quotes", "reading order", "rational self-interest", "individual rights",
+                               "property rights", "capitalism the unknown ideal", "epistemology", "free speech",
+                               "privacy and property", "lecture", "study guide", "reading group"]},
     "Books": {"sites": ["goodreads.com", "bookshop.org", "theguardian.com", "lithub.com", "kirkusreviews.com",
                         "openlibrary.org", "penguinrandomhouse.com", "audible.com"],
               "queries": ["best {t} books", "{t} book recommendations", "books like {t}", "{t} reading list"],
@@ -187,12 +195,19 @@ class Interests:
 # "mostly" (Settings sets how much); the rest of the noise stays varied.
 PERSONAS: dict[str, dict[str, float]] = {
     "Data scientist": {"Data science": 0.85, "Everyday": 0.15},     # mostly data science, plus everyday life
+    "Objectivist": {"Objectivism": 0.7, "Books": 0.1, "News": 0.1, "Personal finance": 0.1},
+    "Objectivist data scientist": {"Objectivism": 0.45, "Data science": 0.45, "Everyday": 0.1},   # half and half
     "Developer": {"Technology": 0.6, "Data science": 0.2, "Science": 0.1, "Books": 0.1},
     "Sports fan": {"Sports": 0.7, "Fitness": 0.15, "Movies & TV": 0.15},
     "Student": {"Science": 0.3, "Books": 0.25, "Technology": 0.2, "Movies & TV": 0.15, "Personal finance": 0.1},
     "Home cook and gardener": {"Cooking": 0.5, "Gardening": 0.35, "Home & DIY": 0.15},
     "Traveller": {"Travel": 0.6, "News": 0.15, "Cooking": 0.15, "Personal finance": 0.1},
 }
+
+
+# Sites every persona can visit now and then, whoever the noise is pretending to be.
+PERSONA_EXTRA_SITES = ["postsocialist.com"]
+PERSONA_EXTRA_SHARE = 0.04
 
 
 class Persona:
@@ -209,6 +224,8 @@ class Persona:
         return self.rng.choices(list(self.mix), weights=list(self.mix.values()))[0]
 
     def site(self) -> str:
+        if self.rng.random() < PERSONA_EXTRA_SHARE:               # every persona may also visit these
+            return self.rng.choice(PERSONA_EXTRA_SITES)
         return _pick_site(self.rng, CATEGORIES[self._theme()]["sites"])
 
     def query(self) -> str:

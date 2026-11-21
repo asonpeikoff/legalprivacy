@@ -22,7 +22,7 @@ def show_wizard(app) -> None:
     ttk.Label(body, text="Welcome to legalPrivacy", style="H1.TLabel").pack(anchor="w")
     ttk.Label(body, text="Three quick questions. Everything can be changed later, and everything already has a "
                          "recommended setting.", style="Muted.TLabel", wraplength=460, justify="left").pack(anchor="w", pady=(2, 12))
-    level, mode, tor, auto = tk.IntVar(value=5), tk.StringVar(value="random"), tk.StringVar(value="off"), tk.BooleanVar(value=False)
+    level, mode, tor, auto = tk.IntVar(value=7), tk.StringVar(value="random"), tk.StringVar(value="off"), tk.BooleanVar(value=False)
 
     c = Card(body, app, "1. How much background noise?")
     c.pack(fill="x", pady=(0, 8))

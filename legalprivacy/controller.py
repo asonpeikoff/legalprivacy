@@ -129,7 +129,7 @@ class Controller:
         autostart: bool
         """
         raw: dict[str, Any] = {"rate": {"mode": answers.get("rate_mode", "random"),
-                                        "level": float(answers.get("level", 5))},
+                                        "level": float(answers.get("level", 7))},
                                "transports": {"tor": {"enabled": answers.get("tor", "off") != "off",
                                                       "onion": True}}}
         self.apply_config(raw, save=False)

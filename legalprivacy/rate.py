@@ -31,7 +31,7 @@ AVG_PERSON_SEARCHES_PER_DAY = 4.2      # SparkToro 2024, active US desktop users
 @dataclass
 class RateConfig:
     mode: str = "random"          # random (recommended) | steady
-    level: float = 5.0            # 1..10 slider: the average amount, in both modes
+    level: float = 7.0            # 1..10 slider: the average amount, in both modes (default: fairly high)
     randomness: float = 1.0       # 0 = steady .. 1 = fully random; in between = partly each
 
     def validate(self) -> None:

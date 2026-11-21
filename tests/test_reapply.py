@@ -46,13 +46,13 @@ def test_apply_is_verified_and_logged_with_what_changed():
     c.start()
     try:
         assert c.settings_status()["in_effect"] is True
-        c.apply_config({"rate": {"level": 7}})
+        c.apply_config({"rate": {"level": 4}})
         assert c.settings_status()["in_effect"] is False          # saved but not yet running
         c.reapply()
         st = c.settings_status()
         assert st["in_effect"] is True and st["applied_at"]
         msgs = [e["message"] for e in c.log.since(0)]
-        assert any("Applied live and verified" in m and "level" in m and "→ 7" in m for m in msgs)
+        assert any("Applied live and verified" in m and "level" in m and "→ 4" in m for m in msgs)
     finally:
         c.stop()
 

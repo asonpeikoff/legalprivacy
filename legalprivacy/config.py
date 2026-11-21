@@ -239,6 +239,8 @@ class ExtrasConfig:
     packages: str = "auto"        # real pip/npm installs (removed again): auto (techy personas) | on | off
     household: bool = False       # noise from a virtual household of several people
     household_size: int = 3       # 2..5 people, member 1 = you
+    turbo: bool = False           # turbo mode: a second, separate real-browser lane at a faster pace (extra cover)
+    turbo_per_min: int = 6        # turbo mode: page visits per minute (1 to 20)
 
     def validate(self) -> None:
         from .engines import ENGINE_NAMES
@@ -277,6 +279,8 @@ class ExtrasConfig:
             raise ConfigError("extras.household_size must be 2 to 5")
         if self.site_list not in ("both", "tranco"):
             raise ConfigError("extras.site_list must be both or tranco")
+        if not 1 <= int(self.turbo_per_min) <= 20:
+            raise ConfigError("extras.turbo_per_min must be 1 to 20")
         if int(self.busy_kbps) < 10:
             raise ConfigError("extras.busy_kbps must be at least 10")
 
@@ -537,7 +541,8 @@ def apply_overrides(profile: Profile, raw: dict[str, Any]) -> Profile:
             site_list="tranco" if m.get("site_list") == "tranco" else "both",
             household=bool(m.get("household")), household_size=int(m.get("household_size") or 3),
             persona=str(m.get("persona") or ""), persona_share=float(m.get("persona_share", 0.9)),
-            packages=str(m.get("packages") or "auto"))
+            packages=str(m.get("packages") or "auto"),
+            turbo=bool(m.get("turbo")), turbo_per_min=int(m.get("turbo_per_min") or 6))
         if (profile.extras.interests or profile.extras.household) and not profile.extras.interest_salt:
             import secrets as _s
             profile.extras.interest_salt = _s.token_hex(8)
