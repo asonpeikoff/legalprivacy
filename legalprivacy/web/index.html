@@ -671,7 +671,7 @@ body.loading .big,body.loading .kpi b{display:block;width:min(100%,5ch);color:tr
   <div class="card"><h3>Panic <details class="why"><summary>ⓘ</summary><div>Stops the noise right away. <b>Medium</b> also clears the log and the noise browser's cookies, and deletes any signed-in account sessions (Accounts above; you would have to sign in again). <b>Hard</b> also does all of that, stops Tor and deletes what legalPrivacy recorded about connections (the Proof tab data) and its log files. Your settings are never deleted, and nothing outside legalPrivacy's own folder is touched.</div></details></h3>
     <div class="row"><button id="pSoft">Stop noise now</button><button id="pMed">Stop + clear log and cookies</button><button id="pHard" class="bad">Stop + wipe everything recorded</button></div><div class="small mute" id="pNote"></div>
   </div>
-  <div class="row"><button id="sSave" style="display:none" class="pri">Save settings</button><button id="sWiz">Run setup questions again</button><span class="small mute" id="sSaved"></span></div>
+  <div class="row"><button id="sSave" style="display:none" class="pri">Save settings</button><button id="sWiz">Run setup questions again</button><button id="sReset" title="Put every setting back to its recommended value (your own lists, accounts and bridges are kept)">Reset all to recommended</button><span class="small mute" id="sSaved"></span></div>
   <div class="note small">Config file: <code id="sPath"></code><br>Changes apply the next time you press Start (Stop → Start).</div>
 </section>
 
@@ -1699,6 +1699,8 @@ function renderAcc(d){if(!d||!d.accounts)return;
     $('#aEn_'+id).disabled=a.state==='signed_out'||a.state==='needs_signin'})}
 $('#sSave').onclick=()=>saveSettings(false);
 $('#sWiz').onclick=()=>showWiz();
+$('#sReset').onclick=async()=>{if(!confirm('Put every setting back to its recommended value?\n\nYour My List, signed-in accounts, your browser\'s user agent, onion seeds, bridges, proxy and relay choices are kept.'))return;
+  try{S=await api('/api/settings/reset',{});dirty.set=false;fillSettings(true);if(typeof needApply==='function'&&S.running)needApply();toast('Settings are back to the recommended values.')}catch(e){toast(e.message,1)}};
 // Settings save themselves: a moment after a change (longer while typing in a text box).
 function autoSave(root,fn,skip){let t=null;const h=e=>{const el=e.target;
   if(!el||el.type==='file'||el.type==='button'||(skip&&el.closest(skip)))return;

@@ -199,6 +199,14 @@ class SettingsTab(Tab):
             self.render_res()
             self.app.edited()
 
+    def reset_recommended(self) -> None:
+        if not messagebox.askokcancel("Recommended settings", "Put every setting back to its recommended value?\n\n"
+                                      "Your My List, accounts, user agent, onion seeds, bridges, proxy and relay "
+                                      "choices are kept.", parent=self.app.root):
+            return
+        self.app.work(self.app.ctl.reset_recommended, done=lambda _r: (self.app.poll_now(), self.app.flash("Settings reset.")),
+                      error=lambda e: self.app.error("Reset", e))
+
     def reset_resolvers(self) -> None:
         if not messagebox.askokcancel("Resolvers", "Replace the resolver list with the recommended one?", parent=self.app.root):
             return
@@ -566,6 +574,11 @@ class SettingsTab(Tab):
     # ── general ────────────────────────────────────────────────────────────
     def build_general(self) -> None:
         c = self.card("general", "General", "set")
+        r = c.row()
+        self.b_reset = self.app.btn(r, "Reset all settings to recommended", "refresh", "secondary", self.reset_recommended,
+                                    "Puts every setting back to its recommended value. Your own lists, accounts and "
+                                    "bridges are kept.")
+        self.b_reset.pack(side="left")
         r = c.row()
         c.lbl(r, "Speed").pack(side="left")
         self.f_spin(r, "speed", 0.05, 100, 0.1, 7, float).pack(side="left", padx=8)

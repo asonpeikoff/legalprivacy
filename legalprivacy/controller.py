@@ -164,6 +164,24 @@ class Controller:
         self.log.info("app", "Settings saved." + (" Restart noise to apply." if self.running else ""))
         return self.state()
 
+    def reset_recommended(self) -> dict:
+        """Put every setting back to its recommended (default) value. Your own data stays: My List, signed-in
+        accounts, your browser's user agent, your onion seeds and bridges, your proxy and your relay choices."""
+        cur = profile_to_dict(self.profile)["profile"]
+        fresh = profile_to_dict(Profile(name=self.profile.name))["profile"]
+        fresh["mylist"] = cur["mylist"]
+        fresh["accounts"] = cur["accounts"]
+        fresh["contribute"] = cur["contribute"]
+        fresh["identity"]["own_ua"] = cur["identity"]["own_ua"]
+        fresh["extras"]["interest_salt"] = cur["extras"]["interest_salt"]
+        for t, t_cur in cur["transports"].items():
+            for key in ("proxy", "bridges", "onion_seeds"):
+                if key in t_cur:
+                    fresh["transports"].setdefault(t, {})[key] = t_cur[key]
+        fresh.pop("name", None)
+        self.log.info("app", "All settings put back to their recommended values (your own lists and accounts were kept).")
+        return self.apply_config(fresh)
+
     def update_app(self, raw: dict[str, Any]) -> None:
         for k in ("autostart", "open_browser", "auto_refresh_sources", "ml_auto", "observe", "clear_logs_on_restart"):
             if k in raw:

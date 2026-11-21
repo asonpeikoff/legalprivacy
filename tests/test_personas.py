@@ -33,3 +33,17 @@ def test_objectivist_sites_and_queries_come_from_the_theme():
 
 def test_default_traffic_level_is_fairly_high():
     assert Profile(name="t").rate.level == 7
+
+
+def test_reset_to_recommended_keeps_my_data():
+    import tempfile
+    from legalprivacy.controller import Controller
+    c = Controller(os.path.join(tempfile.mkdtemp(), "config.yaml"))
+    c.apply_config({"rate": {"level": 2, "mode": "steady"}, "extras": {"persona": "Sports fan", "low_data": True},
+                    "mylist": {"sites": ["example.org"], "weights": {"example.org": 3}},
+                    "identity": {"own_ua": "Mozilla/5.0 test"}, "daily_max_failures": 5})
+    st = c.reset_recommended()
+    p = st["profile"]
+    assert p["rate"]["level"] == 7 and p["rate"]["mode"] == "random" and p["extras"]["persona"] == "Data scientist"
+    assert p["extras"]["low_data"] is False and p["daily_max_failures"] != 5
+    assert p["mylist"]["sites"] == ["example.org"] and p["identity"]["own_ua"] == "Mozilla/5.0 test"
