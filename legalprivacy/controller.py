@@ -512,6 +512,17 @@ class Controller:
         from .nettools import privacy_check
         return privacy_check(self)
 
+    def onion_health(self):
+        """The small remembered record of which seed onion sites keep failing (app folder, owner-only)."""
+        if getattr(self, "_onion_health", None) is None:
+            from .onion import BUILTIN_ONION_SEEDS as seeds, OnionHealth, _host
+            from .paths import app_dir
+            known = {_host(u) for _, u in seeds}
+            self._onion_health = OnionHealth(path=app_dir() / "onion_health.json",
+                                             known=lambda h: h in known or any(
+                                                 _host(u) == h for u in (self._tor_cfg().onion_seeds or [])))
+        return self._onion_health
+
     def mac_status(self) -> dict:
         """Read-only MAC address overview for the Tools tab (changing it needs root: `legalprivacy mac`)."""
         from .macspoof import MacSpoofer
@@ -916,6 +927,7 @@ class Controller:
                 self.log.clear()
                 self.log_epoch = getattr(self, "log_epoch", 0) + 1
             self.runner = Runner(profile=prof, lanes=lanes, wordlist=words, log=self.log,
+                                 onion_health=self.onion_health(),
                                  stop_event=self._stop, sleep_fn=lambda s: self._stop.wait(s),
                                  queries=self._query_source(words), domains=self._domain_pool(_r),
                                  rate=RatePlanner(_r.Random(), prof.rate),
@@ -1196,7 +1208,8 @@ class Controller:
             "engine_names": ENGINE_NAMES, "engine_defaults": dict(zip(ENGINE_NAMES, SEARCH_WEIGHTS)),
             "profile": profile_to_dict(self.profile)["profile"],
             "tor": self.tor_state(), "log_last_id": self.log.last_id(),
-            "builtin_onion_seeds": [{"name": n, "url": u} for n, u in BUILTIN_ONION_SEEDS],
+            "builtin_onion_seeds": [{"name": n, "url": u, "health": self.onion_health().status(u)}
+                                    for n, u in BUILTIN_ONION_SEEDS],
             "config_path": self.profile_path,
             "presets": PRESETS, "browser": self.browser_info(), "feeds": self.feeds.status(),
             "feeds_refreshing": self.feeds.refreshing,

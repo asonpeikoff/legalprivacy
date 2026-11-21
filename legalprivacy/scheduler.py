@@ -130,8 +130,12 @@ class Runner:
     rate: object | None = None         # RatePlanner: hourly plan (app mode). None = daily budgets (CLI/tests)
     dns_plan: object | None = None     # DnsPlan: which resolver DNS noise uses
     mix: bool = False                  # app mode: lane shares + pattern from profile.traffic
+    onion_health: object | None = None  # OnionHealth: which seed onions keep failing (None = kept in memory only)
 
     def __post_init__(self) -> None:
+        if self.onion_health is None:
+            from .onion import OnionHealth
+            self.onion_health = OnionHealth()
         self.rng = random.Random()
         self._ident_counter = 0
         if self.clock is None:
@@ -343,7 +347,19 @@ class Runner:
             # People don't react the same way every time: sometimes reload a bit later, sometimes just
             # go elsewhere, sometimes ask for a new identity first and then reload.
             r = self.rng.random()
-            if eng_name == "onion" and target.url not in st["retried"] and len(st["retried"]) < 500 and r < 0.65:
+            if eng_name == "onion" and getattr(result, "offline", False):
+                # Unreachable onion: no reload. Flip a coin between "try a different onion" and
+                # "new Tor identity first, then the next onion".
+                lane.__dict__["onion_retry"] = None
+                if r < 0.5:
+                    st["streak"] = 0
+                    ok = getattr(lane.transport, "reconnect", lambda: False)()
+                    self._emit("info", "tor", "Onion site unreachable: switched Tor identity before trying the next "
+                               f"onion{'' if ok else ' (control port unavailable, new circuits only)'}.")
+                    st["next_newnym"] = now + self.rng.uniform(600, 2400)
+                    return
+                self._emit("info", "tor", "Onion site unreachable: trying a different onion.")
+            elif eng_name == "onion" and target.url not in st["retried"] and len(st["retried"]) < 500 and r < 0.65:
                 st["retried"].add(target.url)
                 lane.__dict__["onion_retry"] = (target.url, now + self.rng.uniform(30, 180))
                 if r < 0.15:                             # new identity first, then the reload
@@ -369,18 +385,18 @@ class Runner:
         h = (_up.urlparse(url).hostname or "").removeprefix("www.")
         return time.time() < self.__dict__.get("_rested", {}).get(h, 0.0)
 
+    def _onion_user_seeds(self) -> list[str]:
+        tor_cfg = self.profile.transports.get("tor")
+        return list(tor_cfg.onion_seeds) if tor_cfg and tor_cfg.onion_seeds else []
+
     def _onion_seen_dead(self, url: str) -> None:
-        import urllib.parse as _up
-        host = _up.urlparse(url).hostname or ""
-        dead = self.__dict__.setdefault("_onion_dead", {})
-        fails, _ = dead.get(host, (0, 0.0))
-        fails += 1
-        dead[host] = (fails, time.time() + (6 * 3600 if fails >= 2 else 0))   # two misses: rest it 6 hours
+        if self.onion_health.record(url, False):
+            from .onion import onion_label
+            self._emit("info", "onion", f"{onion_label(url, self._onion_user_seeds())} keeps failing: resting it for a "
+                       "while instead of retrying (see the Tor tab).")
 
     def _onion_is_dead(self, url: str) -> bool:
-        import urllib.parse as _up
-        fails, until = self.__dict__.get("_onion_dead", {}).get(_up.urlparse(url).hostname or "", (0, 0.0))
-        return fails >= 2 and time.time() < until
+        return self.onion_health.is_resting(url)
 
     def _active_hour(self, hour: int) -> bool:
         ex = getattr(self.profile, "extras", None)
@@ -582,6 +598,8 @@ class Runner:
             lane.last_error = None
             if getattr(lane.transport, "dimmed", False):
                 lane.transport.dimmed = False
+            if eng_name == "onion":
+                self.onion_health.record(target.url, True)
             self._settle(lane, eng_name, target, result)
         else:
             budget.record_failure(self.clock())
@@ -624,6 +642,15 @@ class Runner:
                 pacer.sleep_fn(gap)
         return True
 
+    def _hit_detail(self, eng_name: str, target: Target, result: HitResult) -> str | None:
+        """The Activity details column: for onion pages, which site it is (an address alone says nothing)."""
+        detail = getattr(result, "detail", None)
+        if eng_name != "onion":
+            return detail
+        from .onion import onion_label
+        label = onion_label(target.url, self._onion_user_seeds())
+        return f"{label} · {detail}" if detail else label
+
     def _record_hit(self, lane: Lane, eng_name: str, identity: Identity,
                     target: Target, result: HitResult) -> None:
         self._hit_seq += 1
@@ -635,7 +662,7 @@ class Runner:
             "url": shown, "status": result.status, "ok": result.ok,
             "error": result.error, "latency_ms": getattr(result, "latency_ms", None),
             "identity": getattr(identity, "id", None),
-            "note": target.note, "role": target.role, "detail": getattr(result, "detail", None),
+            "note": target.note, "role": target.role, "detail": self._hit_detail(eng_name, target, result),
             "on_page_s": round(getattr(result, "on_page_s", 0) or 0, 1),
         }
         self.hit_log.append(rec)

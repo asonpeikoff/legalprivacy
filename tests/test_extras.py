@@ -275,9 +275,10 @@ def test_offline_onion_sites_are_quiet_and_rested():
     assert not _onion_offline(HitResult(None, error="HTTP 500"))
     url = "http://" + "a" * 56 + ".onion/"
     r._onion_seen_dead(url)
-    assert not r._onion_is_dead(url)                           # one miss: try again later
     r._onion_seen_dead(url)
-    assert r._onion_is_dead(url)                               # two misses: rest it for hours
+    assert not r._onion_is_dead(url)                           # two misses: try again later
+    r._onion_seen_dead(url)
+    assert r._onion_is_dead(url)                               # three misses in a row: rest it for hours
 
 
 def test_login_walls_are_recognised_but_public_pages_are_not():

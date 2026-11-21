@@ -227,15 +227,30 @@ def _patience_run(seed):
 
 
 def test_tor_patience_varies_like_a_person_and_gets_new_identities():
-    retried = moved_on = 0
     for seed in range(40):
         r, seen, calls, clock, lanes = _patience_run(seed)
         assert "newnym" in calls                          # a run of failures always ends in a new identity
-        if seen[1] == seen[0]:
-            retried += 1
+        assert lanes[0].__dict__.get("onion_retry") is None    # an unreachable onion is never reloaded
+
+
+def test_unreachable_onion_sometimes_switches_identity_first_and_sometimes_just_moves_on():
+    early = later = 0
+    for seed in range(40):
+        p = Profile(name="t")
+        apply_overrides(p, {"transports": {"clearnet": {"enabled": False}, "tor": {"enabled": True}}})
+        calls = []
+        lanes = build_lanes(p, WORDS, tor_gate=lambda: True)
+        lanes[0].transport.reconnect = lambda: calls.append("newnym") or True
+        r = Runner(profile=p, lanes=lanes, wordlist=WORDS, clock=lambda: 1000.0, local_hour_fn=lambda: 12.0,
+                   sleep_fn=lambda s: None,
+                   probe_fn=lambda l, i, t: HitResult(None, error="0x04: Host unreachable"))
+        r.rng = random.Random(seed)
+        r.run_once(wait=False)                            # exactly one unreachable onion
+        if calls:
+            early += 1                                    # new identity before the next onion
         else:
-            moved_on += 1
-    assert retried > 5 and moved_on > 5                   # not one fixed reaction
+            later += 1                                    # went straight to a different onion
+    assert early > 5 and later > 5                        # a coin flip, not one fixed reaction
 
 
 def test_tor_routine_new_circuits():

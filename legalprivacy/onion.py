@@ -49,6 +49,96 @@ BUILTIN_ONION_SEEDS: list[tuple[str, str]] = [
 _ONION_RE = re.compile(r"^[a-z2-7]{56}$")
 
 
+def _host(url: str) -> str:
+    try:
+        return (urllib.parse.urlparse(url).hostname or "").lower()
+    except ValueError:
+        return ""
+
+
+def onion_label(url: str, user_seeds: list[str] | None = None) -> str:
+    """What an onion address is, for the Activity details column: the site's name from the built-in list,
+    "your own seed" for one you added, or "other onion site" for one found by following a link."""
+    h = _host(url)
+    for name, u in BUILTIN_ONION_SEEDS:
+        if _host(u) == h:
+            return name
+    if any(_host(u) == h for u in (user_seeds or [])):
+        return "your own onion seed"
+    return "other onion site (found by following a link)"
+
+
+class OnionHealth:
+    """Remembers which seed onion sites keep failing, so they are not retried over and over.
+
+    Three misses in a row put a site to rest for 6 hours, doubling with every further miss (capped at 7 days);
+    one success clears it. Only addresses from the seed lists (built-in plus yours) are recorded, never the
+    sites a random walk wanders onto. With a `path` the record is kept in one small file (onion address,
+    miss count, last result time: nothing about what you browse) so a restart doesn't forget it.
+    """
+    FAILS_TO_REST = 3
+    BASE_REST = 6 * 3600
+    MAX_REST = 7 * 86400
+
+    def __init__(self, path=None, clock=None, known=None):
+        import time as _t
+        self.path, self.clock = path, clock or _t.time
+        self.known = known or (lambda host: True)         # host -> bool: is this one of the seed sites?
+        self.data: dict[str, dict] = {}
+        if path:
+            try:
+                import json
+                with open(path, encoding="utf-8") as fh:
+                    raw = json.load(fh)
+                if isinstance(raw, dict):
+                    self.data = {str(k): v for k, v in raw.items() if isinstance(v, dict)}
+            except (OSError, ValueError):
+                self.data = {}
+
+    def _save(self) -> None:
+        if not self.path:
+            return
+        import json
+        import os
+        try:
+            tmp = str(self.path) + ".tmp"
+            fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                json.dump(self.data, fh)
+            os.replace(tmp, self.path)
+        except OSError:
+            pass                                          # a read-only folder must never stop the noise
+
+    def record(self, url: str, ok: bool) -> bool:
+        """Note one result. Returns True when this miss just put the site to rest."""
+        h = _host(url)
+        if not h or not self.known(h):
+            return False
+        now = self.clock()
+        e = self.data.setdefault(h, {"fails": 0, "until": 0, "last_ok": 0, "last_fail": 0})
+        rested = False
+        if ok:
+            e.update(fails=0, until=0, last_ok=now)
+        else:
+            e["fails"] = int(e.get("fails", 0)) + 1
+            e["last_fail"] = now
+            if e["fails"] >= self.FAILS_TO_REST:
+                rest = min(self.MAX_REST, self.BASE_REST * 2 ** (e["fails"] - self.FAILS_TO_REST))
+                e["until"] = now + rest
+                rested = True
+        self._save()
+        return rested
+
+    def is_resting(self, url: str) -> bool:
+        e = self.data.get(_host(url))
+        return bool(e) and self.clock() < float(e.get("until", 0))
+
+    def status(self, url: str) -> dict:
+        e = self.data.get(_host(url)) or {}
+        return {"fails": int(e.get("fails", 0)), "resting_until": float(e.get("until", 0)) if self.is_resting(url) else 0,
+                "last_ok": float(e.get("last_ok", 0))}
+
+
 def is_valid_v3_onion(host: str) -> bool:
     """True iff `host` is a well-formed v3 onion address with a correct checksum."""
     h = host.strip().lower().rstrip(".")

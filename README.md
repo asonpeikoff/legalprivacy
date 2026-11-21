@@ -379,8 +379,13 @@ On Tor, failures are handled like a person would: sometimes reload the page a mi
 | **Tor** | off | When on, legalPrivacy runs its own private Tor (it finds `tor` on your computer or downloads and verifies the official Tor Expert Bundle). Your own Tor and Tor Browser are never touched. |
 | **🧅 Onion sites** | on when Tor is on | Visits real v3 `.onion` addresses: official mirrors of lawful public sites, plus links found on them. Uses Tor Browser's uniform headers so it blends in. |
 
-Many `.onion` sites are offline at any moment. Those show in Activity as "site offline" and are
-skipped for a while; this is normal and doesn't mean Tor is broken.
+Many `.onion` sites are offline at any moment. Those show in Activity as "site offline"; this is normal and doesn't
+mean Tor is broken. When an onion page is unreachable, legalPrivacy flips a coin: either it goes straight to a different
+onion, or it asks Tor for a new identity first and then tries the next one (it does not reload the dead page). The Activity
+details column names the onion site (for example "Tor Project"). A seed site that fails three times in a row is rested for
+6 hours, doubling with every further miss up to a week, and one success clears it. That memory is one small file,
+`onion_health.json` in the app folder (owner-only: seed onion addresses, miss counts and times, nothing about what you
+browse), so a restart doesn't forget it. The Tor tab's "Where these come from" list shows which built-in sites are resting.
 
 - **Restart** stops and starts Tor itself, reconnecting to the network from scratch.
 - **New identity** keeps Tor running and switches to fresh circuits.

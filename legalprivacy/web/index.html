@@ -1385,7 +1385,7 @@ function fillTor(force){
   $('#tSocks').value=c.socks;$('#tCtl').value=c.control||'';$('#tExt').style.display=c.manage?'none':'flex';
   $('#tSeeds').value=((c.onion_seeds&&c.onion_seeds.length)?c.onion_seeds:S.builtin_onion_seeds.map(b=>b.url)).join('\n');$('#tBridges').value=(c.bridges||[]).join('\n');
   (document.querySelector(`input[name=bmode][value=${c.bridge_mode||'off'}]`)||{}).checked=true;$('#bAuto').checked=c.bridge_auto!==false;
-  $('#tBuiltin').innerHTML=S.builtin_onion_seeds.map(b=>`<div>${esc(b.name)}: <code>${esc(b.url)}</code></div>`).join('');
+  $('#tBuiltin').innerHTML=S.builtin_onion_seeds.map(b=>{const h=b.health||{};const st=h.resting_until?`<span class="warnc"> resting after ${h.fails} misses, until ${new Date(h.resting_until*1000).toLocaleString()}</span>`:h.fails?`<span class="mute"> ${h.fails} miss${h.fails>1?'es':''} in a row</span>`:h.last_ok?'<span class="ok"> ✓ reachable</span>':'';return `<div>${esc(b.name)}: <code>${esc(b.url)}</code>${st}</div>`}).join('');
   $('#dnsOn').checked=(c.dns_port||0)>0;$('#dnsLan').checked=!!c.dns_lan;fillDnsAddrs();showDns();
   dirty.tor=false;
 }

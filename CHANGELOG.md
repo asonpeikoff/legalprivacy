@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- **Unreachable onions:** instead of reloading the dead page, a coin flip chooses between trying a different onion and asking Tor for a new identity first. The **Activity details column now names the onion site** ("Tor Project", "your own onion seed", or "other onion site (found by following a link)"). **Seed sites that keep failing are rested** (3 misses in a row: 6 hours, doubling up to a week; a success clears it) and remembered across restarts in `onion_health.json` (seed addresses, miss counts, times; nothing about what you browse). The Tor tab lists which built-in sites are resting.
 - **User agent mix:** a new option, "Mix: some real, some random", with a percentage (default 70%). That share of the noise identities uses your own browser's user agent and the rest a fresh random one from the library (web Settings and native app). Needs your real user agent (Detect or paste). Setting: `identity.ua_mode: mix`, `identity.ua_own_share`.
 - **My List: one-button bookmark import** ("Import bookmarks from Firefox / Chrome"). Also finds Flatpak and `~/.config/mozilla` profiles, and when no browser is found on this computer (for example it lives in another VM or qube) says how to export an HTML file and use "From a file".
 - **Tools tab: MAC address card** (read-only: each physical interface now vs factory, with the command to change it).
