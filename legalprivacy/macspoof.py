@@ -448,7 +448,7 @@ class MacSpoofer:
         try:
             interval = int(interval)
         except (TypeError, ValueError):
-            raise ArgError("interval must be a whole number of minutes")
+            raise ArgError("interval must be a whole number of minutes") from None
         if not MIN_INTERVAL <= interval <= MAX_INTERVAL:
             raise ArgError(f"interval must be {MIN_INTERVAL} to {MAX_INTERVAL} minutes")
         self.require_root()
