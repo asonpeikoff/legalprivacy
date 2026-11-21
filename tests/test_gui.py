@@ -71,7 +71,7 @@ def test_tor_chip():
 
 
 def test_settings_chip_and_apply_message():
-    assert L.settings_chip({"running": True, "in_effect": True, "applied_at": 1700000000})[0].startswith("✓ settings in effect ")
+    assert L.settings_chip({"running": True, "in_effect": True, "applied_at": 1700000000})[0].startswith("✓ Settings applied ")
     assert L.settings_chip({"running": False}) == ("Settings saved", "off")
     assert L.settings_chip({"running": True, "in_effect": False})[1] == "warn"
     assert L.settings_chip({}, applying=True) == ("Applying…", "warn")

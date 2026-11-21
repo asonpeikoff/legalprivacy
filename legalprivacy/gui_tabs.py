@@ -461,6 +461,11 @@ class LogTab(Tab):
 class TorTab(Tab):
     title, icon = "Tor", "tor"
 
+    def _mix_text(self, tor_on: bool, onion_on: bool) -> None:
+        web_on = bool(self.app.ctl.profile.transports["clearnet"].enabled)
+        from .gui_logic import tor_mix_text
+        self.mix_note.configure(text=tor_mix_text(tor_on, onion_on, web_on))
+
     def __init__(self, nb, app):
         super().__init__(nb, app)
         self.rowconfigure(0, weight=1)
@@ -505,9 +510,16 @@ class TorTab(Tab):
             b.pack(side="left", padx=(0, 6))
         self.install_note = cc.note("", pady=(6, 0))
         self.test_note = cc.note("", muted=False, pady=(2, 6))
-        self.f_check(cc, "tor_enabled", "Use Tor", "Turn the Tor lane on. Starting noise will automatically start (and if "
-                                                    "needed, install) Tor.")
-        self.f_check(cc, "tor_onion", "Visit onion sites (darknet noise)", "Only .onion addresses, never leaves the Tor network.")
+        self.mix_note = cc.note("", muted=False, pady=(2, 8))
+        v_tor = self.f_check(cc, "tor_enabled", "Run the app's private Tor",
+                             "Starts Tor in the background (installed for you if needed). Tick this first: onion sites, "
+                             "Tor DNS and relays all need it.")
+        v_onion = self.f_check(cc, "tor_onion", "Include .onion sites in the noise",
+                               "Needs Tor above. Adds visits to real .onion websites, which never leave the Tor network. "
+                               "If this is off, Tor runs but no onion sites are visited.")
+        for var in (v_tor, v_onion):
+            var.trace_add("write", lambda *_a: self._mix_text(v_tor.get(), v_onion.get()))
+        self._mix_text(v_tor.get(), v_onion.get())
         self.f_check(cc, "tor_manage", "Let legalPrivacy manage Tor (recommended)",
                      "Untick to use an existing Tor at the addresses below instead.")
         r = cc.row((6, 0))

@@ -274,8 +274,35 @@ def tor_chip(tor: dict | None, enabled: bool | None = None) -> tuple[str, str]:
     return f"Tor: {st}", "warn"
 
 
+def ago(ts: float, now: float | None = None) -> str:
+    """'just now', '30 s ago', '5 min ago', '2 h ago': a time since, so the chip visibly moves."""
+    import time as _t
+    s = max(0, int((now if now is not None else _t.time()) - ts))
+    if s < 10:
+        return "just now"
+    if s < 60:
+        return f"{s} s ago"
+    if s < 3600:
+        return f"{s // 60} min ago"
+    return f"{s // 3600} h ago"
+
+
+def tor_mix_text(tor_on: bool, onion_on: bool, web_on: bool) -> str:
+    """Plain words for how Tor is being used right now (Tor alone, or mixed with the normal noise)."""
+    if not tor_on:
+        return "Right now: Tor is off. Only the normal web noise runs, and nothing goes through Tor."
+    if onion_on and web_on:
+        return ("Right now: Tor is MIXED with your normal noise. Onion-site visits run alongside the ordinary web noise, "
+                "which never goes through Tor.")
+    if onion_on:
+        return ("Right now: TOR ONLY. Just .onion sites are visited, because the ordinary web noise is switched off "
+                "in Settings.")
+    return ("Right now: Tor is running but no onion sites are visited. It is used only for Tor DNS or a relay, "
+            "if you switch those on below.")
+
+
 def settings_chip(status: dict | None, applying: bool = False, error: str | None = None) -> tuple[str, str]:
-    """The header chip for ctl.settings_status(): '✓ settings in effect HH:MM:SS'."""
+    """The header chip for ctl.settings_status(): '✓ Settings applied 5 min ago' (the time since they took effect)."""
     if error:
         return f"✗ Not saved: {error}", "bad"
     if applying:
@@ -285,7 +312,7 @@ def settings_chip(status: dict | None, applying: bool = False, error: str | None
         return "Settings saved", "off"
     if status.get("in_effect"):
         at = status.get("applied_at")
-        return "✓ settings in effect" + (f" {fmt_clock(at)}" if at else ""), "ok"
+        return "✓ Settings applied" + (f" {ago(at)}" if at else ""), "ok"
     return "! running settings differ from saved: press Stop, then Start", "warn"
 
 
