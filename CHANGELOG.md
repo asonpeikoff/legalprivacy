@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- **User agent mix:** a new option, "Mix: some real, some random", with a percentage (default 70%). That share of the noise identities uses your own browser's user agent and the rest a fresh random one from the library (web Settings and native app). Needs your real user agent (Detect or paste). Setting: `identity.ua_mode: mix`, `identity.ua_own_share`.
 - **My List: one-button bookmark import** ("Import bookmarks from Firefox / Chrome"). Also finds Flatpak and `~/.config/mozilla` profiles, and when no browser is found on this computer (for example it lives in another VM or qube) says how to export an HTML file and use "From a file".
 - **Tools tab: MAC address card** (read-only: each physical interface now vs factory, with the command to change it).
 - Logo concept sheet in `docs/logo-concepts/` (not used yet).

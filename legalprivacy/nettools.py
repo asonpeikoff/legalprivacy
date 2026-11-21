@@ -275,6 +275,11 @@ def privacy_check(ctl) -> list[dict]:
         "" if bi["active"] else "Plain HTTP can't scroll or run pages and is easier to tell apart. Install Playwright and Chrome.")
     ident = ctl.profile.identity
     own = ident.ua_mode == "pin" and ident.ua_pin == "own"
+    if ident.ua_mode == "mix":
+        add("Noise looks like your browser", "info",
+            f"Mixed: about {round(float(ident.ua_own_share) * 100)}% of the noise uses your own browser's user agent, "
+            "the rest a random one", "Raise the share (Settings → User agent) to look more like you.")
+        return out
     add("Noise looks like your browser", "ok" if own else "info",
         "Pinned to your own browser's user agent" if own else "User agent rotates",
         "" if own else "Recommended: Settings → User agent → Pin to my own browser's user agent.")

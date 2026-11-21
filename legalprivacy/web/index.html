@@ -569,6 +569,7 @@ body.loading .big,body.loading .kpi b{display:block;width:min(100%,5ch);color:tr
         <li><b>One library entry</b> is a single fixed browser. Only pick this for a specific reason, since one fixed browser is an easy pattern.</li>
       </ul></div>
     <label class="opt"><input type="radio" name="uamode" value="own"> <b>Pin to my own browser's user agent</b> <span class="mute">(recommended, default) — until it's known, the noise rotates</span></label>
+    <label class="opt"><input type="radio" name="uamode" value="mix"> <b>Mix: some real, some random</b> <span class="mute">— about <input type="number" id="uShare" min="0" max="100" step="5" value="70" style="width:64px">% of the noise uses your own browser's user agent, the rest a random one</span></label>
     <label class="opt"><input type="radio" name="uamode" value="rotate-hour"> <b>Random, changing every hour</b></label>
     <label class="opt"><input type="radio" name="uamode" value="rotate-day"> <b>Random, changing every day</b></label>
     <label class="opt"><input type="radio" name="uamode" value="lib"> <b>Pin to one library entry</b> <span class="mute">(not recommended; pick one below)</span></label>
@@ -1551,7 +1552,8 @@ let UA=null;
 function uaRadioValue(){return document.querySelector('input[name=uamode]:checked')?.value||'own'}
 function fillUA(){
   if(!UA)return; const m=UA.mode, ev=UA.rotate_every;
-  const v= m==='pin'?(UA.pin==='own'?'own':'lib'):(ev==='day'?'rotate-day':'rotate-hour');
+  const v= m==='mix'?'mix':m==='pin'?(UA.pin==='own'?'own':'lib'):(ev==='day'?'rotate-day':'rotate-hour');
+  if(!$('#uShare').matches(':focus'))$('#uShare').value=UA.own_share??70;
   (document.querySelector(`input[name=uamode][value=${v}]`)||{}).checked=true;
   if(!$('#uOwn').matches(':focus'))$('#uOwn').value=UA.own_ua||'';
   $('#uApplies').textContent=UA.applies_to;
@@ -1570,9 +1572,10 @@ async function saveUA(override,auto){
   if(override){body={ua_mode:'pin',ua_pin:override.pin}}
   else if(v==='own')body={ua_mode:'pin',ua_pin:'own'};
   else if(v==='lib')body={ua_mode:'pin'};
+  else if(v==='mix')body={ua_mode:'mix',own_share:parseFloat($('#uShare').value)};
   else body={ua_mode:'rotate',rotate_every:v==='rotate-day'?'day':'hour'};
   body.own_ua=$('#uOwn').value.trim();
-  if(body.ua_mode==='pin'&&body.ua_pin==='own'&&!body.own_ua){$('#uNote').textContent='Paste or detect your browser’s user agent first.';return}
+  if((body.ua_mode==='mix'||(body.ua_mode==='pin'&&body.ua_pin==='own'))&&!body.own_ua){$('#uNote').textContent='Paste or detect your browser’s user agent first.';return}
   if(body.ua_mode==='pin'&&!body.ua_pin){$('#uNote').textContent='Click “Pin this” on a library entry below.';$('#uSearch').focus();return}
   try{UA=await api('/api/useragents',body);fillUA();$('#uNote').textContent='Saved ✓ '+(UA.running?(needApply(),'(going live…)'):'')}catch(e){$('#uNote').textContent='Not saved: '+e.message;if(!auto)toast(e.message,1)}
 }

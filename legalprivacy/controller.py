@@ -588,18 +588,29 @@ class Controller:
         rows = [{"id": e["id"], "ua": e["ua"], "group": e["group"], "platform": e["platform"],
                  "release": e["release"], "share": e["share"]} for e in library()]
         return {"mode": ident.ua_mode, "rotate_every": ident.rotate_every, "pin": ident.ua_pin,
-                "own_ua": ident.own_ua, "library": rows, "running": self.running,
+                "own_ua": ident.own_ua, "own_share": round(float(ident.ua_own_share) * 100),
+                "library": rows, "running": self.running,
                 "applies_to": "Plain-HTTP lane. The real-browser lane always sends its own browser's "
                               "user agent, and the onion lane always uses Tor Browser's fixed one."}
 
     def ua_save(self, body: dict) -> dict:
         allowed = {k: str(body[k]) for k in ("ua_mode", "rotate_every", "ua_pin", "own_ua") if k in body}
+        if "own_share" in body:                        # percent of identities that use your own browser's UA
+            try:
+                pct = float(body["own_share"])
+            except (TypeError, ValueError):
+                raise ConfigError("The share must be a number from 0 to 100.") from None
+            if not 0 <= pct <= 100:
+                raise ConfigError("The share must be a number from 0 to 100.")
+            allowed["ua_own_share"] = pct / 100.0
         cur = self.profile.identity
         mode = allowed.get("ua_mode", cur.ua_mode)
         pin = allowed.get("ua_pin", cur.ua_pin)
         own = allowed.get("own_ua", cur.own_ua).strip()
         if mode == "pin" and not pin:
             raise ConfigError("Choose what to pin to first.")
+        if mode == "mix" and not own:
+            raise ConfigError("Paste or detect your browser's user agent first (the mix needs your real one).")
         if mode == "pin" and pin == "own" and not own:
             raise ConfigError("Paste or detect your browser's user agent first.")
         self.apply_config({"identity": allowed})
@@ -609,7 +620,8 @@ class Controller:
         """Default is your own browser's user agent. If it isn't known yet, read it once from the
         installed browser; if that isn't possible, say so (noise rotates until it's pasted)."""
         ident = self.profile.identity
-        if ident.ua_mode != "pin" or ident.ua_pin != "own" or ident.own_ua.strip():
+        wants_own = ident.ua_mode == "mix" or (ident.ua_mode == "pin" and ident.ua_pin == "own")
+        if not wants_own or ident.own_ua.strip():
             return
         res = self.ua_detect() if self.browser_info()["available"] else {"error": "no browser to read it from"}
         if res.get("ua"):
