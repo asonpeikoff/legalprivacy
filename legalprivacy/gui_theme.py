@@ -139,6 +139,60 @@ def _disc(cx: float, cy: float, layers: list):
     return shade
 
 
+_check_ids = [0]
+
+
+def _install_check_indicators(s, root, p: dict, px) -> None:
+    """Check boxes that show a real check mark (the stock theme draws a cross), in both themes, with focus/disabled states."""
+    size = max(14, px(16))
+    _check_ids[0] += 1
+    keep = getattr(root, "_lp_check_imgs", None)
+    if keep is None:
+        keep = root._lp_check_imgs = []
+
+    def seg_d(x, y, a, b):
+        ax, ay = a
+        bx, by = b
+        dx, dy = bx - ax, by - ay
+        t = max(0.0, min(1.0, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy)))
+        return ((x - ax - t * dx) ** 2 + (y - ay - t * dy) ** 2) ** 0.5
+
+    pts = [(size * .24, size * .54), (size * .43, size * .72), (size * .78, size * .30)]
+    half, rad, bw = size / 2.0, size * 0.22, max(1.3, size * 0.09)
+
+    def inside(x, y, inset):
+        dx = max(abs(x - half) - (half - inset - rad), 0)
+        dy = max(abs(y - half) - (half - inset - rad), 0)
+        return dx * dx + dy * dy <= rad * rad
+
+    def make(bg, checked, disabled=False, focus=False):
+        border = p["accent"] if focus else (p["border"] if disabled else p["muted"])
+        fill = p["code"] if disabled else (p["accent"] if checked else p["field"])
+        mark = p["muted"] if disabled else p["accent_fg"]
+
+        def shade(x, y):
+            if not inside(x, y, 0.4):
+                return None
+            if checked and (seg_d(x, y, pts[0], pts[1]) <= size * .065 or seg_d(x, y, pts[1], pts[2]) <= size * .065):
+                return mark
+            if not inside(x, y, 0.4 + bw):
+                return border
+            return fill
+        img = _paint(root, size, size, bg, shade)
+        keep.append(img)
+        return img
+
+    for pref, bg in (("T", p["bg"]), ("Card.T", p["panel"])):
+        el = f"Chk{_check_ids[0]}{pref[0]}{'c' if pref != 'T' else ''}.indicator"
+        s.element_create(el, "image", make(bg, False),
+                         ("disabled", "selected", make(bg, True, disabled=True)), ("disabled", make(bg, False, disabled=True)),
+                         ("selected", "focus", make(bg, True, focus=True)), ("selected", make(bg, True)),
+                         ("focus", make(bg, False, focus=True)), sticky="w")
+        s.layout(f"{pref}Checkbutton", [("Checkbutton.padding", {"sticky": "nswe", "children": [
+            (el, {"side": "left", "sticky": ""}),
+            ("Checkbutton.focus", {"side": "left", "sticky": "w", "children": [("Checkbutton.label", {"sticky": "nswe"})]})]})])
+
+
 _scale_ids = [0]
 
 
@@ -375,9 +429,13 @@ def apply_theme(root: tk.Misc, s: ttk.Style, p: dict, fonts: dict) -> None:
     s.configure("TCombobox", arrowcolor=p["fg"], background=p["panel"])
     s.map("TCombobox", fieldbackground=[("readonly", p["field"])], foreground=[("readonly", p["fg"])],
           selectbackground=[("readonly", p["field"])], selectforeground=[("readonly", p["fg"])])
-    s.configure("TScrollbar", background=p["code"], troughcolor=p["bg"], arrowcolor=p["muted"], bordercolor=p["bg"],
-                lightcolor=p["code"], darkcolor=p["code"], arrowsize=13)
-    s.map("TScrollbar", background=[("active", p["border"])])
+    thumb, thumb_hi = _mix(p["bg"], p["fg"], .40), _mix(p["bg"], p["fg"], .58)       # clearly visible at rest
+    trough = _mix(p["bg"], p["fg"], .09)
+    s.configure("TScrollbar", background=thumb, troughcolor=trough, arrowcolor=p["fg"], bordercolor=trough,
+                lightcolor=thumb, darkcolor=thumb, arrowsize=px(15))
+    s.map("TScrollbar", background=[("pressed", p["accent"]), ("active", thumb_hi)],
+          lightcolor=[("pressed", p["accent"]), ("active", thumb_hi)], darkcolor=[("pressed", p["accent"]), ("active", thumb_hi)])
+    _install_check_indicators(s, root, p, px)
     s.configure("TProgressbar", background=p["accent"], troughcolor=p["code"], bordercolor=p["code"],
                 lightcolor=p["accent"], darkcolor=p["accent"], thickness=9)
     s.configure("Tor.Horizontal.TProgressbar", background=p["tor"])

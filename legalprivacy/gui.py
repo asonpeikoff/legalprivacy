@@ -265,7 +265,7 @@ def build_app_class():
             # "are the running settings the saved ones?" lives in the status bar, next to the live-apply message
             self.set_chip = ttk.Label(sb, text="Settings saved", style="Pilloff.TLabel")
             self.set_chip.grid(row=0, column=2, sticky="e")
-            T.tip(self.set_chip, "Whether the running noise uses exactly the settings that are saved")
+            T.tip(self.set_chip, "The running noise is using exactly the settings you saved. The time shows how long ago they last took effect.")
 
             menu = tk.Menu(r)
             fm = tk.Menu(menu, tearoff=0)
