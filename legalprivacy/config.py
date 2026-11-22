@@ -65,7 +65,7 @@ class TransportConfig:
                                       # only where the system allows it) | visible (watch it work)
     browser_visible: bool = False     # derived from browser_window (kept for older settings files)
     browser_offscreen: bool = False   # derived from browser_window
-    browser_engine: str = "auto"      # clearnet: auto (match your browser) | chromium | firefox
+    browser_engine: str = "mix"       # clearnet: mix (default: every browser found, per identity) | auto (match yours) | chromium | firefox
     cookie_hours: float = 1.0         # clearnet: keep browser cookies this long, then start fresh (0 = never keep)
     cookie_vary: bool = True          # clearnet: each jar lives 60-140% of cookie_hours, so wipes aren't on a fixed beat
     # --- tor lane only ---
@@ -90,8 +90,8 @@ class TransportConfig:
             raise ConfigError(f"transport '{name}': browser must be auto, on or off")
         if self.browser_window not in ("hidden", "offscreen", "visible"):
             raise ConfigError(f"transport '{name}': browser_window must be hidden, offscreen or visible")
-        if self.browser_engine not in ("auto", "chromium", "firefox"):
-            raise ConfigError(f"transport '{name}': browser_engine must be auto, chromium or firefox")
+        if self.browser_engine not in ("mix", "auto", "chromium", "firefox"):
+            raise ConfigError(f"transport '{name}': browser_engine must be mix, auto, chromium or firefox")
         if self.bridge_mode not in ("off", "obfs4", "snowflake", "meek", "custom"):
             raise ConfigError("tor bridge_mode must be off, obfs4, snowflake, meek or custom")
         for b in self.bridges:
@@ -194,7 +194,7 @@ class DnsConfig:
 @dataclass
 class IdentityConfig:
     """Which user agent the plain-HTTP noise sends. See legalprivacy/useragents.py."""
-    ua_mode: str = "pin"          # pin (default: your own browser's, recommended) | rotate | mix
+    ua_mode: str = "mix"          # mix (default: your own browser's for most, others for the rest) | pin | rotate
     rotate_every: str = "hour"    # hour | day   (rotate mode: how often the choice changes)
     ua_pin: str = "own"           # pin mode: "own" or a library id. "own" with no UA yet = rotate until known
     own_ua: str = ""              # your browser's user agent (stored only on this computer)

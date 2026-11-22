@@ -222,7 +222,8 @@ def test_engine_matches_your_browser_and_falls_back_to_chromium():
     os.environ["LEGALPRIVACY_HOME"] = tempfile.mkdtemp()
     from legalprivacy.controller import Controller
     c = Controller()
-    c.apply_config({"identity": {"own_ua": "Mozilla/5.0 (X11; Linux x86_64; rv:160.0) Gecko/20100101 Firefox/160.0"}})
+    c.apply_config({"identity": {"own_ua": "Mozilla/5.0 (X11; Linux x86_64; rv:160.0) Gecko/20100101 Firefox/160.0"},
+                    "transports": {"clearnet": {"browser_engine": "auto"}}})
     with mock.patch("legalprivacy.browser.find_playwright_firefox", return_value="/x/firefox"):
         assert c._browser_engine() == "firefox"
     with mock.patch("legalprivacy.browser.find_playwright_firefox", return_value=None):
@@ -273,3 +274,23 @@ def test_a_page_cannot_send_the_tab_to_another_site_on_its_own():
     t._doing(page, None)
     assert nav("https://other.org/landing") == "Fetch.continueRequest"              # where it was sent
     assert t.blocked_navs == 1 and t.nav_log[-1]["why"].startswith("blocked")
+
+
+def test_browser_mix_is_the_default_and_routes_by_identity():
+    from types import SimpleNamespace as NS
+    from legalprivacy.browser import MixedBrowserTransport
+    from legalprivacy.config import Profile
+    p = Profile(name="d")
+    assert p.transports["clearnet"].browser_engine == "mix" and p.identity.ua_mode == "mix"
+    chrome, ff = NS(dimmed=False, closed=False, name="c"), NS(dimmed=False, closed=False, name="f")
+    chrome.hit = lambda i, t: "chromium"
+    ff.hit = lambda i, t: "firefox"
+    chrome.close = ff.close = lambda: None
+    m = MixedBrowserTransport(chrome, ff)
+    firefox_id = NS(chromium=False, user_agent="Mozilla/5.0 (X11; rv:140.0) Gecko/20100101 Firefox/140.0")
+    chrome_id = NS(chromium=True, user_agent="Mozilla/5.0 Chrome/140")
+    safari_id = NS(chromium=False, user_agent="Mozilla/5.0 (iPhone) Safari/604.1")
+    assert (m.hit(firefox_id, None), m.hit(chrome_id, None), m.hit(safari_id, None)) == ("firefox", "chromium", "chromium")
+    assert MixedBrowserTransport(chrome, None).hit(firefox_id, None) == "chromium"      # no Firefox installed
+    m.dimmed = True
+    assert chrome.dimmed and ff.dimmed

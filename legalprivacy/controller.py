@@ -164,6 +164,45 @@ class Controller:
         self.log.info("app", "Settings saved." + (" Restart noise to apply." if self.running else ""))
         return self.state()
 
+    # ── defaults: recommended, and the user's own ───────────────────────────
+    # Personal data that "back to recommended" must not wipe: your own browser, your list, your sign-ins,
+    # your relay and Tor set-up.
+    _KEEP_ON_RESET = ("mylist", "accounts", "relay")
+
+    def _my_defaults_path(self) -> Path:
+        return app_dir() / "my_defaults.json"
+
+    def defaults_info(self) -> dict:
+        return {"has_mine": self._my_defaults_path().exists()}
+
+    def reset_to_recommended(self) -> dict:
+        """Put every setting back to the recommended value. Keeps your list, sign-ins, relay and Tor set-up."""
+        fresh = profile_to_dict(Profile(name="default"))
+        cur = profile_to_dict(self.profile)
+        for k in self._KEEP_ON_RESET:
+            if k in cur["profile"]:
+                fresh["profile"][k] = cur["profile"][k]
+        fresh["profile"].get("identity", {})["own_ua"] = self.profile.identity.own_ua
+        tor_now = (cur["profile"].get("transports") or {}).get("tor")
+        if tor_now:
+            fresh["profile"]["transports"]["tor"] = tor_now
+        self.log.info("app", "Settings put back to the recommended defaults.")
+        return self.apply_config(fresh["profile"])
+
+    def save_my_defaults(self) -> dict:
+        """Remember the current settings as 'my defaults'."""
+        data = profile_to_dict(self.profile)["profile"]
+        write_private(self._my_defaults_path(), json.dumps(data))
+        self.log.info("app", "Current settings saved as your defaults.")
+        return self.defaults_info()
+
+    def apply_my_defaults(self) -> dict:
+        p = self._my_defaults_path()
+        if not p.exists():
+            raise ConfigError("You haven't saved your own defaults yet.")
+        self.log.info("app", "Settings put back to your saved defaults.")
+        return self.apply_config(json.loads(p.read_text(encoding="utf-8")))
+
     def update_app(self, raw: dict[str, Any]) -> None:
         for k in ("autostart", "open_browser", "auto_refresh_sources", "ml_auto", "observe", "clear_logs_on_restart"):
             if k in raw:
@@ -798,8 +837,9 @@ class Controller:
                 self.log.warn("browser", f"Real-browser mode is on but unavailable: {info['detail']}. "
                                          "Using plain HTTP instead.")
             return None
-        from .browser import BrowserTransport
-        engine = self._browser_engine()
+        from .browser import BrowserTransport, MixedBrowserTransport, find_playwright_firefox
+        mix = cfg.browser_engine == "mix"
+        engine = "chromium" if mix else self._browser_engine()
         import os as _os
         wayland = bool(_os.environ.get("WAYLAND_DISPLAY")) or _os.environ.get("XDG_SESSION_TYPE") == "wayland"
         has_display = sys.platform in ("win32", "darwin") or bool(_os.environ.get("DISPLAY"))
@@ -807,12 +847,19 @@ class Controller:
         if cfg.browser_window == "offscreen" and not offscreen:     # Wayland won't let a window sit off-screen
             self.log.info("browser", "An off-screen window isn't possible on this system, so the noise browser "
                                      "runs hidden instead.")
-        return BrowserTransport(proxy=cfg.proxy, headless=not (cfg.browser_visible or offscreen),
-                                engine=engine, cookie_hours=cfg.cookie_hours, cookie_vary=cfg.cookie_vary,
-                                offscreen=offscreen and not cfg.browser_visible, executable=info["detail"],
-                                low_data=self.profile.extras.low_data,
-                                stop_event=stop, scale=lambda: self.profile.realtime_scale,
-                                on_event=lambda lvl, msg: self.log.add(lvl, "browser", msg))
+        def make(eng: str):
+            return BrowserTransport(proxy=cfg.proxy, headless=not (cfg.browser_visible or offscreen),
+                                    engine=eng, cookie_hours=cfg.cookie_hours, cookie_vary=cfg.cookie_vary,
+                                    offscreen=offscreen and not cfg.browser_visible, executable=info["detail"],
+                                    low_data=self.profile.extras.low_data,
+                                    stop_event=stop, scale=lambda: self.profile.realtime_scale,
+                                    on_event=lambda lvl, msg: self.log.add(lvl, "browser", msg))
+        if not mix:
+            return make(engine)
+        ff = make("firefox") if find_playwright_firefox() else None
+        self.log.info("browser", "Mixing browsers: Chromium" + (" and Firefox." if ff else
+                      " only (Firefox isn't installed for the noise browser: run python -m playwright install firefox)."))
+        return MixedBrowserTransport(make("chromium"), ff)
 
     def _interest_share(self) -> float:
         ex = self.profile.extras
