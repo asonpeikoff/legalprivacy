@@ -164,6 +164,45 @@ class Controller:
         self.log.info("app", "Settings saved." + (" Restart noise to apply." if self.running else ""))
         return self.state()
 
+    # ── defaults: recommended, and the user's own ───────────────────────────
+    # Personal data that "back to recommended" must not wipe: your own browser, your list, your sign-ins,
+    # your relay and Tor set-up.
+    _KEEP_ON_RESET = ("mylist", "accounts", "relay")
+
+    def _my_defaults_path(self) -> Path:
+        return app_dir() / "my_defaults.json"
+
+    def defaults_info(self) -> dict:
+        return {"has_mine": self._my_defaults_path().exists()}
+
+    def reset_to_recommended(self) -> dict:
+        """Put every setting back to the recommended value. Keeps your list, sign-ins, relay and Tor set-up."""
+        fresh = profile_to_dict(Profile(name="default"))
+        cur = profile_to_dict(self.profile)
+        for k in self._KEEP_ON_RESET:
+            if k in cur["profile"]:
+                fresh["profile"][k] = cur["profile"][k]
+        fresh["profile"].get("identity", {})["own_ua"] = self.profile.identity.own_ua
+        tor_now = (cur["profile"].get("transports") or {}).get("tor")
+        if tor_now:
+            fresh["profile"]["transports"]["tor"] = tor_now
+        self.log.info("app", "Settings put back to the recommended defaults.")
+        return self.apply_config(fresh["profile"])
+
+    def save_my_defaults(self) -> dict:
+        """Remember the current settings as 'my defaults'."""
+        data = profile_to_dict(self.profile)["profile"]
+        write_private(self._my_defaults_path(), json.dumps(data))
+        self.log.info("app", "Current settings saved as your defaults.")
+        return self.defaults_info()
+
+    def apply_my_defaults(self) -> dict:
+        p = self._my_defaults_path()
+        if not p.exists():
+            raise ConfigError("You haven't saved your own defaults yet.")
+        self.log.info("app", "Settings put back to your saved defaults.")
+        return self.apply_config(json.loads(p.read_text(encoding="utf-8")))
+
     def update_app(self, raw: dict[str, Any]) -> None:
         for k in ("autostart", "open_browser", "auto_refresh_sources", "ml_auto", "observe", "clear_logs_on_restart"):
             if k in raw:

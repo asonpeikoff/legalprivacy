@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- **Dashboard redesign:** a status banner ("Protection is on"), a compact Quick controls box (Recommended settings, My settings, Save these as my settings, test visit, shortcuts to every tab), smaller stat tiles, plain-language lane names and tooltips, a short explanation of how Activity and Live Log differ, and 12-hour times everywhere. "Settings updated" now shows the time it applied with the current time under it. The little info buttons now show an "i" and a hover tooltip (they showed a bare question mark).
+- **Defaults:** new API and buttons to put all settings back to the recommended values (your list, sign-ins, relay and Tor set-up are kept) and to save and restore your own set. Noise now starts when the app opens by default.
 - **User agent mix:** a new option, "Mix: some real, some random", with a percentage (default 70%). That share of the noise identities uses your own browser's user agent and the rest a fresh random one from the library (web Settings and native app). Needs your real user agent (Detect or paste). Setting: `identity.ua_mode: mix`, `identity.ua_own_share`.
 - **My List: one-button bookmark import** ("Import bookmarks from Firefox / Chrome"). Also finds Flatpak and `~/.config/mozilla` profiles, and when no browser is found on this computer (for example it lives in another VM or qube) says how to export an HTML file and use "From a file".
 - **Tools tab: MAC address card** (read-only: each physical interface now vs factory, with the command to change it).

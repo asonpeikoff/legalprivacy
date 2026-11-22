@@ -111,7 +111,7 @@ table.dns td{vertical-align:middle}
 .ic{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-4px}
 .ic.sm{width:16px;height:16px;vertical-align:-3px}
 button .ic{margin-right:6px}
-.logo{height:44px;width:auto;border-radius:6px;flex:none;display:block}
+.logo{height:52px;width:auto;border-radius:6px;flex:none;display:block}
 header h1{display:flex;align-items:center;gap:var(--s2)}
 .pwr,.tori{color:var(--mute)}
 header:has(#pRun.ok) .pwr{color:var(--acc)}header:has(#pRun.warn) .pwr{color:var(--warn)}header:has(#pRun.bad) .pwr{color:var(--bad)}
@@ -332,6 +332,17 @@ body.loading .big,body.loading .kpi b{display:block;width:min(100%,5ch);color:tr
   .skip:focus{background:Highlight;color:HighlightText}
 }
 @media print{header,nav,#toast,#applyBar,#wiz{display:none!important}.card{box-shadow:none;break-inside:avoid}}
+/* dashboard: banner, quick controls, compact stats, info buttons */
+.banner{display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:var(--r-md,10px);font-weight:600;font-size:15px;margin-bottom:10px;border:1px solid var(--line);background:var(--raise)}
+.banner .bi{font-size:18px}
+.banner.ok{background:color-mix(in srgb,var(--acc) 14%,var(--panel));border-color:var(--acc)}
+.banner.warn{background:color-mix(in srgb,var(--warn) 16%,var(--panel));border-color:var(--warn)}
+.banner small{font-weight:400;color:var(--mute);margin-left:auto;font-size:12px}
+.grid.compact{gap:8px;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr))}
+.grid.compact .card{padding:8px 12px;margin:0}.grid.compact .big{font-size:20px}.grid.compact h3{font-size:12px;margin:0 0 2px}
+#quick .row{margin:6px 0}.qlinks button{padding:3px 10px;font-size:12px}
+#pSet{display:inline-block;line-height:1.25;font-size:12px;text-align:left}
+details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border:1.5px solid currentColor;border-radius:50%;font:italic 700 10px/1 Georgia,serif;opacity:.8}
 </style>
 </head>
 <body class="loading">
@@ -368,21 +379,41 @@ body.loading .big,body.loading .kpi b{display:block;width:min(100%,5ch);color:tr
 
 <!-- DASHBOARD -->
 <section id="t-dash" class="tab on">
+  <div id="banner" class="banner"></div>
   <div id="dashNote"></div>
-  <div class="grid">
-    <div class="card"><h3>Hits today</h3><div class="big" id="kHits">0</div><div class="small mute" id="kHitsSub"></div></div>
-    <div class="card"><h3>Failures</h3><div class="big" id="kFail">0</div><div class="small mute">network errors / blocks</div></div>
-    <div class="card"><h3>Running for</h3><div class="big" id="kUp">—</div><div class="small mute" id="kPace"></div></div>
-    <div class="card"><h3>Last hit</h3><div class="big" id="kLast">—</div><div class="small mute" id="kLastSub"></div></div>
-    <div class="card"><h3>Data today</h3><div class="big" id="kData">—</div><div class="small mute" id="kDataSub">approximate</div></div>
+  <div class="card" id="quick">
+    <h3>Quick controls</h3>
+    <div class="row">
+      <button id="qDefRec" title="Put every setting back to what we recommend for most people. Your list, sign-ins, relay and Tor set-up are kept.">Recommended settings</button>
+      <button id="qDefMine" title="Switch to the settings you saved with Save these as my settings.">My settings</button>
+      <button id="qDefSave" title="Remember the settings you have right now, so My settings can bring them back later.">Save these as my settings</button>
+      <span class="sp"></span>
+      <button id="bTest" title="Sends one noise request right now and shows it in Activity.">Send a test visit</button>
+    </div>
+    <div class="row qlinks"><b class="small mute">Go to:</b>
+      <button data-go="set" title="Change how much noise, when, and what kind">Settings</button>
+      <button data-go="tor" title="Tor, bridges and your relay">Tor</button>
+      <button data-go="act" title="Every request legalPrivacy has sent">Activity</button>
+      <button data-go="log" title="The app's own messages and errors">Live Log</button>
+      <button data-go="tools" title="Privacy check, DNS leak check, speed test and data-use estimate">Tools</button>
+      <button data-go="health" title="Is everything working?">Health</button>
+      <button data-go="help" title="Plain-language help">Help</button>
+    </div>
+  </div>
+  <div class="grid compact">
+    <div class="card" title="Requests sent today that worked."><h3>Hits today</h3><div class="big" id="kHits">0</div><div class="small mute" id="kHitsSub"></div></div>
+    <div class="card" title="Requests that were blocked or timed out. A few are normal."><h3>Failures</h3><div class="big" id="kFail">0</div><div class="small mute">blocked or timed out (a few are normal)</div></div>
+    <div class="card" title="How long noise has been running since you pressed Start."><h3>Running for</h3><div class="big" id="kUp">—</div><div class="small mute" id="kPace"></div></div>
+    <div class="card" title="How long ago the most recent request worked."><h3>Last hit</h3><div class="big" id="kLast">—</div><div class="small mute" id="kLastSub"></div></div>
+    <div class="card" title="About how much internet data noise has used today."><h3>Data today</h3><div class="big" id="kData">—</div><div class="small mute" id="kDataSub">approximate</div></div>
   </div>
   <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-act"/></svg>Hits per minute (last 30 min)</h3><div class="spark-wrap"><span id="sparkPeak" class="small"></span><svg id="spark" class="spark" viewBox="0 0 300 60" preserveAspectRatio="none" role="img" aria-label="Successful hits per minute, last 30 minutes"></svg><div id="sparkEmpty" class="empty" hidden><svg class="ic" aria-hidden="true"><use href="#i-act"/></svg><b>No hits yet</b><span>Bars appear here once the noise is running. Press Start, or send a test hit.</span></div></div></div>
-  <div id="lanes"></div>
-  <div class="row"><button id="bTest">Send one test hit now</button><span class="small mute">Fires a single noise request immediately and shows it in Activity.</span></div>
+    <div id="lanes"></div>
 </section>
 
 <!-- ACTIVITY -->
 <section id="t-act" class="tab">
+  <p class="small mute" style="margin:0 0 8px"><b>Activity</b> lists every request legalPrivacy has sent (a search, a page visit, a name lookup) and how it went. Use it to see what the noise looks like.</p>
   <div class="row">
     <select id="aLane"><option value="">All lanes</option><option>clearnet</option><option>tor</option></select>
     <select id="aEng"><option value="">All engines</option><option>search</option><option>crawl</option><option>dns</option><option>onion</option></select>
@@ -398,6 +429,7 @@ body.loading .big,body.loading .kpi b{display:block;width:min(100%,5ch);color:tr
 
 <!-- LOG -->
 <section id="t-log" class="tab">
+  <p class="small mute" style="margin:0 0 8px"><b>Live Log</b> shows the app's own messages: starting, stopping, Tor status and errors. Use it to find out why something is not working. (For the requests themselves, see Activity.)</p>
   <div class="row">
     <select id="lLevel"><option value="debug">Debug+</option><option value="info" selected>Info+</option><option value="warn">Warnings+</option><option value="error">Errors</option></select>
     <span id="lChips"></span>
@@ -964,6 +996,7 @@ async function runApply(){
   if(applyAgain){applyAgain=false;needApply();return}
   hideTimer=setTimeout(clearApply,6000)}
 const act=(p,b)=>api(p,b||{}).then(r=>{poll();return r}).catch(e=>toast(e.message,1));
+const tickNow=()=>{const e=document.getElementById('pNowT');if(e)e.textContent=new Date().toLocaleTimeString([],{hour12:true})};setInterval(tickNow,1000);
 const fmtT=ts=>new Date(ts*1000).toLocaleTimeString([], {hour12:true});
 const fmtDur=s=>{s=Math.floor(s);const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);return d?`${d}d ${h}h`:h?`${h}h ${m}m`:m?`${m}m ${s%60}s`:`${s}s`};
 const fmtB=n=>n>1e9?(n/1e9).toFixed(2)+' GB':n>1e6?(n/1e6).toFixed(1)+' MB':n>1e3?(n/1e3).toFixed(0)+' KB':(n||0)+' B';
@@ -983,6 +1016,11 @@ $('#pHard').onclick=()=>panic('hard','Stop noise and Tor, and delete the log, co
 $('#bStart').onclick=()=>act('/api/start').then(clearApply);
 $('#bStop').onclick=()=>act('/api/stop').then(clearApply);
 $('#bPause').onclick=()=>act('/api/pause',{paused:!(S&&S.paused)});
+$$('[data-go]').forEach(b=>b.onclick=()=>{const n=$('#nav button[data-t="'+b.dataset.go+'"]');if(n)n.click()});
+const afterDefaults=m=>{toast(m);poll();if(typeof fillSettings==='function')fillSettings()};
+$('#qDefRec').onclick=()=>{if(window.confirm('Put all settings back to the recommended values? Your list, sign-ins, relay and Tor set-up are kept.'))api('/api/defaults/recommended',{}).then(()=>afterDefaults('Recommended settings applied')).catch(e=>toast(e.message,1))};
+$('#qDefSave').onclick=()=>api('/api/defaults/save',{}).then(()=>toast('Saved. My settings will bring these back.')).catch(e=>toast(e.message,1));
+$('#qDefMine').onclick=()=>api('/api/defaults/mine',{}).then(()=>afterDefaults('Your saved settings applied')).catch(e=>toast(e.message,1));
 $('#bTest').onclick=()=>{act('/api/test');toast('Test hit sent — see Activity')};
 $('#bQuit').onclick=async()=>{if(confirm('Stop everything and quit legalPrivacy?')){try{await api('/api/shutdown',{})}catch(e){}document.body.innerHTML='<main><div class="card"><h2>legalPrivacy has quit.</h2><p>You can close this tab.</p></div></main>'}};
 ['tStart','tStop','tRestart','tNym','tInstall'].forEach(id=>$('#'+id).onclick=()=>act('/api/tor/'+{tStart:'start',tStop:'stop',tRestart:'restart',tNym:'newnym',tInstall:'install'}[id]));
@@ -1245,7 +1283,7 @@ function render(){
   if(!s.running&&!applying){clearTimeout(applyTimer);clearApply()}
   const tor=s.tor, torCfg=s.profile.transports.tor;
   const rp=$('#pRun');
-  const ps=$('#pSet');if(ps)ps.textContent=s.running&&s.settings?(s.settings.in_effect?'✓ Settings updated':'⟳ Updating settings…'):'';if(ps.textContent&&s.settings.applied_at)ps.title='Your latest settings are in use. Last updated at '+fmtT(s.settings.applied_at)+'.';
+  const ps=$('#pSet');if(ps)if(ps){if(s.running&&s.settings){ps.innerHTML=(s.settings.in_effect?'✓ Settings updated'+(s.settings.applied_at?' at '+fmtT(s.settings.applied_at):''):'⟳ Updating settings…')+'<br><span class="mute">Current time <span id="pNowT"></span></span>';tickNow();ps.title='Your latest settings are the ones in use right now.'}else ps.innerHTML=''};
   rp.className='pill '+(s.running?(s.paused?'warn':'ok'):''); rp.textContent=s.running?(s.paused?'Paused':'Running'):'Stopped';
   $('#bStart').disabled=s.running; $('#bStop').disabled=!s.running; $('#bPause').disabled=!s.running; $('#bPause').textContent=s.paused?'▶ Resume':'⏸ Pause';
   const pt=$('#pTor');
@@ -1260,14 +1298,19 @@ function render(){
   $('#kHits').textContent=hitsT;$('#kFail').textContent=failT;
   $('#kUp').textContent=s.running?fmtDur(s.uptime):'—';renderNow();
   $('#kData').textContent=s.running?fmtB(s.bytes_today||0):'—';$('#kDataSub').textContent=s.data_cap_mb>0?`cap ${s.data_cap_mb} MB a day`:'approximate; no cap';
-  $('#kPace').textContent=(s.hour_target!=null?`this hour: ~${s.hour_target} planned · `:'')+`${s.profile.rate.mode} · level ${s.profile.rate.level}`;
+  const LVN=['barely there','very light','light','light-moderate','moderate','moderate-busy','busy','very busy','heavy','very heavy'];
+  $('#kPace').textContent=(s.hour_target!=null?`this hour: ~${s.hour_target} planned · `:'')+`amount: ${LVN[Math.min(9,Math.max(0,Math.round(s.profile.rate.level)-1))]}${s.profile.rate.mode==='random'?' (varies by the hour)':''}`;
   $('#kLast').textContent=last?fmtDur(Date.now()/1000-last)+' ago':'—';$('#kLastSub').textContent=lastSub;
   let note='';
-  if(!s.running)note='<div class="note"><b>Stopped.</b> Press <b>▶ Start</b> to begin generating noise.</div>';
+  if(false);
   else if(torCfg.enabled&&tor.state!=='ready'&&tor.state!=='error')note=`<div class="note tor">🧅 Tor is ${esc(tor.state)}${tor.bootstrap_pct?' ('+tor.bootstrap_pct+'%)':''}. Clearnet noise is already running; onion noise starts when Tor is ready.</div>`;
   else if(tor.state==='error'&&torCfg.enabled)note=`<div class="note bad"><b>Tor problem:</b> ${esc(tor.error)} — see the 🧅 Tor tab.</div>`;
   if(s.running&&!note)note=s.browser.active?`<div class="note small">🖥 Browsing with a real browser (${esc(s.browser.detail.split(/[\\/]/).pop())}) — scrolling, reading, clicking like a person.</div>`:'<div class="note warn small">Using plain HTTP (no real browser found). Install Chrome, Edge or Chromium for far more human-looking traffic — see Health.</div>';
   $('#dashNote').innerHTML=note;
+  {const b=$('#banner');let cls='',ic='⏹',tx='Protection is off.',sub='Nothing is being sent. Press Start to begin.';
+   if(s.running&&s.paused){cls='warn';ic='⏸';tx='Paused.';sub='Nothing is being sent until you press Resume.'}
+   else if(s.running){cls='ok';ic='✓';tx='Protection is on.';sub='Background noise is being sent'+(torCfg.enabled&&tor.state==='ready'?', including through Tor.':'.')}
+   b.className='banner '+cls;b.innerHTML=`<span class="bi">${ic}</span><span>${tx}</span><small>${sub}</small>`}
   $('#lanes').innerHTML=s.lanes.length?s.lanes.map(laneCard).join(''):'';
   renderSpark();
   if(!dirty.tor&&$('#t-tor').classList.contains('on')===false)fillTor();
@@ -1276,8 +1319,9 @@ function render(){
 }
 function laneCard(l){
   const isT=l.name==='tor';
-  const rows=Object.entries(l.engines).map(([e,b])=>`<tr><td style="width:90px">${e==='onion'?'🧅 ':''}${esc(e)}</td><td><div class="bar ${isT?'tor':''}"><i style="width:${Math.min(100,100*b.spent/Math.max(1,b.per_day))}%"></i></div></td><td style="width:150px" class="mute">${b.spent}/${b.per_day} this hour</td></tr>`).join('');
-  const st=!l.open?'<span class="pill warn" title="Tor is still starting. This lane begins as soon as Tor is ready.">waiting for Tor</span>':l.dimmed?'<span class="pill warn" title="A website pushed back (an error or a \'slow down\' reply), so this lane is sending less for a little while. This is normal and fixes itself.">slowed down</span>':'<span class="pill ok">active</span>';
+  const rows=Object.entries(l.engines).map(([e,b])=>`<tr><td style="width:90px" title="${esc(EN[e]||e)}">${e==='onion'?'🧅 ':''}${esc(e)}</td><td><div class="bar ${isT?'tor':''}"><i style="width:${Math.min(100,100*b.spent/Math.max(1,b.per_day))}%"></i></div></td><td style="width:150px" class="mute"><span title="Requests of this kind used so far, out of the limit for this hour">${b.spent}/${b.per_day} this hour</span></td></tr>`).join('');
+  const EN={search:'Web searches',crawl:'Visits to websites',dns:'Name (DNS) lookups',onion:'Visits to .onion sites (Tor)'};
+  const st=!l.open?'<span class="pill warn" title="Tor is still starting. This lane begins as soon as Tor is ready.">waiting for Tor</span>':l.dimmed?'<span class="pill warn" title="A website pushed back, so noise moves on to other sites and this route is used a little less for a while. Normal; it recovers by itself.">slowed down</span>':'<span class="pill ok">active</span>';
   return `<div class="card"><h3>${isT?'🧅 Through Tor':'Regular internet'} ${st}</h3><table><tbody>${rows}</tbody></table>${l.last_error?`<div class="small warnc" style="margin-top:6px">last error: ${esc(l.last_error)}</div>`:''}</div>`
 }
 function renderSpark(){
@@ -1984,6 +2028,9 @@ if(wiz){wiz.setAttribute('role','dialog');wiz.setAttribute('aria-modal','true');
   wiz.addEventListener('keydown',e=>{if(e.key!=='Tab')return;const f=focusables();if(!f.length)return;const a=f[0],z=f[f.length-1];
     if(e.shiftKey&&document.activeElement===a){e.preventDefault();z.focus()}else if(!e.shiftKey&&document.activeElement===z){e.preventDefault();a.focus()}})}
 })();
+
+function fixWhy(){document.querySelectorAll('details.why>summary:not([data-f])').forEach(s=>{s.dataset.f=1;const d=s.parentNode.querySelector('div');s.innerHTML='<span class="ibtn" aria-hidden="true">i</span>';s.setAttribute('aria-label','More information');if(d)s.title=d.textContent.trim().slice(0,400)})}
+fixWhy();new MutationObserver(fixWhy).observe(document.body,{childList:true,subtree:true});
 </script>
 <!--NETMAP-->
 </body>

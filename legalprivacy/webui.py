@@ -184,6 +184,8 @@ class UIServer:
                     return self._json({"error": "unauthorized"}, 401)
                 ctl = srv.ctl
                 try:
+                    if u.path == "/api/defaults":
+                        return self._json(ctl.defaults_info())
                     if u.path == "/api/accounts":
                         return self._json(ctl.accounts.status())
                     if u.path == "/api/activity":
@@ -337,6 +339,12 @@ class UIServer:
                         return self._json(ctl.tor_action(path.rsplit("/", 1)[1]))
                     elif path == "/api/config":
                         return self._json(ctl.apply_config(body))
+                    elif path == "/api/defaults/recommended":
+                        return self._json(ctl.reset_to_recommended())
+                    elif path == "/api/defaults/save":
+                        return self._json(ctl.save_my_defaults())
+                    elif path == "/api/defaults/mine":
+                        return self._json(ctl.apply_my_defaults())
                     elif path == "/api/app":
                         ctl.update_app(body)
                     elif path == "/api/wizard":
