@@ -92,7 +92,7 @@ def test_environment_is_rebuilt_when_old():
 def test_data_scientist_mostly_picks_data_science_packages():
     pk = PackageNoise(Path("/nonexistent"), random.Random(3), persona="Data scientist")
     pk.npm = None
-    picks = [pk.choose()[1] for _ in range(400)]
+    picks = [c[1] for c in (pk.choose() for _ in range(400)) if c[0] != "bundle"]
     ds = sum(p in DATA_SCIENCE for p in picks)
     assert ds > 0.6 * len(picks) and any(p in GENERAL for p in picks)
     assert all(p in DATA_SCIENCE + GENERAL + NPM for p in picks)
@@ -101,3 +101,32 @@ def test_data_scientist_mostly_picks_data_science_packages():
 def test_downloaded_bytes_reads_pip_output():
     out = "Downloading a.whl (1.5 kB)\nDownloading b.whl (2.0 MB)\n"
     assert downloaded_bytes(out) == 1500 + 2_000_000
+
+
+def test_bundle_is_a_requirements_file_install_that_is_thrown_away():
+    with tempfile.TemporaryDirectory() as d:
+        seen = {}
+
+        def run(cmd, timeout):
+            if cmd[1:3] == ["-m", "venv"]:
+                vpy = Path(cmd[3]) / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+                vpy.parent.mkdir(parents=True, exist_ok=True)
+                vpy.write_text("")
+                return 0, ""
+            if "-r" in cmd:
+                seen["req"] = Path(cmd[cmd.index("-r") + 1]).read_text().split()
+                seen["cmd"] = cmd
+            return 0, "Downloading flask-3.0.whl (1.0 MB)\n"
+        pk = PackageNoise(Path(d) / "p", random.Random(1), run_fn=run)
+        r = pk.do("bundle", "web:7")
+        assert r["ok"] and r["label"] == "pip install -r requirements.txt (7 packages, web)"
+        assert len(seen["req"]) == 7 and len(set(seen["req"])) == 7
+        assert "--only-binary=:all:" in seen["cmd"] and "--no-cache-dir" in seen["cmd"] and "--target" in seen["cmd"]
+        assert not [x for x in (Path(d) / "p").iterdir() if x.name.startswith("dl-")]      # nothing kept
+
+
+def test_choose_sometimes_picks_a_whole_project_and_sometimes_one_package():
+    pk = PackageNoise(Path("/nonexistent"), random.Random(5), persona="Developer")
+    pk.npm = None
+    acts = [pk.choose()[0] for _ in range(400)]
+    assert acts.count("bundle") > 20 and acts.count("install") > 100

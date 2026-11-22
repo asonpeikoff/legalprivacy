@@ -967,7 +967,7 @@ class Controller:
                                  queries=self._query_source(words), domains=self._domain_pool(_r),
                                  rate=RatePlanner(_r.Random(), prof.rate),
                                  dns_plan=self._fresh_dns_plan(),
-                                 mix=True)
+                                 mix=True, side_streams=("dns", "packages"))
             if prev is not None:                  # request numbers keep counting across restarts
                 self.runner._hit_seq = prev._hit_seq
                 if not self.app.get("clear_logs_on_restart", True):

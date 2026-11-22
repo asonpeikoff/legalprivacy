@@ -555,8 +555,12 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div class="row"><span>Steady</span><input type="range" id="sRand" min="0" max="100" step="10" value="100" style="flex:1"><span>Random</span></div>
     <div class="small" id="sRandInfo"></div>
     <div class="small mute" style="margin-top:6px">Even the highest level stays below what gets one address rate-limited: no search engine gets more than 8 of our searches in any hour. More noise makes your real activity harder to pick out, though some argue a lot of extra traffic is a pattern of its own. It's a trade-off; the middle levels are a sensible start.</div>
-    <div style="margin-top:10px"><b>Mix of activity</b> <span class="small mute">— always adds up to 100%; drag one and the others make room. 0% turns that part off</span></div>
+    <div style="margin-top:10px"><b>Mix of activity</b> <span class="small mute">— what you "do" one thing at a time, like a person: searching, following links, .onion sites. Adds up to 100%; drag one and the others make room. 0% turns that part off</span></div>
     <div id="engines"></div>
+    <div style="margin-top:10px"><b>Also running in the background</b> <span class="small mute">— these happen at the same time as the activity above and never take a share from it, just like your computer does lookups and installs while you browse.</span></div>
+    <div class="row">DNS lookups <select id="sDnsAmt" title="Name lookups that happen alongside everything else"><option value="0">Off</option><option value="0.5">Fewer</option><option value="1">Normal</option><option value="2">More</option></select>
+      Package installs (pip, npm) <select id="sPkgAmt" title="Real pip and npm downloads in a throwaway folder that is deleted straight after. Sometimes one package, sometimes a whole project's requirements."><option value="0">Off</option><option value="0.04">Rare</option><option value="0.075">Normal</option><option value="0.15">Often</option></select></div>
+    <div class="small mute">Package installs run automatically for the Data scientist and Developer personas, one package at a time or a whole requirements file at once, and everything downloaded is deleted straight afterwards.</div>
   </div>
   <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-wave"/></svg>DNS lookups</h3>
     <div class="small mute">In Activity and the Live Log each lookup shows the site looked up and which resolver answered, e.g. <code>www.reddit.com [via your normal DNS]</code>.</div>
@@ -1639,8 +1643,12 @@ function fillSettings(force){
   const torOn=!!(p.transports.tor&&p.transports.tor.enabled);
   const ENAME={search:'Searches',crawl:'Following links',dns:'DNS lookups',onion:'🧅 Onion sites',packages:'📦 Package installs'};
   const exP=p.extras||{},pkgOn=exP.packages==='on'||(exP.packages!=='off'&&['Data scientist','Developer'].includes(exP.persona));
-  window._engMix=MixBar($('#engines'),Object.entries(p.engines).filter(([n])=>(n!=='onion'||torOn)&&(n!=='packages'||pkgOn))
+  window._engMix=MixBar($('#engines'),Object.entries(p.engines).filter(([n])=>(n!=='onion'||torOn)&&n!=='dns'&&n!=='packages')
     .map(([n,e])=>({key:n,label:ENAME[n]||n,value:e.enabled?e.budget_per_day:0})));
+  {const base=Math.max(1,['search','crawl'].reduce((a,n)=>a+((p.engines[n]&&p.engines[n].enabled)?p.engines[n].budget_per_day:0),0));
+   const near=(sel,f)=>{let best='0',d=9;[...sel.options].forEach(o=>{const x=Math.abs(parseFloat(o.value)-f);if(x<d){d=x;best=o.value}});sel.value=best};
+   const dn=p.engines.dns||{enabled:false,budget_per_day:0},pk=p.engines.packages||{enabled:false,budget_per_day:0};
+   near($('#sDnsAmt'),dn.enabled?dn.budget_per_day/base:0);near($('#sPkgAmt'),pk.enabled?pk.budget_per_day/base:0)}
   $('#engines').insertAdjacentHTML('beforeend',torOn?'':'<div class="small mute">Onion sites join this mix automatically when Tor is on (🧅 Tor tab).</div>');
   const r=p.rate||{mode:'random',level:5,randomness:1};$('#sLevel').value=r.level;rateInfo('sLevel','sLevelInfo');levelScope();
   $('#sRand').value=r.mode==='steady'?0:Math.round((r.randomness??1)*100);randInfo();
@@ -1694,6 +1702,9 @@ function fillSettings(force){
 }
 async function saveSettings(auto){
   const engines={};Object.entries(window._engMix.values()).forEach(([n,v])=>engines[n]={enabled:v>0,budget_per_day:Math.round(v*10)});
+  {const mv=window._engMix.values(),base=Math.max(1,Math.round(((mv.search||0)+(mv.crawl||0))*10));
+   const dn=parseFloat($('#sDnsAmt').value),pk=parseFloat($('#sPkgAmt').value);
+   engines.dns={enabled:dn>0,budget_per_day:Math.max(1,Math.round(dn*base))};engines.packages={enabled:pk>0,budget_per_day:Math.max(1,Math.round(pk*base))}}
   const rnd=parseInt($('#sRand').value||0)/100;
   try{await api('/api/config',{realtime_scale:parseFloat($('#sScale').value),daily_max_failures:parseInt($('#sMaxF').value),engines,rate:{mode:rnd>0?'random':'steady',level:parseFloat($('#sLevel').value),randomness:rnd},
       accounts:readAcc(),dns:{mode:document.querySelector('input[name=dnsm]:checked').value,system_share:parseInt($('#dShare').value||50)/100,opennic:$('#dOpen').checked,quad9:$('#dQuad9').checked,custom:$('#dCustom').value,slow_ms:parseInt($('#dSlow').value||250),resolvers:readDnsTable()},

@@ -7,6 +7,8 @@ This engine makes that traffic for real, so it looks exactly like the real thing
   uninstall   pip uninstall -y <package>   (local; keeps the environment small)
   download    pip download --no-deps <package>, then the file is deleted
   index       pip index versions <package> (just asks which versions exist)
+  bundle      pip install -r requirements.txt  (a whole project's worth, 3-14 packages plus their
+              dependencies, into a temporary folder that is deleted straight after)
   npm         npm view <package> / npm install <package> into a temporary folder, then deleted
 
 Safety and isolation:
@@ -36,6 +38,9 @@ GENERAL = ["requests", "urllib3", "certifi", "idna", "charset-normalizer", "pyth
 DATA_SCIENCE = ["numpy", "pandas", "scipy", "scikit-learn", "matplotlib", "seaborn", "statsmodels", "plotly",
                 "polars", "pyarrow", "duckdb", "lightgbm", "sympy", "networkx", "ipython", "openpyxl",
                 "sqlalchemy", "joblib", "nltk", "shap", "jupyterlab", "notebook", "tabulate", "xlrd"]
+WEB = ["flask", "fastapi", "uvicorn", "jinja2", "requests", "httpx", "sqlalchemy", "pydantic", "boto3",
+       "python-dotenv", "pytest", "gunicorn", "alembic", "redis", "celery", "pyjwt", "click", "rich"]
+STACKS = {"data": DATA_SCIENCE, "web": WEB, "tools": GENERAL}
 NPM = ["lodash", "chalk", "axios", "express", "react", "react-dom", "typescript", "dayjs", "uuid", "commander",
        "dotenv", "zod", "prettier", "vite"]
 TECHY_PERSONAS = ("Data scientist", "Developer")
@@ -134,16 +139,23 @@ class PackageNoise:
             return "index", self.rng.choice(self._pool())
         if r < 0.55:
             return "download", self.rng.choice(self._pool())
+        if r < 0.70:                     # sometimes a whole project's requirements at once
+            stack = self.rng.choices(["data", "web", "tools"],
+                                     weights=[3, 2, 1] if self.persona in TECHY_PERSONAS else [1, 1, 1])[0]
+            return "bundle", f"{stack}:{self.rng.randint(3, 14)}"
         return "install", self.rng.choice(self._pool())
 
     def command(self, action: str, pkg: str, tmp: str | None = None) -> list[str]:
         pip = [str(self._vpy()), "-m", "pip"]
         if action == "install":
-            return pip + ["install", "--only-binary=:all:", pkg]
+            return pip + ["install", "--only-binary=:all:", "--no-cache-dir", pkg]
+        if action == "bundle":      # a requirements file, installed into a folder that is deleted afterwards
+            return pip + ["install", "--only-binary=:all:", "--no-cache-dir", "--target",
+                          os.path.join(tmp or ".", "site"), "-r", os.path.join(tmp or ".", "requirements.txt")]
         if action == "uninstall":
             return pip + ["uninstall", "-y", pkg]
         if action == "download":
-            return pip + ["download", "--only-binary=:all:", "--no-deps", "-d", tmp or ".", pkg]
+            return pip + ["download", "--only-binary=:all:", "--no-deps", "--no-cache-dir", "-d", tmp or ".", pkg]
         if action == "index":
             return pip + ["index", "versions", pkg]
         if action == "npm-install":
@@ -152,8 +164,17 @@ class PackageNoise:
             return [self.npm, "view", pkg, "version"]
         raise ValueError(action)
 
+    def bundle_list(self, pkg: str) -> list[str]:
+        """'data:8' -> eight packages from that stack, as a requirements file would list them."""
+        stack, _, n = pkg.partition(":")
+        pool = STACKS.get(stack, GENERAL)
+        return self.rng.sample(pool, min(len(pool), max(1, int(n or 5))))
+
     @staticmethod
     def label(action: str, pkg: str) -> str:
+        if action == "bundle":
+            stack, _, n = pkg.partition(":")
+            return f"pip install -r requirements.txt ({n or '?'} packages, {stack})"
         if action.startswith("npm"):
             return f"npm {action[4:]} {pkg}"
         return f"pip index versions {pkg}" if action == "index" else f"pip {action} {pkg}"
@@ -176,8 +197,10 @@ class PackageNoise:
             return {"ok": False, "label": self.label(action, pkg), "bytes": 0, "error": err}
         label = self.label(action, pkg)
         tmp = None
-        if action in ("download", "npm-install"):
+        if action in ("download", "npm-install", "bundle"):
             tmp = tempfile.mkdtemp(prefix="dl-", dir=str(self.base))
+        if action == "bundle":
+            (Path(tmp) / "requirements.txt").write_text("\n".join(self.bundle_list(pkg)) + "\n")
         try:
             rc, out = self.run_fn(self.command(action, pkg, tmp), 600)
             nbytes = downloaded_bytes(out)

@@ -164,3 +164,49 @@ def test_no_log_opennic_servers_are_preferred():
     plan = DnsPlan(random.Random(2), cfg, ["1.0.0.1|a|X|none|DoT", "1.0.0.2|b|X|anonymized|DoH"])
     picks = [plan.pick()[0] for _ in range(2000)]
     assert 2.4 < picks.count("1.0.0.1") / picks.count("1.0.0.2") < 3.8
+
+
+def test_side_streams_run_alongside_instead_of_taking_a_share():
+    def planned(side):
+        p = Profile(name="t")
+        apply_overrides(p, {"rate": {"mode": "steady", "level": 6}, "extras": {"persona": "Developer"}})
+        r = Runner(profile=p, lanes=build_lanes(p, ["w"]), wordlist=["w"], sleep_fn=lambda s: None,
+                   probe_fn=lambda *a: HitResult(200, ""), rate=RatePlanner(random.Random(2), p.rate),
+                   side_streams=side)
+        r.plan_hour(14)
+        out = {}
+        for ln in r.lanes:
+            for e, b in ln.budgets.items():
+                out[e] = out.get(e, 0) + b.per_day
+        return out, r
+    together, _ = planned(())
+    alongside, r = planned(("dns", "packages"))
+    assert alongside["search"] >= together["search"]            # searching no longer shares its hour with them
+    assert alongside["dns"] > 0
+    # the main stream never picks a side-stream kind
+    seen = set()
+    for _ in range(60):
+        r.run_once(wait=False)
+        seen |= {h["engine"] for h in r.hit_log}
+    assert seen and not seen & {"dns", "packages"}
+
+
+def test_side_stream_records_its_own_hits_at_the_same_time():
+    import threading
+    p = Profile(name="t")
+    apply_overrides(p, {"rate": {"mode": "steady", "level": 6}})
+    stop = threading.Event()
+    r = Runner(profile=p, lanes=build_lanes(p, ["w"]), wordlist=["w"], sleep_fn=lambda s: stop.wait(0.001),
+               probe_fn=lambda *a: HitResult(200, ""), rate=RatePlanner(random.Random(2), p.rate),
+               side_streams=("dns",), stop_event=stop)
+    r.plan_hour(14)
+    r.hour = 14
+    th = threading.Thread(target=r._side_loop, args=("dns",), daemon=True)
+    th.start()
+    import time as _t
+    deadline = _t.time() + 5
+    while _t.time() < deadline and not [h for h in r.hit_log if h["engine"] == "dns"]:
+        _t.sleep(0.02)
+    stop.set()
+    th.join(2)
+    assert [h for h in r.hit_log if h["engine"] == "dns"]

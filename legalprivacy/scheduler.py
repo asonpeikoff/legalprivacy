@@ -130,6 +130,7 @@ class Runner:
     rate: object | None = None         # RatePlanner: hourly plan (app mode). None = daily budgets (CLI/tests)
     dns_plan: object | None = None     # DnsPlan: which resolver DNS noise uses
     mix: bool = False                  # app mode: lane shares + pattern from profile.traffic
+    side_streams: tuple = ()           # engines that run on their own thread, alongside the main stream
 
     def __post_init__(self) -> None:
         self.rng = random.Random()
@@ -146,6 +147,8 @@ class Runner:
         self.hour: int | None = None
         self.hour_target = 0.0
         self._pace: tuple[float, float] | None = None   # (min_delay, max_delay) for this hour
+        self._rec_lock = threading.Lock()                # the main stream and side streams both record hits
+        self._side_threads: list[threading.Thread] = []
         self._sessions = SessionPacer(self.rng)          # app mode: irregular "sittings"
         tc = getattr(self.profile, "traffic", None)
         self._mobile_now = tc.mobile_share if tc else 0.35
@@ -268,6 +271,11 @@ class Runner:
             self._emit("info", "scheduler", f"Hour {hour:02d}:00 is outside your active hours: resting.")
             return 0.0
         shares = self.engine_shares()
+        if self.side_streams:
+            # side streams (DNS lookups, package installs) run alongside, not instead: the main kinds share
+            # 100% between themselves, and each side stream adds its own proportional amount on top.
+            main = sum(v for (ln, e), v in shares.items() if e not in self.side_streams) or 1.0
+            shares = {k: v / main for k, v in shares.items()}
         search_share = sum(v for (ln, e), v in shares.items() if e == "search") or 0.3
         total = self.rate.actions_for_hour(hour, search_share)
         self.hour, self.hour_target = hour, total
@@ -499,7 +507,7 @@ class Runner:
         options: list[tuple[Lane, str]] = [
             (lane, eng_name)
             for lane in self.lanes for eng_name in lane.engines
-            if not lane.budgets[eng_name].exhausted and lane.open
+            if not lane.budgets[eng_name].exhausted and lane.open and eng_name not in self.side_streams
         ]
         if not options:
             return False
@@ -618,7 +626,8 @@ class Runner:
                 pacer.wait(hour)                       # CLI/tests, or honouring a failure backoff
             else:
                 # app mode: irregular sittings whose hourly total still fits the hour
-                hits_left = sum(b.remaining for ln in self.lanes for b in ln.budgets.values())
+                hits_left = sum(b.remaining for ln in self.lanes for e, b in ln.budgets.items()
+                                if e not in self.side_streams)
                 seconds_left = max(60.0, self._hour_end - self.clock())
                 gap = self._sessions.next_gap(hits_left, seconds_left, self.profile.realtime_scale)
                 pacer.sleep_fn(gap)
@@ -753,9 +762,56 @@ class Runner:
         return {lane.name: {eng: lane.budgets[eng].spent for eng in lane.engines}
                 for lane in self.lanes}
 
+    def _side_loop(self, eng_name: str) -> None:
+        """One kind of noise on its own schedule, at the same time as everything else."""
+        while not self._stopped():
+            if self.paused or self.hour is None:
+                self.sleep_fn(1.0)
+                continue
+            lanes = [ln for ln in self.lanes
+                     if eng_name in ln.engines and ln.open and not ln.budgets[eng_name].exhausted]
+            if not lanes:
+                self.sleep_fn(5.0)
+                continue
+            lane = lanes[0]
+            budget = lane.budgets[eng_name]
+            # spread what's left of this hour's allowance over what's left of the hour, irregularly
+            seconds_left = max(30.0, self._hour_end - self.clock())
+            gap = seconds_left / max(1, budget.remaining) * self.rng.uniform(0.4, 1.6)
+            self.sleep_fn(min(gap, seconds_left) * self.profile.realtime_scale)
+            if self._stopped() or self.paused:
+                continue
+            target = self._make_target(lane, eng_name, lane.identity)
+            t0 = time.time()
+            try:
+                result = self._probe(lane, lane.identity, target)
+            except Exception as exc:                       # a side stream must never take the app down
+                result = HitResult(None, error=f"{type(exc).__name__}: {exc}")
+            with self._rec_lock:
+                self.bytes_today += int(getattr(result, "bytes", 0) or 0)
+                if result.ok:
+                    budget.record_hit(self.clock())
+                    lane.hits_total += 1
+                    lane.last_hit_ts = time.time()
+                else:
+                    budget.record_failure(self.clock())
+                    lane.failures_total += 1
+                    lane.last_error = result.error or f"HTTP {result.status}"
+                    self.day_failures += 1
+                self._record_hit(lane, eng_name, lane.identity, target, result)
+                if self._data_capped():
+                    self.paused = "failures"
+
+    def _start_side_streams(self) -> None:
+        for eng in self.side_streams:
+            th = threading.Thread(target=self._side_loop, args=(eng,), daemon=True, name=f"side-{eng}")
+            th.start()
+            self._side_threads.append(th)
+
     def run_forever(self) -> None:
         """Long-running mode for the app: honours stop/pause, resets budgets daily."""
         self._emit("info", "scheduler", "Noise generation started.")
+        self._start_side_streams()
         while not self._stopped():
             now = time.localtime()
             if now.tm_yday != self.day:
