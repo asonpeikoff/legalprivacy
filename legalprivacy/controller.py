@@ -837,8 +837,9 @@ class Controller:
                 self.log.warn("browser", f"Real-browser mode is on but unavailable: {info['detail']}. "
                                          "Using plain HTTP instead.")
             return None
-        from .browser import BrowserTransport
-        engine = self._browser_engine()
+        from .browser import BrowserTransport, MixedBrowserTransport, find_playwright_firefox
+        mix = cfg.browser_engine == "mix"
+        engine = "chromium" if mix else self._browser_engine()
         import os as _os
         wayland = bool(_os.environ.get("WAYLAND_DISPLAY")) or _os.environ.get("XDG_SESSION_TYPE") == "wayland"
         has_display = sys.platform in ("win32", "darwin") or bool(_os.environ.get("DISPLAY"))
@@ -846,12 +847,19 @@ class Controller:
         if cfg.browser_window == "offscreen" and not offscreen:     # Wayland won't let a window sit off-screen
             self.log.info("browser", "An off-screen window isn't possible on this system, so the noise browser "
                                      "runs hidden instead.")
-        return BrowserTransport(proxy=cfg.proxy, headless=not (cfg.browser_visible or offscreen),
-                                engine=engine, cookie_hours=cfg.cookie_hours, cookie_vary=cfg.cookie_vary,
-                                offscreen=offscreen and not cfg.browser_visible, executable=info["detail"],
-                                low_data=self.profile.extras.low_data,
-                                stop_event=stop, scale=lambda: self.profile.realtime_scale,
-                                on_event=lambda lvl, msg: self.log.add(lvl, "browser", msg))
+        def make(eng: str):
+            return BrowserTransport(proxy=cfg.proxy, headless=not (cfg.browser_visible or offscreen),
+                                    engine=eng, cookie_hours=cfg.cookie_hours, cookie_vary=cfg.cookie_vary,
+                                    offscreen=offscreen and not cfg.browser_visible, executable=info["detail"],
+                                    low_data=self.profile.extras.low_data,
+                                    stop_event=stop, scale=lambda: self.profile.realtime_scale,
+                                    on_event=lambda lvl, msg: self.log.add(lvl, "browser", msg))
+        if not mix:
+            return make(engine)
+        ff = make("firefox") if find_playwright_firefox() else None
+        self.log.info("browser", "Mixing browsers: Chromium" + (" and Firefox." if ff else
+                      " only (Firefox isn't installed for the noise browser: run python -m playwright install firefox)."))
+        return MixedBrowserTransport(make("chromium"), ff)
 
     def _interest_share(self) -> float:
         ex = self.profile.extras

@@ -797,3 +797,37 @@ class BrowserTransport(Transport):
         except Exception:
             return None
         return "saved an image (discarded)" if status >= 0 else None
+
+
+class MixedBrowserTransport:
+    """Uses every real browser that was found, one per identity: Firefox-style identities go to Firefox,
+    the rest to Chromium. A single identity always stays in one engine, so its fingerprint never flips."""
+    is_browser = True
+
+    def __init__(self, chromium: "BrowserTransport", firefox: "BrowserTransport | None"):
+        self.chromium, self.firefox = chromium, firefox
+
+    def _pick(self, identity) -> "BrowserTransport":
+        wants_firefox = not getattr(identity, "chromium", True) and "Firefox/" in (getattr(identity, "user_agent", "") or "")
+        return self.firefox if (wants_firefox and self.firefox) else self.chromium
+
+    def hit(self, identity, target):
+        return self._pick(identity).hit(identity, target)
+
+    @property
+    def dimmed(self) -> bool:
+        return self.chromium.dimmed and (self.firefox is None or self.firefox.dimmed)
+
+    @dimmed.setter
+    def dimmed(self, v: bool) -> None:
+        self.chromium.dimmed = v
+        if self.firefox:
+            self.firefox.dimmed = v
+
+    def close(self) -> None:
+        for t in (self.chromium, self.firefox):
+            if t:
+                t.close()
+
+    def __getattr__(self, name):               # nav_log, blocked_navs, ... come from the main (Chromium) one
+        return getattr(self.__dict__["chromium"], name)

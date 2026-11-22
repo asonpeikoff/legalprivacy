@@ -387,6 +387,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
       <button id="qDefRec" title="Put every setting back to what we recommend for most people. Your list, sign-ins, relay and Tor set-up are kept.">Recommended settings</button>
       <button id="qDefMine" title="Switch to the settings you saved with Save these as my settings.">My settings</button>
       <button id="qDefSave" title="Remember the settings you have right now, so My settings can bring them back later.">Save these as my settings</button>
+      <button id="qSetup" title="Go through the first-time questions again: how much noise, Tor, and starting automatically.">Setup questions…</button>
       <span class="sp"></span>
       <button id="bTest" title="Sends one noise request right now and shows it in Activity.">Send a test visit</button>
     </div>
@@ -542,6 +543,9 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
 
 <!-- SETTINGS -->
 <section id="t-set" class="tab">
+  <div class="card"><h3>Setup questions</h3>
+    <div class="row"><span class="small mute">The questions from first-time setup (how much noise, Tor, start automatically). Your current answers are filled in.</span><span class="sp"></span><button id="sSetup">Review setup questions…</button></div>
+  </div>
   <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-set"/></svg>Amount of noise</h3>
     <div><b>How much</b> <span class="small mute">— the average amount. It applies however random you make it.</span></div>
     <div class="row"><span>Less</span><input type="range" id="sLevel" min="1" max="10" step="1" value="5" style="flex:1"><span>More</span></div>
@@ -666,10 +670,11 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
       <span class="small" id="sBrowserInfo"></span></div>
     <div class="small mute">A real Chrome/Edge/Chromium scrolls, pauses to read, moves the mouse, clicks or taps search results and now and then downloads a file (discarded). Plain HTTP can't do any of that and is easier to spot.</div>
     <div class="row">Browser engine <select id="sEngine">
-      <option value="auto">Match my own browser (recommended, default)</option>
+      <option value="mix">Mix every browser found (recommended, default)</option>
+      <option value="auto">Match my own browser only</option>
       <option value="chromium">Chromium / Chrome</option>
       <option value="firefox">Firefox</option></select></div>
-    <div class="small mute">Each engine has its own network fingerprint. Matching yours makes the noise look like you. Firefox needs a one-time download (<code>python -m playwright install firefox</code>); without it, Chromium is used. Firefox can't emulate phones, so phone visits run as desktop with it.</div>
+    <div class="small mute">Each engine has its own network fingerprint. Mixing uses Chrome-style and Firefox-style browsers together, the way many different people browse (each noise identity keeps one browser). Matching yours only makes the noise look like you. Firefox needs a one-time download (<code>python -m playwright install firefox</code>); without it, Chromium is used. Firefox can't emulate phones, so phone visits run as desktop with it.</div>
     <div class="row">Browser window <select id="sWin">
       <option value="hidden">Hidden (recommended, default)</option>
       <option value="offscreen">Real window, off-screen (Windows, macOS and X11 only)</option>
@@ -963,7 +968,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <label class="opt"><input type="radio" name="auto" value="1" checked> <b>Yes</b> <span class="mute">— just double-click and it runs</span></label>
     <label class="opt"><input type="radio" name="auto" value="0"> <b>No</b> <span class="mute">— I'll press Start myself</span></label>
   </div>
-  <div class="row" style="justify-content:space-between;margin-top:16px"><button id="wBack">Back</button><button id="wNext" class="pri">Next</button></div>
+  <div class="row" style="justify-content:space-between;margin-top:16px"><button id="wBack">Back</button><button id="wCancel" style="display:none">Cancel</button><button id="wNext" class="pri">Next</button></div>
 </div></div>
 <div id="toast"></div>
 
@@ -1018,6 +1023,7 @@ $('#bStop').onclick=()=>act('/api/stop').then(clearApply);
 $('#bPause').onclick=()=>act('/api/pause',{paused:!(S&&S.paused)});
 $$('[data-go]').forEach(b=>b.onclick=()=>{const n=$('#nav button[data-t="'+b.dataset.go+'"]');if(n)n.click()});
 const afterDefaults=m=>{toast(m);poll();if(typeof fillSettings==='function')fillSettings()};
+$('#qSetup').onclick=$('#sSetup').onclick=()=>showWiz(true);
 $('#qDefRec').onclick=()=>{if(window.confirm('Put all settings back to the recommended values? Your list, sign-ins, relay and Tor set-up are kept.'))api('/api/defaults/recommended',{}).then(()=>afterDefaults('Recommended settings applied')).catch(e=>toast(e.message,1))};
 $('#qDefSave').onclick=()=>api('/api/defaults/save',{}).then(()=>toast('Saved. My settings will bring these back.')).catch(e=>toast(e.message,1));
 $('#qDefMine').onclick=()=>api('/api/defaults/mine',{}).then(()=>afterDefaults('Your saved settings applied')).catch(e=>toast(e.message,1));
@@ -1681,7 +1687,7 @@ function fillSettings(force){
     ...(torOn2?[{key:'onion',label:'Tor .onion sites',value:tr.onion??15,hint:'(about 10–15% recommended)'}]:[])]);
   $('#xMobile').value=Math.round((tr.mobile_share??0.55)*100);$('#xDevice').value=tr.device||'iPhone 13';
   $('#xDevice').onchange=()=>{dirty.set=true;$('#sSaved').textContent='unsaved changes'};
-  $('#sBrowser').value=p.transports.clearnet.browser||'auto';$('#sEngine').value=p.transports.clearnet.browser_engine||'auto';$('#sWin').value=p.transports.clearnet.browser_window||'hidden';$('#sCookies').value=String(p.transports.clearnet.cookie_hours??1);$('#sCookieVary').checked=p.transports.clearnet.cookie_vary!==false;
+  $('#sBrowser').value=p.transports.clearnet.browser||'auto';$('#sEngine').value=p.transports.clearnet.browser_engine||'mix';$('#sWin').value=p.transports.clearnet.browser_window||'hidden';$('#sCookies').value=String(p.transports.clearnet.cookie_hours??1);$('#sCookieVary').checked=p.transports.clearnet.cookie_vary!==false;
   const q=p.queries||{};$('#qLive').checked=q.live!==false;$('#qData').checked=q.dataset!==false;$('#qBuiltin').checked=q.builtin!==false;$('#qWords').checked=q.words!==false;$('#sAuto').checked=!!S.app.autostart;$('#sClearLogs').checked=S.app.clear_logs_on_restart!==false;$('#sPath').textContent=S.config_path;dirty.set=false;
   fillAcc(p);
   $$('#t-set input').forEach(i=>i.oninput=()=>{dirty.set=true;$('#sSaved').textContent='unsaved changes'});
@@ -1934,13 +1940,21 @@ $('#hRun').onclick=async()=>{$('#hBody').innerHTML='<tr><td class="mute">Checkin
     $('#hBody').innerHTML=r.checks.map(c=>`<tr><td style="width:30px" class="${cl[c.status]}">${ic[c.status]}</td><td style="width:230px"><b>${esc(c.name)}</b></td><td class="${c.status==='ok'?'':cl[c.status]}">${esc(c.detail)}</td></tr>`).join('')}catch(e){toast(e.message,1)}};
 // wizard
 let wizShown=false,wStep=1;
-function showWiz(){wizShown=true;wStep=1;wizStep();rateInfo('wLevel','wLevelInfo');$('#wiz').classList.add('on')}
-function wizStep(){for(let i=1;i<=3;i++){$('#w'+i).style.display=i===wStep?'':'none';$('#ws'+i).classList.toggle('on',i<=wStep)}$('#wBack').style.visibility=wStep>1?'visible':'hidden';$('#wNext').textContent=wStep<3?'Next':'Finish & start ⚖️'}
+let wizRerun=false;
+function showWiz(rerun){wizRerun=rerun===true;wizShown=true;wStep=1;
+  $('#wCancel').style.display=wizRerun?'':'none';
+  if(wizRerun&&S&&S.profile){const set=(n,v)=>{const e=document.querySelector(`input[name=${n}][value="${v}"]`);if(e)e.checked=true};
+    set('rmode',S.profile.rate.mode);$('#wLevel').value=S.profile.rate.level;set('tor',S.profile.transports.tor.enabled?'onion':'off');set('auto',S.app&&S.app.autostart?'1':'0')}
+  wizStep();rateInfo('wLevel','wLevelInfo');$('#wiz').classList.add('on')}
+function wizStep(){for(let i=1;i<=3;i++){$('#w'+i).style.display=i===wStep?'':'none';$('#ws'+i).classList.toggle('on',i<=wStep)}$('#wBack').style.visibility=wStep>1?'visible':'hidden';$('#wNext').textContent=wStep<3?'Next':(wizRerun?'Save answers':'Finish & start ⚖️')}
+$('#wCancel').onclick=()=>$('#wiz').classList.remove('on');
 $('#wBack').onclick=()=>{wStep--;wizStep()};
 $('#wNext').onclick=async()=>{
   if(wStep<3){wStep++;wizStep();return}
   const v=n=>document.querySelector(`input[name=${n}]:checked`).value;
-  try{await api('/api/wizard',{rate_mode:v('rmode'),level:parseFloat($('#wLevel').value),tor:v('tor'),autostart:v('auto')==='1'});$('#wiz').classList.remove('on');dirty={set:false,tor:false};await api('/api/start',{});toast('Running! Watch it live on the Activity and Live Log tabs.');poll()}catch(e){toast(e.message,1)}
+  try{await api('/api/wizard',{rate_mode:v('rmode'),level:parseFloat($('#wLevel').value),tor:v('tor'),autostart:v('auto')==='1'});$('#wiz').classList.remove('on');dirty={set:false,tor:false};
+    if(wizRerun){if(S&&S.running){await api('/api/stop',{});await api('/api/start',{})}toast('Setup answers saved');poll();return}
+    await api('/api/start',{});toast('Running! Watch it live on the Activity and Live Log tabs.');poll()}catch(e){toast(e.message,1)}
 };
 poll();
 </script>
