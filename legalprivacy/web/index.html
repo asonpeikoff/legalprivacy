@@ -964,7 +964,7 @@ async function runApply(){
   if(applyAgain){applyAgain=false;needApply();return}
   hideTimer=setTimeout(clearApply,6000)}
 const act=(p,b)=>api(p,b||{}).then(r=>{poll();return r}).catch(e=>toast(e.message,1));
-const fmtT=ts=>new Date(ts*1000).toLocaleTimeString([], {hour12:false});
+const fmtT=ts=>new Date(ts*1000).toLocaleTimeString([], {hour12:true});
 const fmtDur=s=>{s=Math.floor(s);const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);return d?`${d}d ${h}h`:h?`${h}h ${m}m`:m?`${m}m ${s%60}s`:`${s}s`};
 const fmtB=n=>n>1e9?(n/1e9).toFixed(2)+' GB':n>1e6?(n/1e6).toFixed(1)+' MB':n>1e3?(n/1e3).toFixed(0)+' KB':(n||0)+' B';
 
@@ -1245,7 +1245,7 @@ function render(){
   if(!s.running&&!applying){clearTimeout(applyTimer);clearApply()}
   const tor=s.tor, torCfg=s.profile.transports.tor;
   const rp=$('#pRun');
-  const ps=$('#pSet');if(ps)ps.textContent=s.running&&s.settings?(s.settings.in_effect?'✓ settings in effect '+fmtT(s.settings.applied_at):'⟳ applying…'):'';
+  const ps=$('#pSet');if(ps)ps.textContent=s.running&&s.settings?(s.settings.in_effect?'✓ Settings updated':'⟳ Updating settings…'):'';if(ps.textContent&&s.settings.applied_at)ps.title='Your latest settings are in use. Last updated at '+fmtT(s.settings.applied_at)+'.';
   rp.className='pill '+(s.running?(s.paused?'warn':'ok'):''); rp.textContent=s.running?(s.paused?'Paused':'Running'):'Stopped';
   $('#bStart').disabled=s.running; $('#bStop').disabled=!s.running; $('#bPause').disabled=!s.running; $('#bPause').textContent=s.paused?'▶ Resume':'⏸ Pause';
   const pt=$('#pTor');
@@ -1277,8 +1277,8 @@ function render(){
 function laneCard(l){
   const isT=l.name==='tor';
   const rows=Object.entries(l.engines).map(([e,b])=>`<tr><td style="width:90px">${e==='onion'?'🧅 ':''}${esc(e)}</td><td><div class="bar ${isT?'tor':''}"><i style="width:${Math.min(100,100*b.spent/Math.max(1,b.per_day))}%"></i></div></td><td style="width:150px" class="mute">${b.spent}/${b.per_day} this hour</td></tr>`).join('');
-  const st=!l.open?'<span class="pill warn">waiting for Tor</span>':l.dimmed?'<span class="pill warn">backing off</span>':'<span class="pill ok">active</span>';
-  return `<div class="card"><h3>${isT?'🧅 Tor lane':'Clearnet lane'} ${st}</h3><table><tbody>${rows}</tbody></table>${l.last_error?`<div class="small warnc" style="margin-top:6px">last error: ${esc(l.last_error)}</div>`:''}</div>`
+  const st=!l.open?'<span class="pill warn" title="Tor is still starting. This lane begins as soon as Tor is ready.">waiting for Tor</span>':l.dimmed?'<span class="pill warn" title="A website pushed back (an error or a \'slow down\' reply), so this lane is sending less for a little while. This is normal and fixes itself.">slowed down</span>':'<span class="pill ok">active</span>';
+  return `<div class="card"><h3>${isT?'🧅 Through Tor':'Regular internet'} ${st}</h3><table><tbody>${rows}</tbody></table>${l.last_error?`<div class="small warnc" style="margin-top:6px">last error: ${esc(l.last_error)}</div>`:''}</div>`
 }
 function renderSpark(){
   const now=Date.now()/1000,bins=new Array(30).fill(0);

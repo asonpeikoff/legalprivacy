@@ -49,7 +49,7 @@ def wipe_old_log_files() -> None:
             pass
 
 
-APP_DEFAULTS = {"observe": True, "autostart": False, "open_browser": True, "port": 8765, "intensity": "normal",
+APP_DEFAULTS = {"observe": True, "autostart": True, "open_browser": True, "port": 8765, "intensity": "normal",
                 "auto_refresh_sources": False,   # off: use the snapshot shipped with the app (no lookups)
                 "ml_auto": False, "ml_history": [],
                 "clear_logs_on_restart": True}
@@ -133,7 +133,7 @@ class Controller:
                                "transports": {"tor": {"enabled": answers.get("tor", "off") != "off",
                                                       "onion": True}}}
         self.apply_config(raw, save=False)
-        self.app["autostart"] = bool(answers.get("autostart", False))
+        self.app["autostart"] = bool(answers.get("autostart", True))
         self._save()
         self.log.info("app", f"Setup saved: {self.profile.rate.mode} noise at level {self.profile.rate.level:g}, "
                              f"tor={answers.get('tor', 'off')}.")
