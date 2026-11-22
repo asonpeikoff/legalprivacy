@@ -35,7 +35,7 @@ Repository = "https://github.com/asonpeikoff/legalPrivacy"
 include = ["legalprivacy*"]
 
 [tool.setuptools.package-data]
-legalprivacy = ["web/*.html", "web/*.js"]
+legalprivacy = ["web/*.html", "web/*.js", "web/*.png"]
 
 [tool.ruff]
 target-version = "py310"

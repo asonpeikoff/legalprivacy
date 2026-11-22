@@ -15,6 +15,7 @@ import json
 import socket
 import sys
 import threading
+from pathlib import Path
 import webbrowser
 from dataclasses import asdict
 
@@ -47,6 +48,20 @@ def make_logo(tk, size: int, bg: str, fg: str):
         y0 = (size - bar) // 2
         img.put(fg, to=(x0, y0, x1, y0 + bar))
     return img
+
+
+def load_logo(tk, name: str, subsample: int = 1):
+    """The packaged logo PNG as a PhotoImage (shrunk by an integer factor), or None if it can't be loaded."""
+    from .paths import resource_root
+    for base in (Path(__file__).parent / "web", resource_root() / "legalprivacy" / "web"):
+        f = base / name
+        if f.exists():
+            try:
+                img = tk.PhotoImage(file=str(f))
+                return img.subsample(subsample) if subsample > 1 else img
+            except tk.TclError:
+                return None
+    return None
 
 
 def claim_instance(port: int = LOCK_PORT):
@@ -131,8 +146,9 @@ def build_app_class():
             root.title(TITLE)
             root.minsize(940, 640)
             root.geometry("1080x760")
-            self.logo_big = make_logo(tk, 64, "#1d2733", "#4cc07d")
-            self.logo_small = make_logo(tk, 28 * self.scale, "#1d2733", "#4cc07d")
+            self.logo_big = load_logo(tk, "icon.png", 1) or make_logo(tk, 64, "#1d2733", "#4cc07d")
+            self.logo_small = (load_logo(tk, "logo.png", 1 if self.scale >= 2 else 2)
+                               or make_logo(tk, 28 * self.scale, "#1d2733", "#4cc07d"))
             try:
                 root.iconphoto(True, self.logo_big)
             except tk.TclError:
