@@ -79,6 +79,21 @@ def _wait(calls, last):
         time.sleep(0.02)
 
 
+def _installed(version="16.0.1", files=None):
+    """Pretend a verified copy is installed (the files named are written and fingerprinted)."""
+    import json
+    tree = T.tb_dir() / "tor-browser"
+    tree.mkdir(parents=True, exist_ok=True)
+    fp = {}
+    for rel, data in (files or {}).items():
+        (tree / rel).parent.mkdir(parents=True, exist_ok=True)
+        (tree / rel).write_bytes(data)
+        fp[rel] = T._sha256(tree / rel)
+    (T.tb_dir() / "VERSION").write_text(version)
+    (T.tb_dir() / "SIGNED.json").write_text(json.dumps({"version": version, "fingerprint": T.KEY_FPR,
+                                                         "verified_at": time.time(), "files": fp}))
+
+
 def test_open_installs_first_when_missing_or_old_then_launches():
     calls = []
     m = T.TorBrowserManager(install_fn=lambda progress=None: (calls.append("install"), "16.0.1")[1],
@@ -86,12 +101,11 @@ def test_open_installs_first_when_missing_or_old_then_launches():
     m.open()
     _wait(calls, "launch")
     assert calls == ["install", "launch"]
-    (T.tb_dir() / "tor-browser").mkdir(parents=True)
-    (T.tb_dir() / "VERSION").write_text("16.0.1")
+    _installed("16.0.1")
     calls.clear()
     m.open()                                                  # up to date: just launch
     assert calls == ["launch"]
-    (T.tb_dir() / "VERSION").write_text("15.0.9")
+    _installed("15.0.9")
     calls.clear()
     m.open()                                                  # out of date: update first
     _wait(calls, "launch")
@@ -120,3 +134,68 @@ def test_noise_tor_bundle_is_updated_once_a_day_only_when_it_is_the_apps_own(tmp
     tm.binary = "/usr/bin/tor"
     tm._maybe_update_bundle()
     assert installs == []                                     # a Tor you installed yourself is never touched
+
+
+def test_a_changed_program_is_never_launched_but_reinstalled():
+    calls = []
+    _installed("16.0.1", {"Browser/start-tor-browser": b"#!/bin/sh\n"})
+    m = T.TorBrowserManager(install_fn=lambda progress=None: (calls.append("install"), "16.0.1")[1],
+                            latest_fn=lambda: "16.0.1", launch_fn=lambda: calls.append("launch"))
+    m.open()
+    assert calls == ["launch"]
+    (T.tb_dir() / "tor-browser" / "Browser" / "start-tor-browser").write_bytes(b"evil")
+    calls.clear()
+    m.open()
+    _wait(calls, "launch")
+    assert calls == ["install", "launch"]
+    with pytest.raises(T.TorBrowserError):
+        T.verify_install()
+
+
+def test_snapshot_reports_the_verified_signature():
+    assert T.TorBrowserManager().snapshot()["signature"] is None
+    _installed("16.0.1")
+    sig = T.TorBrowserManager().snapshot()["signature"]
+    assert sig["ok"] and sig["fingerprint"] == T.KEY_FPR
+
+
+def test_auto_update_installs_a_newer_release_but_not_while_it_is_open(monkeypatch):
+    calls = []
+    _installed("15.0.9")
+    m = T.TorBrowserManager(install_fn=lambda progress=None: (calls.append("install"), "16.0.1")[1],
+                            latest_fn=lambda: "16.0.1", launch_fn=lambda: None)
+    monkeypatch.setattr(T, "running", lambda: True)
+    m.auto_update()
+    assert calls == []
+    monkeypatch.setattr(T, "running", lambda: False)
+    m.auto_update()
+    _wait(calls, "install")
+    assert calls == ["install"]
+
+
+def test_shared_mode_points_tor_browser_at_the_apps_tor(monkeypatch):
+    env = T.shared_env("127.0.0.1:19150", "127.0.0.1:19051", "/c/cookie")
+    assert env["TOR_SKIP_LAUNCH"] == "1" and env["TOR_SOCKS_PORT"] == "19150"
+    assert env["TOR_CONTROL_PORT"] == "19051" and env["TOR_CONTROL_COOKIE_AUTH_FILE"] == "/c/cookie"
+    got = []
+    _installed("16.0.1")
+    m = T.TorBrowserManager(latest_fn=lambda: "16.0.1", launch_fn=lambda *a: got.append(a))
+    m.shared_fn = lambda: env
+    m.open()
+    assert got == [(env,)]
+    m.shared_fn = lambda: None
+    got.clear()
+    m.open()
+    assert got == [()]
+
+
+def test_sharing_adds_a_separate_isolated_door_and_blocks_new_identity(tmp_path, monkeypatch):
+    from legalprivacy.events import EventLog
+    from legalprivacy.tormanager import TorManager
+    tm = TorManager(EventLog(), share_browser=True)
+    assert tm.new_identity() is False                       # would cut off the pages you have open
+    tm.binary = str(tmp_path / "tor")
+    tm.socks_host, tm.socks_port, tm.control_port, tm.user_socks_port = "127.0.0.1", 19050, 19051, 19150
+    tm.cookie_path = str(tmp_path / "cookie")
+    text = tm._write_torrc(tmp_path).read_text()
+    assert "SocksPort 127.0.0.1:19150 IsolateSOCKSAuth IsolateClientAddr" in text
