@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- **Tor tab:** the Details list is now two columns, so the Status and Details cards are both short instead of Status stretching to match a tall list.
 - **Onion list re-checked against the real sites.** Each address is now checked against the owner's own page, not just a directory: a certificate-checked `Onion-Location` header (new `tools/verify_onion_seeds.py`: Tor Project, Proton, Riseup, Blockchair, Mullvad, Njalla, Whonix, OnionShare, XMPP.is all match) or the owner's page naming it (Cryptostorm, ProPublica, BBC, Debian, keys.openpgp.org, Qubes, Tech Learning Collective, DuckDuckGo via the Tor Project's support page). Removed the ones that could not be verified: The Tor Times, The Intercept, Keybase and Archive.today. dark.fail, tor.taxi and daunt.link are used to find candidates only. The New York Times address matches three directories but its own page could not be read here.
 - **Long sessions:** while a session is working on one page, visits to other sites of the same kind (other .onion sites during an onion session) are rare: about a 15% chance in any 10 minutes.
 - **Clearer Tor status:** the header says "Tor: connected" (green) when Tor has finished starting and "Tor: connected · in use" while the noise is visiting .onion sites, "Tor: connecting 45%" (amber) while starting and "Tor: problem" (red); the hover text explains each. The red onion emoji is gone.
