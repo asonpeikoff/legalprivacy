@@ -233,6 +233,7 @@ class Controller:
                 or self.tor.configured_bridge_mode != cfg.bridge_mode or self.tor.bridge_auto != cfg.bridge_auto \
                 or (self.tor.dns_port_cfg, self.tor.dns_lan, self.tor.dns_lan_addr) != (
                     cfg.dns_port, cfg.dns_lan, cfg.dns_lan_addr) \
+                or self.tor.share_browser != bool(cfg.share_browser) \
                 or (self.tor.exclude_nodes, self.tor.exclude_strict, self.tor.exclude_gov_names) != (
                     [e.strip() for e in cfg.exclude_nodes if e.strip()], bool(cfg.exclude_strict),
                     bool(cfg.exclude_gov_names)):
@@ -244,7 +245,7 @@ class Controller:
                                   bridge_mode=cfg.bridge_mode, bridge_auto=cfg.bridge_auto,
                                   dns_port=cfg.dns_port, dns_lan=cfg.dns_lan, dns_lan_addr=cfg.dns_lan_addr,
                                   exclude_nodes=cfg.exclude_nodes, exclude_strict=cfg.exclude_strict,
-                                  exclude_gov_names=cfg.exclude_gov_names)
+                                  exclude_gov_names=cfg.exclude_gov_names, share_browser=cfg.share_browser)
         return self.tor
 
     # ── DNS resolver table: health + verification ──────────────────────────
@@ -759,8 +760,20 @@ class Controller:
     def torbrowser_state(self) -> dict:
         return self.torbrowser.snapshot()
 
+    def _shared_tor_env(self):
+        """Settings that point Tor Browser at this app's Tor, or None when sharing is off."""
+        if not self._tor_cfg().share_browser:
+            return None
+        from .torbrowser import TorBrowserError, shared_env
+        tm = self.tor_manager()
+        if tm.state != "ready" or not tm.user_socks_port:
+            raise TorBrowserError("Sharing is on, but this app's Tor isn't connected yet (or needs a restart "
+                                  "after you turned sharing on). Start Tor on this tab, wait for Connected, then try again.")
+        return shared_env(f"127.0.0.1:{tm.user_socks_port}", tm.control_addr, tm.cookie_path)
+
     def torbrowser_open(self) -> dict:
         from .torbrowser import TorBrowserError
+        self.torbrowser.shared_fn = self._shared_tor_env
         try:
             return self.torbrowser.open()
         except TorBrowserError as exc:
@@ -774,12 +787,8 @@ class Controller:
         """Look for a newer Tor Browser now and then (never installs by itself while you are not using it)."""
         def loop():
             while True:
-                self.torbrowser.check()
-                snap = self.torbrowser.snapshot()
-                if snap["update_available"]:
-                    self.log.add("info", "tor", f"Tor Browser {snap['latest']} is out (you have {snap['installed']}). "
-                                                "It updates the next time you open it from legalPrivacy.")
-                time.sleep(86400)
+                self.torbrowser.auto_update()       # installs a newer release (signature checked) when it isn't open
+                time.sleep(21600)
         threading.Thread(target=loop, daemon=True, name="torbrowser-watch").start()
 
     # ── Relay (a separate Tor process; starts with the app in practice mode by default) ──

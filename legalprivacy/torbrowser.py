@@ -9,12 +9,17 @@ Safety, in order:
     checked with GnuPG in a throw-away key folder against the fingerprint pinned below. No gpg, a bad
     signature, an expired key or a different signer: nothing is installed.
   * A size cap, a strict version-number pattern and a path-safe unpacker (no links, no escaping the folder).
+  * Before every launch the programs on disk are compared with the fingerprints taken right after the
+    signature passed; any difference means it is reinstalled (and verified again), never run.
+  * A newer release is installed automatically, checked the same way, but never while it is open.
   * It is never started as the administrator (root), and a new copy is only swapped in after it passed.
   * Linux is installed and launched by the app. On Windows and macOS the app sends you to the official
     download page instead (it never runs a downloaded installer by itself).
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import platform
 import re
@@ -123,6 +128,60 @@ def verify_signature(archive: Path, sig: Path, key_bytes: bytes, gpg: str | None
                                   "nothing was installed")
 
 
+_WATCHED = ("Browser/start-tor-browser", "Browser/firefox.real", "Browser/firefox",
+            "Browser/TorBrowser/Tor/tor", "Browser/TorBrowser/Tor/libevent-2.1.so.7")
+
+
+def _sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _manifest(tree: Path) -> dict[str, str]:
+    """Fingerprints of the programs that matter (the launcher, Firefox, Tor), taken right after the signature passed."""
+    return {rel: _sha256(tree / rel) for rel in _WATCHED if (tree / rel).is_file() and not (tree / rel).is_symlink()}
+
+
+def signature_info() -> dict | None:
+    """What the app recorded when it verified the installed copy (None if nothing is installed or recorded)."""
+    try:
+        d = json.loads((tb_dir() / "SIGNED.json").read_text())
+        return d if isinstance(d, dict) else None
+    except (OSError, ValueError):
+        return None
+
+
+def verify_install() -> None:
+    """Re-check, before every launch, that the installed programs are still the ones whose signature was verified."""
+    info = signature_info()
+    if not info or info.get("version") != installed_version() or info.get("fingerprint") != KEY_FPR:
+        raise TorBrowserError("the installed Tor Browser has no record of a verified signature")
+    tree = tb_dir() / "tor-browser"
+    for rel, want in (info.get("files") or {}).items():
+        p = tree / rel
+        if not p.is_file() or _sha256(p) != want:
+            raise TorBrowserError(f"{rel} is not the file whose signature was verified")
+
+
+def running() -> bool:
+    """Is this copy of Tor Browser open right now? (Linux: looks at the program paths of running processes.)"""
+    marker = str(tb_dir() / "tor-browser").encode()
+    try:
+        for pid in os.listdir("/proc"):
+            if pid.isdigit():
+                try:
+                    if marker in Path(f"/proc/{pid}/cmdline").read_bytes():
+                        return True
+                except OSError:
+                    continue
+    except OSError:
+        pass
+    return False
+
+
 def _extract(archive: Path, target: Path) -> None:
     from .tormanager import _safe_extract
     _safe_extract(archive, target)
@@ -136,7 +195,11 @@ def install(progress: Callable[[float], None] | None = None, http: Callable[...,
     ver = latest_version(http)
     name = archive_name(ver)
     if installed_version() == ver:
-        return ver
+        try:
+            verify_install()
+            return ver
+        except TorBrowserError:                                  # changed since it was checked: replace it
+            pass
     progress(0.03)
     root = tb_dir()
     root.mkdir(parents=True, exist_ok=True)
@@ -162,6 +225,7 @@ def install(progress: Callable[[float], None] | None = None, http: Callable[...,
                 if total:
                     progress(0.05 + 0.8 * got / total)
         verify_signature(archive, sig, key, gpg)
+        archive_sha = _sha256(archive)
         progress(0.9)
         new = work / "unpacked"
         new.mkdir()
@@ -171,6 +235,9 @@ def install(progress: Callable[[float], None] | None = None, http: Callable[...,
         for old in (root / "tor-browser",):
             shutil.rmtree(old, ignore_errors=True)
         shutil.move(str(new / "tor-browser"), str(root / "tor-browser"))
+        (root / "SIGNED.json").write_text(json.dumps({
+            "version": ver, "fingerprint": KEY_FPR, "verified_at": time.time(), "archive": name,
+            "archive_sha256": archive_sha, "files": _manifest(root / "tor-browser")}))
         (root / "VERSION").write_text(ver)
         progress(1.0)
         return ver
@@ -178,7 +245,20 @@ def install(progress: Callable[[float], None] | None = None, http: Callable[...,
         shutil.rmtree(work, ignore_errors=True)               # the download is never kept
 
 
-def launch() -> None:
+def shared_env(socks: str, control: str | None, cookie: str | None) -> dict[str, str]:
+    """Environment that makes Tor Browser use the app's Tor instead of starting its own."""
+    sh, _, sp = socks.rpartition(":")
+    env = {"TOR_SKIP_LAUNCH": "1", "TOR_SOCKS_HOST": sh or "127.0.0.1", "TOR_SOCKS_PORT": sp,
+           "TOR_TRANSPROXY": "0"}
+    if control:
+        ch, _, cp = control.rpartition(":")
+        env.update({"TOR_CONTROL_HOST": ch or "127.0.0.1", "TOR_CONTROL_PORT": cp})
+        if cookie:
+            env["TOR_CONTROL_COOKIE_AUTH_FILE"] = cookie
+    return env
+
+
+def launch(shared: dict[str, str] | None = None) -> None:
     if not supported():
         raise TorBrowserError("On this system, get Tor Browser from " + DOWNLOAD_PAGE)
     if hasattr(os, "geteuid") and os.geteuid() == 0:
@@ -187,7 +267,9 @@ def launch() -> None:
     start = tb_dir() / "tor-browser" / "Browser" / "start-tor-browser"
     if not start.exists():
         raise TorBrowserError("Tor Browser isn't installed yet")
-    subprocess.Popen([str(start), "--detach"], cwd=str(start.parent), stdin=subprocess.DEVNULL,
+    verify_install()
+    env = {**os.environ, **shared} if shared else None
+    subprocess.Popen([str(start), "--detach"], cwd=str(start.parent), stdin=subprocess.DEVNULL, env=env,
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
 
 
@@ -200,6 +282,7 @@ class TorBrowserManager:
         self.state, self.error, self.progress = "idle", None, 0.0
         self.latest: str | None = None
         self.checked_at = 0.0
+        self.shared_fn: Callable[[], dict[str, str] | None] = lambda: None   # set by the app when sharing is on
         self._lock = threading.Lock()
 
     def _say(self, level: str, msg: str) -> None:
@@ -210,6 +293,8 @@ class TorBrowserManager:
         inst = installed_version()
         return {"supported": supported(), "state": self.state, "error": self.error, "progress": self.progress,
                 "installed": inst, "latest": self.latest, "download_page": DOWNLOAD_PAGE,
+                "signature": (lambda i: {"ok": True, "fingerprint": i["fingerprint"], "at": i["verified_at"]}
+                              if i and i.get("version") == inst else None)(signature_info()),
                 "update_available": bool(inst and self.latest and _vkey(self.latest) > _vkey(inst))}
 
     def check(self) -> None:
@@ -234,17 +319,36 @@ class TorBrowserManager:
             self.state = "idle"
             self._say("info", f"Tor Browser {ver} is installed and up to date.")
             if then_launch:
-                self._launch()
+                self._launch_now()
         except Exception as exc:
             self.state, self.error = "error", str(exc)
             self._say("warn", f"Tor Browser: {exc}")
 
+    def _launch_now(self) -> None:
+        shared = self.shared_fn()                       # raises if sharing is on but the app's Tor isn't ready
+        self._launch(shared) if shared else self._launch()
+
+    def auto_update(self) -> None:
+        """Install a newer release in the background, but never while Tor Browser is open."""
+        self.check()
+        snap = self.snapshot()
+        if snap["update_available"] and self.state != "installing" and not running():
+            self._say("info", f"Updating Tor Browser {snap['installed']} to {snap['latest']} (signature is checked).")
+            self.install_async()
+
     def open(self) -> dict:
-        """Launch it, installing or updating first when needed. Never launches a copy that is out of date."""
+        """Launch it, installing or updating first when needed. Never launches a copy that is out of date
+        or one whose files no longer match the signature that was checked."""
         self.check()
         inst = installed_version()
+        try:
+            if inst:
+                verify_install()
+        except TorBrowserError as exc:
+            self._say("warn", f"Tor Browser will be reinstalled: {exc}")
+            inst = None
         if inst is None or (self.latest and _vkey(self.latest) > _vkey(inst)):
             self.install_async(then_launch=True)
         else:
-            self._launch()
+            self._launch_now()
         return self.snapshot()

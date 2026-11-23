@@ -151,8 +151,10 @@ class TorManager:
                  bridge_mode: str = "off", bridge_auto: bool = True,
                  auto_install: bool = True, dns_port: int = 0, dns_lan: bool = False,
                  dns_lan_addr: str = "", exclude_nodes: list[str] | None = None, exclude_strict: bool = False,
-                 exclude_gov_names: bool = False):
+                 exclude_gov_names: bool = False, share_browser: bool = False):
         self.log = log
+        self.share_browser = bool(share_browser)
+        self.user_socks_port = 0
         self.exclude_gov_names = bool(exclude_gov_names)
         self.exclude_nodes = [e.strip() for e in (exclude_nodes or []) if e.strip()]
         self.exclude_strict = bool(exclude_strict)
@@ -251,6 +253,9 @@ class TorManager:
 
     def new_identity(self) -> bool:
         """SIGNAL NEWNYM: fresh circuits for new connections."""
+        if self.share_browser:       # it would cut off the pages you have open in Tor Browser
+            self.log.info("tor", "New identity skipped: Tor is shared with Tor Browser (use its own New Identity button).")
+            return False
         try:
             with TorControl(self.control_host, self.control_port,
                             self.control_password, self.cookie_path) as c:
@@ -277,7 +282,7 @@ class TorManager:
             "control": self.control_addr, "bridges": len(self.effective_bridges()),
             "bridge_mode": self.bridge_mode, "builtin": {k: len(v) for k, v in self.builtin_bridges().items()},
             "install_progress": self.install_progress,
-            "dns": self.dns_info(),
+            "dns": self.dns_info(), "shared_browser": bool(self.share_browser and self.user_socks_port),
             "supported_platform": platform_key() is not None,
             "hint": self._hint(uptime),
             **{k: self.stats.get(k) for k in ("read", "written", "circuits_built")},
@@ -371,6 +376,11 @@ class TorManager:
         self.control_host, self.control_port = "127.0.0.1", _pick_port(19051)
         if self.control_port == self.socks_port:
             self.control_port = _pick_port(0)
+        self.user_socks_port = 0
+        if self.share_browser:            # a second door for Tor Browser: its streams never share circuits with the noise
+            self.user_socks_port = _pick_port(19150)
+            if self.user_socks_port in (self.socks_port, self.control_port):
+                self.user_socks_port = _pick_port(0)
         self.dns_port = (_pick_udp_port(self.dns_host, self.dns_port_cfg or tordns.DEFAULT_PORT)
                          if self.dns_port_cfg else 0)
         self.cookie_path = str(tor_dir() / "control_auth_cookie")
@@ -407,6 +417,9 @@ class TorManager:
             "SafeSocks 1",
             "Log notice stdout",
         ]
+        if self.user_socks_port:
+            lines.append(f"SocksPort 127.0.0.1:{self.user_socks_port} IsolateSOCKSAuth IsolateClientAddr "
+                         "IsolateDestAddr IsolateDestPort")
         dns_line = tordns.torrc_line(self.dns_port, self.dns_lan, self.dns_lan_addr) if self.dns_port else None
         if dns_line:        # optional Tor DNS: loopback unless one private LAN address was explicitly chosen
             lines.append(dns_line)

@@ -515,8 +515,10 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
       <div class="small mute" id="dnsNote"></div>
     </div>
   </div>
-  <div class="card" id="tbCard"><h3><svg class="ic" aria-hidden="true"><use href="#i-tor"/></svg>Tor Browser: for your own private browsing <details class="why"><summary>ⓘ</summary><div>Opens the official Tor Browser so you can browse privately yourself. It is completely separate from the noise: its own folder, its own profile and its own Tor. The app downloads it only from torproject.org and installs it only after checking its signature with the Tor Project's signing key (this needs GnuPG, "gpg"). It is brought up to date whenever you open it from here, and it is never started as the administrator.</div></details></h3>
+  <div class="card" id="tbCard"><h3><svg class="ic" aria-hidden="true"><use href="#i-tor"/></svg>Tor Browser: for your own private browsing <details class="why"><summary>ⓘ</summary><div>Opens the official Tor Browser so you can browse privately yourself. It is completely separate from the noise: its own folder, its own profile and its own Tor. The app downloads it only from torproject.org and installs it only after checking its signature with the Tor Project's signing key (this needs GnuPG, "gpg"). It is checked for a newer release every few hours and updated by itself (never while it is open), the signature is checked again each time, and before every launch its programs are compared with what was verified. It is never started as the administrator.</div></details></h3>
     <div class="row"><button id="tbOpen" class="torb">Open Tor Browser</button><button id="tbCheck">Check for updates</button><span class="small" id="tbStat"></span></div>
+    <div class="small mute" id="tbSig"></div>
+    <label class="small"><input type="checkbox" id="tbShare"> Share this app's Tor with Tor Browser <details class="why"><summary>ⓘ</summary><div>Off by default. Normally Tor Browser runs its own Tor, so your real browsing and the noise reach the Tor network through two separate connections, and the real one stands out. Shared, both use the same Tor and the same entry relay, with separate circuits so pages and noise never mix. Things to know: (1) the New Identity button in this app is disabled while sharing, so your open pages aren't cut off; (2) your relay-avoid list and bridges, set here, apply to Tor Browser too; (3) Tor Browser's own connection and bridge screens are replaced by this tab; (4) Tor Browser can send commands to this Tor, so its New Identity button resets noise circuits too. Turning it on restarts this app's Tor.</div></details></label>
   </div>
   <div class="card" id="exclCard"><h3><svg class="ic" aria-hidden="true"><use href="#i-tor"/></svg>Relays to avoid (optional) <details class="why"><summary>ⓘ</summary><div>Tor picks relays you cannot vet. If you know of relays or whole countries you do not trust, list them here and the app's Tor will avoid them for every step it can, including looking up onion addresses. One per line: a relay's 40-letter fingerprint, or a country in braces such as {ru}. Lists published by network researchers can be pasted in. Without "strict", Tor may still use them if it cannot connect otherwise.</div></details></h3>
     <textarea id="tExcl" rows="4" placeholder="{ru}&#10;0123456789ABCDEF0123456789ABCDEF01234567"></textarea>
@@ -1551,10 +1553,15 @@ async function tbRefresh(){try{const s=await api('/api/torbrowser');
   if(s.update_available)t+=' · an update will be installed when you open it';
   if(s.state==='installing')t=`Downloading and checking… ${Math.round(s.progress*100)}%`;
   if(s.state==='error')t=`Problem: ${s.error}`;
+  $('#tbSig').textContent=s.signature?`Signature verified against the Tor Browser Developers key ${s.signature.fingerprint.slice(-16)} on ${new Date(s.signature.at*1000).toLocaleString([],{hour12:true})}; files re-checked at each launch.`:'';
+  $('#tbShare').checked=!!(S&&S.profile.transports.tor.share_browser);
   $('#tbStat').textContent=t;$('#tbStat').className='small'+(s.state==='error'?' warnc':'');
   clearTimeout(tbTimer);if(s.state==='installing')tbTimer=setTimeout(tbRefresh,1500);return s}catch(e){$('#tbStat').textContent=e.message}}
 $('#tbOpen').onclick=async()=>{const s=await tbRefresh();if(s&&!s.supported){window.open(s.download_page,'_blank','noopener');return}
   try{await api('/api/torbrowser/open',{});toast('Opening Tor Browser…');setTimeout(tbRefresh,800)}catch(e){toast(e.message,1)}};
+$('#tbShare').onchange=async()=>{try{await api('/api/config',{transports:{tor:{share_browser:$('#tbShare').checked}}});
+  toast($('#tbShare').checked?'Sharing on. Restart Tor (Tor tab) to apply.':'Sharing off.');
+  if(S)S.profile.transports.tor.share_browser=$('#tbShare').checked}catch(e){toast(e.message,1);tbRefresh()}};
 $('#tbCheck').onclick=async()=>{try{await api('/api/torbrowser/check',{})}catch(e){}tbRefresh()};
 $$('#nav button').forEach(b=>{if(b.dataset.t==='tor')b.addEventListener('click',()=>tbRefresh())});
 $('#rBridgeCopy').onclick=()=>{const e=$('#rBridgeLine');e.select();try{navigator.clipboard.writeText(e.value)}catch(x){document.execCommand('copy')}toast('Copied')};
