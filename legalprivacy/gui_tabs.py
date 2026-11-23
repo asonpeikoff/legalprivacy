@@ -931,7 +931,7 @@ class TorTab(Tab):
         state = t.get("state") or "stopped"
         pct = int(t.get("bootstrap_pct") or 0)
         words = {"stopped": "Stopped", "installing": "Installing…", "starting": "Starting…",
-                 "bootstrapping": "Connecting…", "ready": "Ready", "error": "Error"}
+                 "bootstrapping": "Connecting…", "ready": "Connected", "error": "Problem"}
         self.state_var.set(words.get(state, state))
         self.bar["value"] = (t.get("install_progress") or 0) * 100 if state == "installing" else (100 if state == "ready" else pct)
         self.sum_var.set((t.get("error") or ("Downloading and verifying the official Tor bundle…" if state == "installing"

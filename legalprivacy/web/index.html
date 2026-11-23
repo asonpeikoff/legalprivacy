@@ -1318,10 +1318,14 @@ function render(){
   rp.className='pill '+(s.running?(s.paused?'warn':'ok'):''); rp.textContent=s.running?(s.paused?'Paused':'Running'):'Stopped';
   $('#bStart').disabled=s.running; $('#bStop').disabled=!s.running; $('#bPause').disabled=!s.running; $('#bPause').textContent=s.paused?'▶ Resume':'⏸ Pause';
   const pt=$('#pTor');
-  if(!torCfg.enabled){pt.className='pill';pt.textContent='Tor: off'}
-  else if(tor.state==='ready'){pt.className='pill tor';pt.textContent='🧅 Tor: ready'}
-  else if(tor.state==='error'){pt.className='pill bad';pt.textContent='Tor: error'}
-  else {pt.className='pill warn';pt.textContent=`Tor: ${tor.state}${tor.state==='installing'?' '+Math.round(tor.install_progress*100)+'%':tor.bootstrap_pct?' '+tor.bootstrap_pct+'%':''}`}
+  const torLane=(s.lanes||[]).find(l=>l.name==='tor'),inUse=!!(torLane&&torLane.last_hit_ts&&Date.now()/1000-torLane.last_hit_ts<150&&s.running&&!s.paused);
+  if(!torCfg.enabled){pt.className='pill';pt.textContent='Tor: off';pt.title='Tor is off, so no .onion sites are visited. Turn it on in the Tor tab.'}
+  else if(tor.state==='ready'){pt.className='pill ok';pt.textContent=inUse?'Tor: connected · in use':'Tor: connected';
+    pt.title='Connected: Tor has finished starting and can reach the Tor network. "In use" appears while the noise is visiting .onion sites (one in the last couple of minutes).'}
+  else if(tor.state==='error'){pt.className='pill bad';pt.textContent='Tor: problem';pt.title='Tor could not start or lost its connection. Details on the Tor tab.'}
+  else {pt.className='pill warn';pt.title='Tor is starting. .onion visits begin when it says connected.';
+    const word={installing:'installing',starting:'starting',bootstrapping:'connecting',stopped:'stopped'}[tor.state]||tor.state;
+    pt.textContent=`Tor: ${word}${tor.state==='installing'?' '+Math.round(tor.install_progress*100)+'%':tor.bootstrap_pct?' '+tor.bootstrap_pct+'%':''}`}
   if(s.first_run&&!wizShown){showWiz()}
   // dashboard
   let hitsT=0,failT=0,last=0,lastSub='';
@@ -1443,7 +1447,7 @@ function renderTorStatus(){
   renderBridges(t);
   renderTorSelftest(t);
   renderDns(t);
-  $('#tState').textContent=({stopped:'Stopped',installing:'Installing…',starting:'Starting…',bootstrapping:'Connecting…',ready:'Ready 🧅',error:'Error'})[t.state]||t.state;
+  $('#tState').textContent=({stopped:'Stopped',installing:'Installing…',starting:'Starting…',bootstrapping:'Connecting…',ready:'Connected',error:'Problem'})[t.state]||t.state;
   $('#tBar').style.width=(t.state==='installing'?t.install_progress*100:t.bootstrap_pct)+'%';
   $('#tSum').textContent=(t.error?t.error:t.state==='installing'?'Downloading & verifying the official Tor bundle…':t.bootstrap_summary||'')+(t.hint?'  ⚠ '+t.hint:'');
   $('#tKv').innerHTML=[['Mode',t.mode],['Version',t.version||'—'],['SOCKS',t.socks||'—'],['Control',t.control||'—'],['PID',t.pid||'—'],['Uptime',t.uptime?fmtDur(t.uptime):'—'],['Downloaded',fmtB(t.read)],['Uploaded',fmtB(t.written)],['Program',t.binary||'not installed']].map(([k,v])=>`<b>${k}</b><span style="word-break:break-all">${esc(v)}</span>`).join('');

@@ -30,7 +30,6 @@ BUILTIN_ONION_SEEDS: list[tuple[str, str]] = [
     ("The New York Times", "https://nytimesn7cgmftshazwhfgzm37qxb44r64ytbb2dj3x62d2lljsciiyd.onion/"),
     ("BBC", "https://www.bbcnewsd73hkzno2ini43t4gblxvycyac5aw4gnv7t2rccijh7745uqd.onion/"),
     ("ProPublica", "http://p53lf57qovyuvwsc6xnrppyply3vtqm7l6pcobkmyqsiofyeznfu5uqd.onion/"),
-    ("The Intercept", "https://27m3p2uv7igmj6kvd4ql3cct5h3sdwrsajovkkndeufumzyfhlfev4qd.onion/"),
     ("Debian", "http://2s4yqjx5ul6okpp3f2gaunr2syex5jgbfpfvhxxbbjwnrsvbk5v3qbid.onion/"),
     ("Proton", "https://protonmailrmez3lotccipshtkleegetolb73fuirgj7r4o4vfu7ozyd.onion/"),
     ("Qubes OS", "http://qubesosfasa4zl44o4tws22di6kepyzfeqv3tg4e3ztknltfxqrymdad.onion/"),
@@ -39,17 +38,17 @@ BUILTIN_ONION_SEEDS: list[tuple[str, str]] = [
     ("Blockchair", "http://blkchairbknpn73cfjhevhla7rkp4ed5gg2knctvv7it4lioy22defid.onion/"),
     ("Mullvad VPN", "http://o54hon2e2vj6c7m3aqqu6uyece65by3vgoxxhlqlsvkmacw6a7m7kiad.onion/"),
     ("Njalla", "http://njallalafimoej5i4eg7vlnqjvmb6zhdh27qxcatdn647jtwwwui3nad.onion/"),
-    ("Keybase", "http://keybase5wmilwokqirssclfnsqrjdsi7jdir5wy7y7iu3tanwmtp6oid.onion/"),
     ("keys.openpgp.org", "http://zkaan2xfbuxia2wpf7ofnkbz6r5zdbbvxbunvp5g2iebopbfc4iqmbad.onion/"),
-    ("Archive.today", "http://archiveiya74codqgiixo33q62qlrqtkgmcitqx5u2oeqnmn5bpcbiyd.onion/"),
-    # Added after checking dark.fail, tor.taxi and daunt.link: only sites that at least two of the three list,
-    # and only lawful services (news, privacy software, email and chat, a VPN). Markets, drug, hacking, adult,
-    # piracy and law-enforcement entries were skipped.
+    # Every address below was checked against the real site itself, not just a directory: a certificate-checked
+    # `Onion-Location` header (tools/verify_onion_seeds.py), or the owner's own page naming the address
+    # (Cryptostorm, ProPublica, BBC, Debian, DuckDuckGo via the Tor Project's support page). Directories
+    # (dark.fail, tor.taxi, daunt.link) were used to find candidates, never as proof. The New York Times
+    # address is announced by the Times itself but its page could not be read here, so it matches three
+    # directories only. Markets, drug, hacking, adult, piracy and law-enforcement entries are never listed.
     ("Whonix", "http://dds6qkxpwdeubwucdiaord2xgbbeyds25rbsgr73tbfpqpt4a6vjwsyd.onion/"),
     ("OnionShare", "http://lldan5gahapx5k7iafb3s4ikijc4ni7gx5iywdflkba5y2ezyg6sjgyd.onion/"),
     ("Cryptostorm VPN", "http://stormwayszuh4juycoy4kwoww5gvcu2c4tdtpkup667pdwe4qenzwayd.onion/"),
     ("XMPP.is", "http://6voaf7iamjpufgwoulypzwwecsm2nu7j5jpgadav2rfqixmpl4d65kid.onion/"),
-    ("The Tor Times", "http://tortimeswqlzti2aqbjoieisne4ubyuoeiiugel2layyudcfrwln76qd.onion/"),
     # The Tor Project's own published list (onion.torproject.org): its public, human-facing pages.
     # Infrastructure hosts (monitoring, mail, staging, donor systems) are left out.
     ("Tor Project Blog", "http://pzhdfe7jraknpj2qgu5cz2u3i4deuyfwmonvzu5i3nyw4t4bmg7o5pad.onion/"),
