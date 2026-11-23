@@ -2093,13 +2093,14 @@ if(wiz){wiz.setAttribute('role','dialog');wiz.setAttribute('aria-modal','true');
 
 function fixWhy(){document.querySelectorAll('details.why>summary:not([data-f])').forEach(s=>{s.dataset.f=1;const d=s.parentNode.querySelector('div');s.innerHTML='<span class="ibtn" aria-hidden="true">i</span>';s.setAttribute('aria-label','More information');if(d)s.title=d.textContent.trim().slice(0,400)})}
 
-// The header logo alternates with the second artwork every 3 minutes, fading one out as the other fades in.
+// The header logo follows the tab you are on (main, alternate, main, ...), fading one out as the other fades in.
+// Clicking the logo switches it by hand until you change tab.
 (()=>{const a=document.querySelectorAll('.logos img');if(a.length<2)return;let i=0;
-  const next=()=>{a[i].classList.remove('on');i=(i+1)%a.length;a[i].classList.add('on')};
-  let timer=setInterval(()=>{if(!document.hidden)next()},180000);
+  const show=n=>{if(n===i)return;a[i].classList.remove('on');i=n;a[i].classList.add('on')};
   const box=document.querySelector('.logos');box.title='Click to switch the logo';box.setAttribute('role','button');box.tabIndex=0;
-  const flip=()=>{next();clearInterval(timer);timer=setInterval(()=>{if(!document.hidden)next()},180000)};
-  box.addEventListener('click',flip);box.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();flip()}})})();
+  const flip=()=>show((i+1)%a.length);
+  box.addEventListener('click',flip);box.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();flip()}});
+  document.querySelectorAll('#nav button[data-t]').forEach((b,k)=>b.addEventListener('click',()=>show(k%2)))})();
 fixWhy();new MutationObserver(fixWhy).observe(document.body,{childList:true,subtree:true});
 </script>
 <!--NETMAP-->

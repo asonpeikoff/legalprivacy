@@ -149,6 +149,8 @@ def build_app_class():
             self.logo_big = load_logo(tk, "favicon.png", 1) or load_logo(tk, "icon.png", 1) or make_logo(tk, 64, "#1d2733", "#4cc07d")
             self.logo_small = (load_logo(tk, "logo.png", 1 if self.scale >= 2 else 2)
                                or make_logo(tk, 28 * self.scale, "#1d2733", "#4cc07d"))
+            self.logo_alt = load_logo(tk, "logo_alt.png", 1 if self.scale >= 2 else 2)     # shown on every other tab
+            self._logo_now = self.logo_small
             try:
                 root.iconphoto(True, self.logo_big)
             except tk.TclError:
@@ -220,7 +222,7 @@ def build_app_class():
             if hasattr(self, "light"):
                 self._paint_light()
             if hasattr(self, "logo_lbl"):
-                self.logo_lbl.configure(image=self.logo_small)
+                self.logo_lbl.configure(image=self._logo_now)
 
         def set_theme(self, name: str) -> None:
             self.theme_name = name
@@ -334,6 +336,12 @@ def build_app_class():
         def _tab_changed(self) -> None:
             if getattr(self, "_compact_tabs", False):
                 self._fit_tabs()
+            try:                                           # the header logo follows the tab: main, alternate, main, …
+                self._logo_now = self.logo_alt if (self.logo_alt and self.nb.index(self.nb.select()) % 2) \
+                    else self.logo_small
+                self.logo_lbl.configure(image=self._logo_now)
+            except (tk.TclError, AttributeError):
+                pass
             try:
                 self.current_tab().on_show()
             except (tk.TclError, IndexError):
