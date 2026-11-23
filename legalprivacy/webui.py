@@ -184,6 +184,8 @@ class UIServer:
                     return self._json({"error": "unauthorized"}, 401)
                 ctl = srv.ctl
                 try:
+                    if u.path == "/api/avoid":
+                        return self._json(ctl.avoid_info(refresh=(q.get("refresh") or [""])[0] == "1"))
                     if u.path == "/api/torbrowser":
                         return self._json(ctl.torbrowser_state())
                     if u.path == "/api/defaults":

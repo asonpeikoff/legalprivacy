@@ -150,8 +150,10 @@ class TorManager:
                  control_password: str | None = None, bridges: list[str] | None = None,
                  bridge_mode: str = "off", bridge_auto: bool = True,
                  auto_install: bool = True, dns_port: int = 0, dns_lan: bool = False,
-                 dns_lan_addr: str = "", exclude_nodes: list[str] | None = None, exclude_strict: bool = False):
+                 dns_lan_addr: str = "", exclude_nodes: list[str] | None = None, exclude_strict: bool = False,
+                 exclude_gov_names: bool = False):
         self.log = log
+        self.exclude_gov_names = bool(exclude_gov_names)
         self.exclude_nodes = [e.strip() for e in (exclude_nodes or []) if e.strip()]
         self.exclude_strict = bool(exclude_strict)
         self.mode = mode                      # managed | external
@@ -352,6 +354,10 @@ class TorManager:
             if not self.binary:
                 raise RuntimeError("Tor installation did not produce a usable binary.")
         self._maybe_update_bundle()
+        if self.exclude_gov_names:
+            from . import relayfilter
+            found = relayfilter.refresh(tor_dir() / "avoid_by_name.json")
+            self.log.info("tor", f"Avoiding {len(found)} relay(s) that look governmental by name or contact.")
         if self._stop_evt.is_set():
             return
         self.state = "starting"
@@ -406,6 +412,9 @@ class TorManager:
             lines.append(dns_line)
         from .config import valid_exclude_entry
         excl = [e if e.startswith("{") else "$" + e.lstrip("$") for e in self.exclude_nodes if valid_exclude_entry(e)]
+        if self.exclude_gov_names:
+            from . import relayfilter
+            excl += ["$" + r["fingerprint"] for r in relayfilter.cached(tor_dir() / "avoid_by_name.json")]
         if excl:                                  # relays you don't trust: Tor avoids them for every hop it can
             lines += ["ExcludeNodes " + ",".join(excl), f"StrictNodes {1 if self.exclude_strict else 0}"]
             self.log.info("tor", f"Avoiding {len(excl)} relay(s)/countries you listed"

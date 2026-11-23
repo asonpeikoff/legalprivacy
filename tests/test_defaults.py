@@ -61,3 +61,34 @@ def test_torrc_avoids_listed_relays(tmp_path, monkeypatch):
     tm.cookie_path = str(tmp_path / "cookie")
     text = tm._write_torrc(tmp_path / "data").read_text()
     assert "ExcludeNodes $" + "a" * 40 + ",{ru}" in text and "StrictNodes 1" in text
+
+
+def test_default_avoid_list_is_the_us_plus_governmental_names():
+    from legalprivacy.config import Profile
+    tor = Profile(name="d").transports["tor"]
+    assert tor.exclude_nodes == ["{us}"] and tor.exclude_gov_names is True and tor.exclude_strict is False
+
+
+def test_governmental_names_are_found_without_catching_ordinary_words(tmp_path):
+    from legalprivacy import relayfilter as F
+    for name in ("FBIvan", "NSAhoneypot", "PoliceNode", "TotallyNotTheCIA", "government1", "pentagonexit"):
+        assert F.looks_governmental(name), name
+    for name in ("transaction", "special", "financial", "amsterdam", "ABC", "Federation"):
+        assert F.looks_governmental(name) is None, name
+    assert F.looks_governmental("x", "ops@agency.gov") and F.looks_governmental("x", "a@b.mil")
+    relays = [{"fingerprint": "A" * 40, "nickname": "FBIvan", "contact": ""},
+              {"fingerprint": "B" * 40, "nickname": "nicenode", "contact": ""},
+              {"fingerprint": "bad", "nickname": "NSA", "contact": ""}]
+    assert [r["fingerprint"] for r in F.scan(relays)] == ["A" * 40]
+    import json
+    cache = tmp_path / "avoid.json"
+    calls = []
+
+    def http(url):
+        calls.append(url)
+        return json.dumps({"relays": relays}).encode()
+    assert len(F.refresh(cache, http)) == 1 and len(F.refresh(cache, http)) == 1
+    assert len(calls) == 1                                        # fetched once, then kept for a day
+    def offline(url):
+        raise OSError("no network")
+    assert len(F.refresh(cache, offline, max_age=0)) == 1          # offline: keeps the last list
