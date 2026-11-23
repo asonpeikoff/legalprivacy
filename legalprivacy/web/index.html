@@ -509,6 +509,9 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
       <div class="small mute" id="dnsNote"></div>
     </div>
   </div>
+  <div class="card" id="tbCard"><h3><svg class="ic" aria-hidden="true"><use href="#i-tor"/></svg>Tor Browser: for your own private browsing <details class="why"><summary>ⓘ</summary><div>Opens the official Tor Browser so you can browse privately yourself. It is completely separate from the noise: its own folder, its own profile and its own Tor. The app downloads it only from torproject.org and installs it only after checking its signature with the Tor Project's signing key (this needs GnuPG, "gpg"). It is brought up to date whenever you open it from here, and it is never started as the administrator.</div></details></h3>
+    <div class="row"><button id="tbOpen" class="torb">Open Tor Browser</button><button id="tbCheck">Check for updates</button><span class="small" id="tbStat"></span></div>
+  </div>
   <div class="card" id="exclCard"><h3><svg class="ic" aria-hidden="true"><use href="#i-tor"/></svg>Relays to avoid (optional) <details class="why"><summary>ⓘ</summary><div>Tor picks relays you cannot vet. If you know of relays or whole countries you do not trust, list them here and the app's Tor will avoid them for every step it can, including looking up onion addresses. One per line: a relay's 40-letter fingerprint, or a country in braces such as {ru}. Lists published by network researchers can be pasted in. Without "strict", Tor may still use them if it cannot connect otherwise.</div></details></h3>
     <textarea id="tExcl" rows="4" placeholder="{ru}&#10;0123456789ABCDEF0123456789ABCDEF01234567"></textarea>
     <label class="chk"><input type="checkbox" id="tExclStrict"><span><b>Strict</b> <span class="mute">— never use them, even if that stops Tor from connecting</span></span></label>
@@ -1519,6 +1522,19 @@ function renderRelay(){
   const box=$('#rLog').parentElement;box.scrollTop=box.scrollHeight;rGate()}
 async function pollRelay(){if(!$('#t-tor').classList.contains('on'))return;try{R=await api('/api/relay');renderRelay()}catch(e){}}
 setInterval(pollRelay,2500);$$('#nav button').forEach(b=>{if(b.dataset.t==='tor')b.addEventListener('click',()=>setTimeout(pollRelay,0))});
+let tbTimer=null;
+async function tbRefresh(){try{const s=await api('/api/torbrowser');
+  const o=$('#tbOpen');o.textContent=s.supported?(s.installed?'Open Tor Browser':'Install and open Tor Browser'):'Get Tor Browser (torproject.org)';
+  let t=s.installed?`Installed: ${s.installed}`:'Not installed yet';if(s.latest)t+=` · newest: ${s.latest}`;
+  if(s.update_available)t+=' · an update will be installed when you open it';
+  if(s.state==='installing')t=`Downloading and checking… ${Math.round(s.progress*100)}%`;
+  if(s.state==='error')t=`Problem: ${s.error}`;
+  $('#tbStat').textContent=t;$('#tbStat').className='small'+(s.state==='error'?' warnc':'');
+  clearTimeout(tbTimer);if(s.state==='installing')tbTimer=setTimeout(tbRefresh,1500);return s}catch(e){$('#tbStat').textContent=e.message}}
+$('#tbOpen').onclick=async()=>{const s=await tbRefresh();if(s&&!s.supported){window.open(s.download_page,'_blank','noopener');return}
+  try{await api('/api/torbrowser/open',{});toast('Opening Tor Browser…');setTimeout(tbRefresh,800)}catch(e){toast(e.message,1)}};
+$('#tbCheck').onclick=async()=>{try{await api('/api/torbrowser/check',{})}catch(e){}tbRefresh()};
+$$('#nav button').forEach(b=>{if(b.dataset.t==='tor')b.addEventListener('click',()=>tbRefresh())});
 $('#rBridgeCopy').onclick=()=>{const e=$('#rBridgeLine');e.select();try{navigator.clipboard.writeText(e.value)}catch(x){document.execCommand('copy')}toast('Copied')};
 $('#rStart').onclick=async()=>{rBusy=true;rGate();
   try{R=await api('/api/relay/start',rBody());toast('Relay starting…');renderRelay()}catch(e){toast(e.message,1);$('#rMsg').textContent=e.message}

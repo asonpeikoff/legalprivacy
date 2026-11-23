@@ -81,6 +81,8 @@ class Controller:
         self._feed_timer_started = False
         from .relayrun import RelayManager
         self.relay = RelayManager(self.log)        # optional relay: its own Tor process, practice mode unless set up
+        from .torbrowser import TorBrowserManager
+        self.torbrowser = TorBrowserManager(self.log)   # Tor Browser for your own use: separate from the noise
         from .accounts import AccountsManager
         self.accounts = AccountsManager(          # optional signed-in accounts; clearnet only, never Tor
             self.log, config=lambda: self.profile.accounts,
@@ -731,6 +733,33 @@ class Controller:
                      "Tor DNS test: " + (f"{res['name']} -> {', '.join(res['answers'])} in {res['ms']} ms"
                                          if res["ok"] else res["error"]))
         return res
+
+    # ── Tor Browser (for your own private browsing) ──────────────────────────
+    def torbrowser_state(self) -> dict:
+        return self.torbrowser.snapshot()
+
+    def torbrowser_open(self) -> dict:
+        from .torbrowser import TorBrowserError
+        try:
+            return self.torbrowser.open()
+        except TorBrowserError as exc:
+            raise ConfigError(str(exc)) from exc
+
+    def torbrowser_check(self) -> dict:
+        self.torbrowser.check()
+        return self.torbrowser.snapshot()
+
+    def torbrowser_watch(self) -> None:
+        """Look for a newer Tor Browser now and then (never installs by itself while you are not using it)."""
+        def loop():
+            while True:
+                self.torbrowser.check()
+                snap = self.torbrowser.snapshot()
+                if snap["update_available"]:
+                    self.log.add("info", "tor", f"Tor Browser {snap['latest']} is out (you have {snap['installed']}). "
+                                                "It updates the next time you open it from legalPrivacy.")
+                time.sleep(86400)
+        threading.Thread(target=loop, daemon=True, name="torbrowser-watch").start()
 
     # ── Relay (a separate Tor process; starts with the app in practice mode by default) ──
     RELAY_CHECKLIST = ("address", "always_on", "bandwidth", "not_exit", "public_ip")
