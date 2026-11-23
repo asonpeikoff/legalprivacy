@@ -184,6 +184,8 @@ class UIServer:
                     return self._json({"error": "unauthorized"}, 401)
                 ctl = srv.ctl
                 try:
+                    if u.path == "/api/torbrowser":
+                        return self._json(ctl.torbrowser_state())
                     if u.path == "/api/defaults":
                         return self._json(ctl.defaults_info())
                     if u.path == "/api/accounts":
@@ -339,6 +341,10 @@ class UIServer:
                         return self._json(ctl.tor_action(path.rsplit("/", 1)[1]))
                     elif path == "/api/config":
                         return self._json(ctl.apply_config(body))
+                    elif path == "/api/torbrowser/open":
+                        return self._json(ctl.torbrowser_open())
+                    elif path == "/api/torbrowser/check":
+                        return self._json(ctl.torbrowser_check())
                     elif path == "/api/defaults/recommended":
                         return self._json(ctl.reset_to_recommended())
                     elif path == "/api/defaults/save":
@@ -411,6 +417,7 @@ def start_services(ctl) -> None:
             ctl.start(reason="autostart on launch")
         except ConfigError as exc:
             ctl.log.error("app", str(exc))
+    ctl.torbrowser_watch()
     ctl.relay_autostart()                 # "start the relay with the app" is on by default, in practice mode (nothing published)
 
 

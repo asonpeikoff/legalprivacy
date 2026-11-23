@@ -351,6 +351,7 @@ class TorManager:
             self.binary = find_tor_binary()
             if not self.binary:
                 raise RuntimeError("Tor installation did not produce a usable binary.")
+        self._maybe_update_bundle()
         if self._stop_evt.is_set():
             return
         self.state = "starting"
@@ -588,6 +589,52 @@ class TorManager:
         except Exception as exc:
             self._fail(f"Tor install failed: {exc}")
 
+    @staticmethod
+    def _pick_bundle(osn: str, arch: str) -> tuple[str, str]:
+        """(version, file name) of the newest Tor Expert Bundle for this computer."""
+        index = _http_get(DIST_BASE).decode("utf-8", "ignore")
+        versions = sorted({v for v in re.findall(r'href="(\d+(?:\.\d+)+)/"', index)},
+                          key=_version_key, reverse=True)
+        for ver in versions[:6]:            # newest stable first; skip dirs without desktop bundle
+            fname = f"tor-expert-bundle-{osn}-{arch}-{ver}.tar.gz"
+            if fname in _http_get(f"{DIST_BASE}{ver}/").decode("utf-8", "ignore"):
+                return ver, fname
+        raise RuntimeError("Could not find a Tor Expert Bundle for this platform on dist.torproject.org")
+
+    @staticmethod
+    def bundle_version() -> str | None:
+        try:
+            return (tor_dir() / "bundle" / "VERSION").read_text().strip() or None
+        except OSError:
+            return None
+
+    def _maybe_update_bundle(self) -> None:
+        """The Tor the app downloaded itself is kept current: once a day, before it starts, the newest official
+        bundle is looked up and installed if it is newer. Tor you installed yourself is never touched."""
+        own = tor_dir() / "bundle" / "tor" / _EXE
+        if not self.auto_install or not self.binary or Path(self.binary) != own:
+            return
+        stamp = tor_dir() / "update_checked"
+        try:
+            if time.time() - float(stamp.read_text()) < 86400:
+                return
+        except (OSError, ValueError):
+            pass
+        try:
+            key = platform_key()
+            if not key:
+                return
+            ver, _ = self._pick_bundle(*key)
+            stamp.write_text(str(time.time()))
+            have = self.bundle_version()
+            if have is None or _version_key(ver) > _version_key(have):
+                self.log.info("tor", f"A newer Tor is available ({have or 'unknown'} -> {ver}). Updating before it starts…")
+                self.state = "installing"
+                self._install()
+                self.binary = find_tor_binary()
+        except Exception as exc:                  # offline or the site is down: carry on with what is installed
+            self.log.info("tor", f"Couldn't check for a newer Tor ({exc}); using the installed one.")
+
     def _install(self) -> None:
         key = platform_key()
         if not key:
@@ -596,19 +643,7 @@ class TorManager:
         osn, arch = key
         self.install_progress = 0.02
         self.log.info("tor", f"Looking up latest Tor Expert Bundle for {osn}-{arch}…")
-        index = _http_get(DIST_BASE).decode("utf-8", "ignore")
-        versions = sorted({v for v in re.findall(r'href="(\d+(?:\.\d+)+)/"', index)},
-                          key=_version_key, reverse=True)
-        chosen = None
-        for ver in versions[:6]:            # newest stable first; skip dirs without desktop bundle
-            fname = f"tor-expert-bundle-{osn}-{arch}-{ver}.tar.gz"
-            listing = _http_get(f"{DIST_BASE}{ver}/").decode("utf-8", "ignore")
-            if fname in listing:
-                chosen = (ver, fname)
-                break
-        if not chosen:
-            raise RuntimeError("Could not find a Tor Expert Bundle for this platform on dist.torproject.org")
-        ver, fname = chosen
+        ver, fname = self._pick_bundle(osn, arch)
         sums = _http_get(f"{DIST_BASE}{ver}/sha256sums-signed-build.txt").decode()
         want = next((ln.split()[0] for ln in sums.splitlines() if ln.strip().endswith(fname)), None)
         if not want:
@@ -648,12 +683,13 @@ class TorManager:
         self.install_progress = 1.0
         if not binp.exists():
             raise RuntimeError("Bundle extracted but tor binary not found")
+        (tor_dir() / "bundle" / "VERSION").write_text(ver)
         self.log.info("tor", f"Tor {ver} installed to {target}")
 
 
 def _safe_extract(archive: Path, target: Path) -> None:
     root = target.resolve()
-    with tarfile.open(archive, "r:gz") as tf:
+    with tarfile.open(archive, "r:*") as tf:
         for m in tf.getmembers():
             dest = (target / m.name).resolve()
             if root not in dest.parents and dest != root:
