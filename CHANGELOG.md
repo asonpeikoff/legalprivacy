@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- **Logo updated** again (header, desktop app, README); the browser-tab icon is unchanged.
 - **Larger header logo** (same header height) and a larger, margin-trimmed logo in the README.
 - **Logo updated** to the latest version everywhere it appears (dashboard header, browser-tab icon, desktop app, README).
 - **Onion sites are named** in Activity and the Live Log (for example "BBC · …" or "Tor Browser Manual · …"), so you can tell what a long .onion address is.
