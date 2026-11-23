@@ -514,6 +514,8 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
   </div>
   <div class="card" id="exclCard"><h3><svg class="ic" aria-hidden="true"><use href="#i-tor"/></svg>Relays to avoid (optional) <details class="why"><summary>ⓘ</summary><div>Tor picks relays you cannot vet. If you know of relays or whole countries you do not trust, list them here and the app's Tor will avoid them for every step it can, including looking up onion addresses. One per line: a relay's 40-letter fingerprint, or a country in braces such as {ru}. Lists published by network researchers can be pasted in. Without "strict", Tor may still use them if it cannot connect otherwise.</div></details></h3>
     <textarea id="tExcl" rows="4" placeholder="{ru}&#10;0123456789ABCDEF0123456789ABCDEF01234567"></textarea>
+    <label class="chk"><input type="checkbox" id="tExclGov"><span><b>Also avoid relays that look governmental</b> <span class="mute">— names like FBI, NSA, Police or Government, or a .gov / .mil contact address. A name proves nothing (anyone can pick one), so this is a best-effort filter, refreshed once a day from the Tor Project's public relay list.</span></span></label>
+    <div class="small" id="tAvoidInfo"></div>
     <label class="chk"><input type="checkbox" id="tExclStrict"><span><b>Strict</b> <span class="mute">— never use them, even if that stops Tor from connecting</span></span></label>
     <div class="small mute">Saved with the other Tor settings. Takes effect the next time Tor starts.</div>
   </div>
@@ -1447,7 +1449,7 @@ function fillTor(force){
   if(!S||(dirty.tor&&!force))return;const c=S.profile.transports.tor;
   $('#tEnable').checked=c.enabled;$('#tOnion').checked=c.onion;$('#tManage').checked=c.manage;
   $('#tSocks').value=c.socks;$('#tCtl').value=c.control||'';$('#tExt').style.display=c.manage?'none':'flex';
-  $('#tSeeds').value=((c.onion_seeds&&c.onion_seeds.length)?c.onion_seeds:S.builtin_onion_seeds.map(b=>b.url)).join('\n');$('#tExcl').value=(c.exclude_nodes||[]).join('\n');$('#tExclStrict').checked=!!c.exclude_strict;$('#tBridges').value=(c.bridges||[]).join('\n');
+  $('#tSeeds').value=((c.onion_seeds&&c.onion_seeds.length)?c.onion_seeds:S.builtin_onion_seeds.map(b=>b.url)).join('\n');$('#tExcl').value=(c.exclude_nodes||[]).join('\n');$('#tExclStrict').checked=!!c.exclude_strict;$('#tExclGov').checked=c.exclude_gov_names!==false;avoidRefresh();$('#tBridges').value=(c.bridges||[]).join('\n');
   (document.querySelector(`input[name=bmode][value=${c.bridge_mode||'off'}]`)||{}).checked=true;$('#bAuto').checked=c.bridge_auto!==false;
   $('#tBuiltin').innerHTML=S.builtin_onion_seeds.map(b=>`<div>${esc(b.name)}: <code>${esc(b.url)}</code></div>`).join('');
   $('#dnsOn').checked=(c.dns_port||0)>0;$('#dnsLan').checked=!!c.dns_lan;fillDnsAddrs();showDns();
@@ -1455,7 +1457,7 @@ function fillTor(force){
 }
 $$('#t-tor input,#t-tor textarea').forEach(i=>i.oninput=()=>{dirty.tor=true;$('#tExt').style.display=$('#tManage').checked?'none':'flex';$('#tSaved').textContent='unsaved changes'});
 async function saveTor(auto){
-  try{await api('/api/config',{transports:{tor:{enabled:$('#tEnable').checked,onion:$('#tOnion').checked,manage:$('#tManage').checked,socks:$('#tSocks').value,control:$('#tCtl').value||null,onion_seeds:$('#tSeeds').value,bridges:$('#tBridges').value,exclude_nodes:$('#tExcl').value,exclude_strict:$('#tExclStrict').checked,bridge_mode:(document.querySelector('input[name=bmode]:checked')||{}).value||'off',bridge_auto:$('#bAuto').checked,dns_port:$('#dnsOn').checked?((S&&S.profile.transports.tor.dns_port)||19053):0,dns_lan:$('#dnsOn').checked&&$('#dnsLan').checked&&!!$('#dnsAddr').value,dns_lan_addr:$('#dnsAddr').value||''}}});
+  try{await api('/api/config',{transports:{tor:{enabled:$('#tEnable').checked,onion:$('#tOnion').checked,manage:$('#tManage').checked,socks:$('#tSocks').value,control:$('#tCtl').value||null,onion_seeds:$('#tSeeds').value,bridges:$('#tBridges').value,exclude_nodes:$('#tExcl').value,exclude_strict:$('#tExclStrict').checked,exclude_gov_names:$('#tExclGov').checked,bridge_mode:(document.querySelector('input[name=bmode]:checked')||{}).value||'off',bridge_auto:$('#bAuto').checked,dns_port:$('#dnsOn').checked?((S&&S.profile.transports.tor.dns_port)||19053):0,dns_lan:$('#dnsOn').checked&&$('#dnsLan').checked&&!!$('#dnsAddr').value,dns_lan_addr:$('#dnsAddr').value||''}}});
     dirty.tor=false;$('#tSaved').textContent='Saved ✓ '+(S&&S.running?(needApply(),'(going live…)'):'');await poll()}catch(e){$('#tSaved').textContent='Not saved: '+e.message;if(!auto)toast(e.message,1)}
 }
 $('#tSave').onclick=()=>saveTor(false);
@@ -1522,6 +1524,12 @@ function renderRelay(){
   const box=$('#rLog').parentElement;box.scrollTop=box.scrollHeight;rGate()}
 async function pollRelay(){if(!$('#t-tor').classList.contains('on'))return;try{R=await api('/api/relay');renderRelay()}catch(e){}}
 setInterval(pollRelay,2500);$$('#nav button').forEach(b=>{if(b.dataset.t==='tor')b.addEventListener('click',()=>setTimeout(pollRelay,0))});
+async function avoidRefresh(force){try{const a=await api('/api/avoid'+(force?'?refresh=1':''));
+  const when=a.at?new Date(a.at*1000).toLocaleString([],{hour12:true}):'not yet';
+  $('#tAvoidInfo').innerHTML=`Avoiding <b>${a.count}</b> relay(s) by name or contact (last scan: ${esc(when)}). `+
+    (a.count?`<details class="small"><summary>Show them</summary>${a.relays.map(x=>esc(x.nickname)+' — '+esc(x.why)).join('<br>')}</details>`:'')+
+    ` <button id="tAvoidNow" class="small">Scan now</button>`;
+  $('#tAvoidNow').onclick=()=>avoidRefresh(true)}catch(e){$('#tAvoidInfo').textContent=e.message}}
 let tbTimer=null;
 async function tbRefresh(){try{const s=await api('/api/torbrowser');
   const o=$('#tbOpen');o.textContent=s.supported?(s.installed?'Open Tor Browser':'Install and open Tor Browser'):'Get Tor Browser (torproject.org)';

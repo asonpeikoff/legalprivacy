@@ -84,7 +84,8 @@ class TransportConfig:
     dns_port: int = 0                 # Tor DNS (optional): 0 = off, else the preferred local UDP port for Tor's DNSPort
     dns_lan: bool = False             # share Tor DNS on one private network address (off; loopback only by default)
     dns_lan_addr: str = ""            # which of this computer's private addresses, when dns_lan is on
-    exclude_nodes: list[str] = field(default_factory=list)   # relays (40-letter fingerprints) or countries ({ru}) Tor must avoid
+    exclude_nodes: list[str] = field(default_factory=lambda: ["{us}"])   # relays (fingerprints) or countries Tor avoids
+    exclude_gov_names: bool = True    # also avoid relays that look governmental by name or .gov/.mil contact
     exclude_strict: bool = False      # True: never use them, even if that means Tor can't connect
 
     def validate(self, name: str) -> None:

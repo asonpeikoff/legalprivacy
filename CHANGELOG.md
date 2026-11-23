@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- **Relays to avoid now default to the US plus governmental-looking relays.** The avoid list starts as `{us}`, and a new option (on by default) also avoids relays whose name looks governmental (FBI, NSA, Police, Government, …) or whose contact is a .gov or .mil address, found in the Tor Project's public relay list and refreshed once a day (the Tor tab shows who is being avoided). Names prove nothing, so this is best effort. "Strict" stays off by default so Tor can always connect.
 - **Tor Browser button** (Tor tab): downloads the official Tor Browser, installs it only after checking its signature against the Tor Browser Developers key (needs GnuPG), keeps it up to date whenever you open it from here, and launches it separately from the noise (own folder, profile and Tor). Never run as root; on Windows and macOS it sends you to the official download page.
 - **The app's own Tor is kept current:** once a day, before it starts, the newest official Tor bundle is looked up and installed if newer. A Tor you installed yourself is never touched.
 - **Relays to avoid** (Tor tab): list relay fingerprints or countries (like {ru}) and the app's Tor avoids them for every step it can, optionally strictly. Pasted entries are checked so they can never add another Tor setting.
