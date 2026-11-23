@@ -100,6 +100,16 @@ CATEGORIES: dict[str, dict] = {
                  "topics": ["large language models", "prompt engineering", "open weight models", "AI coding assistants",
                             "retrieval augmented generation", "AI agents", "fine tuning", "model context protocol",
                             "AI safety research", "local LLM", "speech to text", "image generation"]},
+    "Shopping": {"sites": {"www.ebay.com": 8, "www.amazon.com": 8, "www.walmart.com": 4, "www.target.com": 4,
+                           "www.bestbuy.com": 4, "www.homedepot.com": 3, "www.costco.com": 3, "www.newegg.com": 3,
+                           "www.bhphotovideo.com": 2, "www.etsy.com": 4, "www.lowes.com": 2, "www.wayfair.com": 2,
+                           "www.ikea.com": 2, "www.rei.com": 2, "www.macys.com": 1, "www.kohls.com": 1,
+                           "www.aliexpress.com": 2, "www.slickdeals.net": 2, "camelcamelcamel.com": 1,
+                           "www.thriftbooks.com": 1, "www.abebooks.com": 1, "www.zappos.com": 1},
+                 "queries": ["{t}", "{t} price", "best {t}", "{t} reviews", "{t} used", "{t} deals", "buy {t}"],
+                 "topics": ["usb c hub", "mechanical keyboard", "standing desk", "noise cancelling headphones",
+                            "running shoes", "coffee grinder", "backpack", "monitor arm", "used books", "desk lamp",
+                            "external ssd", "winter jacket", "vintage camera lens", "kitchen scale", "air purifier"]},
     "Web 2.0": {"sites": {"www.reddit.com": 10, "www.youtube.com": 10, "medium.com": 4, "substack.com": 3, "www.quora.com": 3,
                                "www.pinterest.com": 3, "www.tumblr.com": 2, "imgur.com": 3, "www.twitch.tv": 3, "open.spotify.com": 4,
                                "stackoverflow.com": 5, "github.com": 5, "news.ycombinator.com": 5, "www.linkedin.com": 3,
@@ -311,8 +321,8 @@ class Interests:
 PERSONAS: dict[str, dict[str, float]] = {
     "Data scientist": {"Data science": 0.85, "Everyday": 0.15},     # mostly data science, plus everyday life
     # Ason: part data scientist, part ordinary web user (Web 2.0, Wikipedia, everyday), part Objectivist.
-    "Ason": {"Data science": 0.20, "Everyday": 0.13, "Web 2.0": 0.14, "Wikipedia": 0.09, "Objectivism": 0.14,
-             "AI tools": 0.09, "Technology": 0.08, "News": 0.05, "Books": 0.05, "Science": 0.03},
+    "Ason": {"Data science": 0.18, "Everyday": 0.13, "Web 2.0": 0.14, "Wikipedia": 0.09, "Objectivism": 0.14,
+             "AI tools": 0.09, "Shopping": 0.07, "Technology": 0.06, "News": 0.04, "Books": 0.04, "Science": 0.02},
     "Developer": {"Technology": 0.6, "Data science": 0.2, "Science": 0.1, "Books": 0.1},
     "Sports fan": {"Sports": 0.7, "Fitness": 0.15, "Movies & TV": 0.15},
     "Student": {"Science": 0.3, "Books": 0.25, "Technology": 0.2, "Movies & TV": 0.15, "Personal finance": 0.1},
