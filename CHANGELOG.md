@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- **New default persona "Ason"**: part data scientist, part ordinary web user (Web 2.0 sites, Wikipedia, everyday life, technology, news), part Objectivist (about 14% of visits, drawn from about 100 sites: Objectivist organisations, forums, publications and Substacks, chosen so no single site dominates). Python package installs are about twice as frequent, and .onion visits more than twice as frequent. An existing "Data scientist" setting is switched to Ason once; choose another persona in Settings any time.
+- **Fewer repeats:** popular sites in every theme are now favoured gently, so a long list is not dominated by a handful of sites.
 - **Defaults:** the relay-avoid list is now strict by default (turn it off in the Tor tab if Tor will not connect), and long sessions are a little more common (about 9% of page visits).
 - **Clearer wording:** "Prometheus metrics" is now an Advanced, plain-language option for people who run a monitoring dashboard, and "Mostly when I'm active" is marked not recommended because it shows when you are at the computer. "Ignore it" stays the default.
 - **The header logo follows the tab you are on** (main, alternate, main, …) in both the web dashboard (with a fade) and the desktop app (an instant swap). Clicking the web logo still switches it by hand until you change tab. This replaces the 3-minute timer.

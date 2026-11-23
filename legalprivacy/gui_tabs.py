@@ -163,7 +163,7 @@ class DashboardTab(Tab):
     def load(self, v: dict) -> None:
         super().load(v)
         tor_on = bool(v.get("tor_enabled"))
-        pkg = v.get("packages") == "on" or (v.get("packages") != "off" and v.get("persona") in ("Data scientist", "Developer"))
+        pkg = v.get("packages") == "on" or (v.get("packages") != "off" and v.get("persona") in ("Ason", "Data scientist", "Developer"))
         names = F.visible_engines(self.app.ctl.profile.engines, tor_on, pkg)
         eng_vals = v.get("engines_mix", {})
         if self._mix_keys.get("eng") != names:

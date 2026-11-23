@@ -244,7 +244,7 @@ def visible_engines(engines, tor_on: bool, pkg_on: bool) -> list[str]:
 
 
 def packages_on(extras) -> bool:
-    return extras.packages == "on" or (extras.packages != "off" and extras.persona in ("Data scientist", "Developer"))
+    return extras.packages == "on" or (extras.packages != "off" and extras.persona in ("Ason", "Data scientist", "Developer"))
 
 
 def traffic_items(traffic: dict, tor_on: bool) -> list[dict]:

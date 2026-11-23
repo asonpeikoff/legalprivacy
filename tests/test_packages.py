@@ -25,12 +25,12 @@ def _fake(calls, rc=0, out="Downloading numpy-2.1.0-cp312.whl (16.3 MB)\n"):
 
 def test_automatic_means_on_for_techy_personas_only():
     p = Profile(name="t")
-    assert p.extras.persona == "Data scientist" and "packages" in p.active_engines("clearnet")
+    assert p.extras.persona == "Ason" and "packages" in p.active_engines("clearnet")
     apply_overrides(p, {"extras": {"persona": ""}})
     assert "packages" not in p.active_engines("clearnet")
-    apply_overrides(p, {"extras": {"persona": "Data scientist"}})
+    apply_overrides(p, {"extras": {"persona": "Ason"}})
     assert "packages" in p.active_engines("clearnet")
-    apply_overrides(p, {"extras": {"persona": "Data scientist", "packages": "off"}})
+    apply_overrides(p, {"extras": {"persona": "Ason", "packages": "off"}})
     assert "packages" not in p.active_engines("clearnet")
     apply_overrides(p, {"extras": {"persona": "", "packages": "on"}})
     assert "packages" in p.active_engines("clearnet")

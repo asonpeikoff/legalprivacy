@@ -248,7 +248,7 @@ class ExtrasConfig:
     busy_kbps: int = 400          # backoff: pause while your own traffic is above this
     metrics: bool = False         # Prometheus metrics at /metrics (needs the dashboard token)
     site_list: str = "both"       # both = Tranco re-ranked by Chrome's real browsing (CrUX), default | tranco
-    persona: str = "Data scientist"   # who the noise mostly looks like ("" = nobody in particular)
+    persona: str = "Ason"   # who the noise mostly looks like ("" = nobody in particular)
     persona_share: float = 0.9    # how closely the persona is followed (share of visits and searches)
     packages: str = "auto"        # real pip/npm installs (removed again): auto (techy personas) | on | off
     household: bool = False       # noise from a virtual household of several people
@@ -304,7 +304,7 @@ class TrafficConfig:
     pattern: str = "drift"        # drift (default) | blend | alternate
     browser: float = 100.0        # clearnet pages in a real browser (relative weight)
     plain: float = 0.0            # clearnet pages over plain HTTP (no JavaScript, no scrolling)
-    onion: float = 15.0           # Tor .onion sites (only when Tor is on)
+    onion: float = 40.0           # Tor .onion sites (only when Tor is on)
     mobile_share: float = 0.55    # share of noise identities that are phones (most browsing is on phones)
     device: str = "iPhone 13"     # phone to emulate, or "mix"
 
@@ -381,7 +381,7 @@ class Profile:
         "crawl": EngineConfig(budget_per_day=40),
         "dns": EngineConfig(budget_per_day=320),
         "onion": EngineConfig(budget_per_day=40, max_depth=3),
-        "packages": EngineConfig(budget_per_day=12),
+        "packages": EngineConfig(budget_per_day=28),
     })
     transports: dict[str, TransportConfig] = field(default_factory=lambda: {
         "clearnet": TransportConfig(),
