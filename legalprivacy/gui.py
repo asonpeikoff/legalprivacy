@@ -146,7 +146,7 @@ def build_app_class():
             root.title(TITLE)
             root.minsize(940, 640)
             root.geometry("1080x760")
-            self.logo_big = load_logo(tk, "icon.png", 1) or make_logo(tk, 64, "#1d2733", "#4cc07d")
+            self.logo_big = load_logo(tk, "favicon.png", 1) or load_logo(tk, "icon.png", 1) or make_logo(tk, 64, "#1d2733", "#4cc07d")
             self.logo_small = (load_logo(tk, "logo.png", 1 if self.scale >= 2 else 2)
                                or make_logo(tk, 28 * self.scale, "#1d2733", "#4cc07d"))
             try:
