@@ -1,10 +1,9 @@
 """The Proof tab's three activity graphs, drawn on tk.Canvas from the data `Controller.activity_state()` returns."""
 from __future__ import annotations
 
-import time
 import tkinter as tk
 
-from .gui_logic import hours_label, nice_max, scale
+from .gui_logic import clock12, hours_label, nice_max, scale
 from .gui_theme import swatch
 
 PAD_L, PAD_R, PAD_T, PAD_B = 46, 14, 14, 26
@@ -126,7 +125,7 @@ class SessionChart(Chart):
         # time labels
         for k in range(5):
             t = t0 + (t1 - t0) * k / 4
-            self.create_text(scale(t, t0, t1, x0, x1), y1 + 12, text=time.strftime("%H:%M", time.localtime(t)),
+            self.create_text(scale(t, t0, t1, x0, x1), y1 + 12, text=clock12(t),
                              fill=self.pal["muted"], font=("TkDefaultFont", 9))
         self.create_text(x1, y0 - 2, text="requests per 10 minutes (shaded: planned range, red: off plan)",
                          anchor="e", fill=self.pal["muted"], font=("TkDefaultFont", 9))
@@ -187,7 +186,7 @@ class TimelineChart(Chart):
                     base += v
         for k in range(5):
             t = rows[0]["t"] + (rows[-1]["t"] - rows[0]["t"]) * k / 4
-            self.create_text(scale(k, 0, 4, x0, x1), y1 + 12, text=time.strftime("%H:%M", time.localtime(t)),
+            self.create_text(scale(k, 0, 4, x0, x1), y1 + 12, text=clock12(t),
                              fill=self.pal["muted"], font=("TkDefaultFont", 9))
         lx = x0 + 4
         for n, (label, col) in enumerate((("your apps", self.pal["line"]), ("legalPrivacy", self.pal["noise"]),

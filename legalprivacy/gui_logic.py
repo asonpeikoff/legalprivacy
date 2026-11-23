@@ -54,8 +54,17 @@ def fmt_uptime(seconds: float | None) -> str:
     return f"{s}s"
 
 
+def clock12(ts: float | None, seconds: bool = False, day: bool = False) -> str:
+    """A 12-hour time such as 9:05 PM (never 24-hour), optionally with seconds and a weekday."""
+    if not ts:
+        return ""
+    t = time.localtime(ts)
+    out = f"{t.tm_hour % 12 or 12}:{t.tm_min:02d}" + (f":{t.tm_sec:02d}" if seconds else "") + (" AM" if t.tm_hour < 12 else " PM")
+    return (time.strftime("%a ", t) + out) if day else out
+
+
 def fmt_clock(ts: float | None) -> str:
-    return time.strftime("%H:%M:%S", time.localtime(ts)) if ts else ""
+    return clock12(ts, seconds=True)
 
 
 def fmt_log_line(ev: dict) -> str:
@@ -376,7 +385,8 @@ def check_lines(check: dict) -> tuple[str, str, str, str]:
 
 
 def hours_label(h: int) -> str:
-    return f"{h % 24:02d}"
+    h %= 24
+    return f"{h % 12 or 12} {'AM' if h < 12 else 'PM'}"
 
 
 def nice_max(v: float) -> float:

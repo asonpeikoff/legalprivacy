@@ -219,7 +219,7 @@ class DashboardTab(Tab):
         self.k_up.set(L.fmt_uptime(st.get("uptime")) if st.get("running") else "—",
                       f"about {st['hour_target']} action{'' if st['hour_target'] == 1 else 's'} this hour" if st.get("hour_target") else "")
         last = max([x.get("last_hit_ts") or 0 for x in lanes] or [0])
-        self.k_last.set(L.fmt_ago(last), time.strftime("%H:%M:%S", time.localtime(last)) if last else "")
+        self.k_last.set(L.fmt_ago(last), L.clock12(last, seconds=True) if last else "")
         cap = st.get("data_cap_mb")
         self.k_data.set(L.fmt_bytes(st.get("bytes_today")), f"of {cap:g} MB allowed" if cap else "approximate")
         if st.get("running") and not st.get("paused"):

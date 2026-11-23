@@ -273,7 +273,7 @@ class MyListTab(Tab):
                 self.watch_note.configure(text="Recording finished. Press “Collect now” to see the sites it found.")
             else:
                 left = max(0, d["watch_ends"] - now)
-                self.watch_note.configure(text=f"Recording your sites until {time.strftime('%a %H:%M', time.localtime(d['watch_ends']))} "
+                self.watch_note.configure(text=f"Recording your sites until {L.clock12(d['watch_ends'], day=True)} "
                                                f"({L.fmt_uptime(left)} left). Browse as usual.")
             self.b_watch.pack_forget()
             self.b_collect.pack(side="left", padx=(8, 0))
