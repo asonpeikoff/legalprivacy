@@ -822,13 +822,13 @@ class Runner:
                 or target.kind != "html" or target.role in ("search", "linger") or eng_name not in ("crawl", "onion")):
             return
         r, now, scale = self.rng.random(), self.clock(), self.profile.realtime_scale
-        if r < 0.015:
+        if r < 0.025:
             hours = self.rng.uniform(1.0, 4.0)
             lane.linger = {"mode": "away", "url": target.url, "engine": eng_name,
                            "until": now + hours * 3600 * scale, "next_at": 0.0}
             self._emit("info", lane.name, f"Long session: left a page open and stepped away for about {hours:.1f} h "
                                           "(this route is quiet until then).")
-        elif r < 0.05:
+        elif r < 0.09:
             minutes = min(180.0, max(15.0, self.rng.lognormvariate(3.7, 0.6)))    # typically ~40 minutes
             lane.linger = {"mode": "work", "url": target.url, "engine": eng_name,
                            "until": now + minutes * 60 * scale, "next_at": now + self.rng.uniform(120, 600) * scale}

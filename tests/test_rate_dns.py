@@ -264,7 +264,7 @@ def test_long_sessions_start_now_and_then_and_can_be_turned_off():
         lane.linger = None
         r._maybe_linger(lane, "crawl", Target(url="https://example.org/"))
         started += lane.linger is not None
-    assert 40 < started < 200                                  # about 5% of page visits
+    assert 80 < started < 280                                  # about 9% of page visits
     r.profile.extras.long_sessions = False
     lane.linger = None
     for _ in range(500):

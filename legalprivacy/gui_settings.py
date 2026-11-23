@@ -307,14 +307,17 @@ class SettingsTab(Tab):
         self.f_radios(c, "activity", [("off", "Ignore it (default)"),
                                       ("backoff", "Pause while I'm busy", "Stop noise while you use more than the speed below, "
                                                                           "so it never slows you down."),
-                                      ("follow", "Mostly when I'm active", "After 10 idle minutes most noise waits until you "
-                                                                           "are back, so it blends into your real activity.")])
+                                      ("follow", "Mostly when I'm active", "Not recommended: after 10 idle minutes most noise waits "
+                                                                           "until you are back, which also shows when "
+                                                                           "you are at the computer and when you are not.")])
         r = c.row()
         c.lbl(r, "Busy means more than").pack(side="left")
         self.f_spin(r, "busy_kbps", 10, 100000, 50, 8).pack(side="left", padx=6)
         c.lbl(r, "kbit/s  (400 recommended)", True).pack(side="left")
-        self.f_check(c, "metrics", "Prometheus metrics", "Off by default. At /metrics?t=<your dashboard token> in the web "
-                                                         "dashboard, for Grafana and the like.")
+        self.f_check(c, "metrics", "Publish numbers for a monitoring dashboard",
+                     "Off by default; most people never need this. For people who already run a tool such as "
+                     "Prometheus or Grafana: adds a page at /metrics?t=<your dashboard token> in the web dashboard "
+                     "with counts like hits and failures. Nothing leaves this computer.")
         c.heading("Search engines", "always adds up to 100%; every engine also has a hard limit of 8 searches an hour")
         self.se_mix = MixBar(c.body, self.app, [], self.app.edited)
         self.se_mix.pack(fill="x")
