@@ -65,7 +65,7 @@ class TransportConfig:
                                       # only where the system allows it) | visible (watch it work)
     browser_visible: bool = False     # derived from browser_window (kept for older settings files)
     browser_offscreen: bool = False   # derived from browser_window
-    browser_engine: str = "mix"       # clearnet: mix (default: every browser found, per identity) | auto (match yours) | chromium | firefox
+    browser_engine: str = "mine"      # clearnet: mine (default: your own Firefox, on a copy of your profile; else mix) | mix | auto | chromium | firefox
     cookie_hours: float = 1.0         # clearnet: keep browser cookies this long, then start fresh (0 = never keep)
     cookie_vary: bool = True          # clearnet: each jar lives 60-140% of cookie_hours, so wipes aren't on a fixed beat
     # --- tor lane only ---
@@ -93,8 +93,8 @@ class TransportConfig:
             raise ConfigError(f"transport '{name}': browser must be auto, on or off")
         if self.browser_window not in ("hidden", "offscreen", "visible"):
             raise ConfigError(f"transport '{name}': browser_window must be hidden, offscreen or visible")
-        if self.browser_engine not in ("mix", "auto", "chromium", "firefox"):
-            raise ConfigError(f"transport '{name}': browser_engine must be mix, auto, chromium or firefox")
+        if self.browser_engine not in ("mine", "mix", "auto", "chromium", "firefox"):
+            raise ConfigError(f"transport '{name}': browser_engine must be mine, mix, auto, chromium or firefox")
         if self.bridge_mode not in ("off", "obfs4", "snowflake", "meek", "custom"):
             raise ConfigError("tor bridge_mode must be off, obfs4, snowflake, meek or custom")
         for n in self.exclude_nodes:

@@ -281,7 +281,7 @@ def test_browser_mix_is_the_default_and_routes_by_identity():
     from legalprivacy.browser import MixedBrowserTransport
     from legalprivacy.config import Profile
     p = Profile(name="d")
-    assert p.transports["clearnet"].browser_engine == "mix" and p.identity.ua_mode == "mix"
+    assert p.transports["clearnet"].browser_engine == "mine" and p.identity.ua_mode == "mix"
     chrome, ff = NS(dimmed=False, closed=False, name="c"), NS(dimmed=False, closed=False, name="f")
     chrome.hit = lambda i, t: "chromium"
     ff.hit = lambda i, t: "firefox"

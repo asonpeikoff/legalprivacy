@@ -693,7 +693,8 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
       <span class="small" id="sBrowserInfo"></span></div>
     <div class="small mute">A real Chrome/Edge/Chromium scrolls, pauses to read, moves the mouse, clicks or taps search results and now and then downloads a file (discarded). Plain HTTP can't do any of that and is easier to spot.</div>
     <div class="row">Browser engine <select id="sEngine">
-      <option value="mix">Mix every browser found (recommended, default)</option>
+      <option value="mine">My own Firefox, with my settings, add-ons and bookmarks (recommended, default)</option>
+      <option value="mix">Mix every browser found (the app's own copies)</option>
       <option value="auto">Match my own browser only</option>
       <option value="chromium">Chromium / Chrome</option>
       <option value="firefox">Firefox</option></select></div>
@@ -1735,7 +1736,7 @@ function fillSettings(force){
     ...(torOn2?[{key:'onion',label:'Tor .onion sites',value:tr.onion??15,hint:'(about 10–15% recommended)'}]:[])]);
   $('#xMobile').value=Math.round((tr.mobile_share??0.55)*100);$('#xDevice').value=tr.device||'iPhone 13';
   $('#xDevice').onchange=()=>{dirty.set=true;$('#sSaved').textContent='unsaved changes'};
-  $('#sBrowser').value=p.transports.clearnet.browser||'auto';$('#sEngine').value=p.transports.clearnet.browser_engine||'mix';$('#sWin').value=p.transports.clearnet.browser_window||'hidden';$('#sCookies').value=String(p.transports.clearnet.cookie_hours??1);$('#sCookieVary').checked=p.transports.clearnet.cookie_vary!==false;
+  $('#sBrowser').value=p.transports.clearnet.browser||'auto';$('#sEngine').value=p.transports.clearnet.browser_engine||'mine';$('#sWin').value=p.transports.clearnet.browser_window||'hidden';$('#sCookies').value=String(p.transports.clearnet.cookie_hours??1);$('#sCookieVary').checked=p.transports.clearnet.cookie_vary!==false;
   const q=p.queries||{};$('#qLive').checked=q.live!==false;$('#qData').checked=q.dataset!==false;$('#qBuiltin').checked=q.builtin!==false;$('#qWords').checked=q.words!==false;$('#sAuto').checked=!!S.app.autostart;$('#sClearLogs').checked=S.app.clear_logs_on_restart!==false;$('#sPath').textContent=S.config_path;dirty.set=false;
   fillAcc(p);
   $$('#t-set input').forEach(i=>i.oninput=()=>{dirty.set=true;$('#sSaved').textContent='unsaved changes'});

@@ -895,15 +895,30 @@ class Controller:
                 "active": bool(active and ok), "visible": cfg.browser_visible}
 
     def _clearnet_transport(self, stop: threading.Event):
-        info = self.browser_info()
         cfg = self.profile.transports["clearnet"]
+        if cfg.browser == "off":
+            return None
+        if cfg.browser_engine == "mine":                 # your own Firefox, on a copy of your settings and add-ons
+            from . import realfirefox as RF
+            ok, why = RF.support()
+            if ok:
+                from . import useragents as _ua
+                _ua.set_firefox_engine(None)
+                self.log.info("browser", "Browsing with your own Firefox, on a private copy of your settings, add-ons and "
+                                         "bookmarks (no logins, cookies or history).")
+                return RF.RealFirefoxTransport(
+                    firefox=why, profile=RF.default_profile(), proxy=cfg.proxy, headless=not cfg.browser_visible,
+                    stop_event=stop, scale=lambda: self.profile.realtime_scale, cookie_hours=cfg.cookie_hours,
+                    on_event=lambda lvl, msg: self.log.add(lvl, "browser", msg))
+            self.log.info("browser", f"Using the app's own browsers instead of your Firefox: {why}.")
+        info = self.browser_info()
         if not info["active"]:
             if cfg.browser == "on":
                 self.log.warn("browser", f"Real-browser mode is on but unavailable: {info['detail']}. "
                                          "Using plain HTTP instead.")
             return None
         from .browser import BrowserTransport, MixedBrowserTransport, find_playwright_firefox
-        mix = cfg.browser_engine == "mix"
+        mix = cfg.browser_engine in ("mix", "mine")
         engine = "chromium" if mix else self._browser_engine()
         import os as _os
         wayland = bool(_os.environ.get("WAYLAND_DISPLAY")) or _os.environ.get("XDG_SESSION_TYPE") == "wayland"

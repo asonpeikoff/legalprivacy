@@ -50,6 +50,12 @@ existing settings, start-up commands (`cricket`, `cricket-launch`) and `CRICKET_
 | pip | `pip install .` then `legalprivacy-launch` (or `python -m legalprivacy`) |
 | Docker | `docker compose up -d`, then `docker compose logs legalprivacy` for the dashboard link. See [docs/DOCKER.md](docs/DOCKER.md). |
 
+**It browses with your own Firefox.** By default the noise browser is the Firefox installed on your computer, started on a
+private *copy* of your profile: your settings, add-ons and bookmarks, so it looks like your browser. Logins, cookies and the
+list of pages you visited are never copied, your real profile is only read, and the copy is deleted when the browser closes.
+This uses Selenium and geckodriver (installed with the app); Firefox from Snap or Flatpak can't be driven, so there it falls
+back to the app's own browsers (the Live Log says why).
+
 **Run it as a background service (Linux).** `./start-legalprivacy.sh --service` installs a systemd user service that
 starts when you log in and keeps legalPrivacy running with no window. The dashboard is still the same web page: run
 `./start-legalprivacy.sh --url` to print its link, and `./start-legalprivacy.sh --uninstall-service` to remove the service.
