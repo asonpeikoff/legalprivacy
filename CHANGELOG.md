@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- **Updated logo** (cleaner lettering) in the dashboard header, the browser-tab icon, the desktop app and the README.
 - **Fixed: the dashboard said "disconnected" and the Tor tab stayed empty while noise was running.** A drawing error in the lane cards (added with the dashboard redesign) stopped the page from finishing each update, so the status pill showed "disconnected" and the Tor status and circuits were never drawn, even though noise and Tor were working. A drawing problem can no longer be shown as "disconnected", and a new browser test checks the dashboard and Tor tab while running.
 - **The browser-tab icon is now the new logo** (the gold "P"); it was still the old green icon. The desktop app uses it as its window icon too.
 - Removed the decorative power and Tor icons next to the status pills in the top bar; they looked like buttons but did nothing.
