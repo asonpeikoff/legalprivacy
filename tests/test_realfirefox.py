@@ -139,3 +139,29 @@ def test_a_broken_driver_is_reported_not_raised(tmp_path):
     res = t.hit(None, Target(url="https://example.org/"))
     assert not res.ok and "Firefox unavailable" in res.error
     t.close()
+
+
+def test_if_your_firefox_cannot_start_the_apps_own_browser_takes_over(tmp_path):
+    class Alt:
+        def __init__(self):
+            self.hits = []
+
+        def hit(self, identity, target):
+            self.hits.append(target.url)
+            from legalprivacy.transports import HitResult
+            return HitResult(200, "from the app's own browser")
+
+        def close(self):
+            self.hits.append("closed")
+
+    def boom(copy):
+        raise RuntimeError("geckodriver could not be downloaded")
+    alt, events = Alt(), []
+    t = RF.RealFirefoxTransport("/usr/bin/firefox", _profile(tmp_path / "real"), driver_factory=boom,
+                                alt_factory=lambda: alt, on_event=lambda lvl, msg: events.append((lvl, msg)))
+    assert t.hit(None, Target(url="https://example.org/")).ok
+    assert t.hit(None, Target(url="https://example.net/")).ok
+    assert alt.hits == ["https://example.org/", "https://example.net/"]
+    assert len([e for e in events if e[0] == "warn"]) == 1                  # said once, not on every visit
+    t.close()
+    assert alt.hits[-1] == "closed"

@@ -207,7 +207,7 @@ class RealFirefoxTransport:
     def __init__(self, firefox: str, profile: Path, proxy: str | None = None, headless: bool = True,
                  stop_event: threading.Event | None = None, scale: Callable[[], float] = lambda: 1.0,
                  on_event: Callable[[str, str], None] | None = None, rng: random.Random | None = None,
-                 cookie_hours: float = 1.0, driver_factory=None):
+                 cookie_hours: float = 1.0, driver_factory=None, alt_factory=None):
         self.firefox, self.profile_src, self.proxy, self.headless = firefox, Path(profile), proxy, headless
         self.stop_event, self.scale, self.cookie_hours = stop_event, scale, max(0.0, float(cookie_hours or 0))
         self.on_event = on_event or (lambda level, msg: None)
@@ -221,6 +221,7 @@ class RealFirefoxTransport:
         self._copy: Path | None = None
         self._cookies_at = time.time()
         self._factory = driver_factory
+        self._alt_factory, self._alt = alt_factory, None       # the app's own browser, if yours can't be started
 
     # ── lifecycle ──────────────────────────────────────────────────────────
     def _ensure(self) -> None:
@@ -249,6 +250,8 @@ class RealFirefoxTransport:
                               f"Logins, cookies and history were not copied.")
 
     def close(self) -> None:
+        if self._alt is not None and hasattr(self._alt, "close"):
+            self._alt.close()
         d, self._driver = self._driver, None
         if d is not None:
             try:
@@ -289,10 +292,18 @@ class RealFirefoxTransport:
     def hit(self, identity, target: Target) -> HitResult:
         if target.kind != "html":
             return self.fallback.hit(identity, target)
+        if self._alt is not None:
+            return self._alt.hit(identity, target)
         try:
             self._ensure()
         except Exception as exc:
-            return HitResult(None, error=f"Firefox unavailable: {str(exc).splitlines()[0][:150] if str(exc) else exc!r}")
+            reason = str(exc).splitlines()[0][:150] if str(exc) else repr(exc)
+            if self._alt_factory is not None:                    # don't fail forever: use the app's own browser
+                self.on_event("warn", f"Your Firefox could not be started ({reason}). Using the app's own browsers instead.")
+                self._alt = self._alt_factory()
+                if self._alt is not None:
+                    return self._alt.hit(identity, target)
+            return HitResult(None, error=f"Firefox unavailable: {reason}")
         d = self._driver
         if self.cookie_hours and time.time() - self._cookies_at > self.cookie_hours * 3600 * self.rng.uniform(.6, 1.4):
             try:

@@ -909,8 +909,14 @@ class Controller:
                 return RF.RealFirefoxTransport(
                     firefox=why, profile=RF.default_profile(), proxy=cfg.proxy, headless=not cfg.browser_visible,
                     stop_event=stop, scale=lambda: self.profile.realtime_scale, cookie_hours=cfg.cookie_hours,
-                    on_event=lambda lvl, msg: self.log.add(lvl, "browser", msg))
+                    on_event=lambda lvl, msg: self.log.add(lvl, "browser", msg),
+                    alt_factory=lambda: self._own_browsers_transport(stop))
             self.log.info("browser", f"Using the app's own browsers instead of your Firefox: {why}.")
+        return self._own_browsers_transport(stop)
+
+    def _own_browsers_transport(self, stop: threading.Event):
+        """The app's own Chromium/Firefox copies (a blank profile): the fallback when your Firefox can't be used."""
+        cfg = self.profile.transports["clearnet"]
         info = self.browser_info()
         if not info["active"]:
             if cfg.browser == "on":
