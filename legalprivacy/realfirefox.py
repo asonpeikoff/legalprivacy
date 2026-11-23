@@ -236,6 +236,7 @@ class RealFirefoxTransport:
             from selenium.webdriver.firefox.options import Options
             opts = Options()
             opts.binary_location = self.firefox
+            opts.add_argument("--no-remote")          # no desktop-bus "remote" listener (it complains when stopped)
             if self.headless:
                 opts.add_argument("-headless")
             opts.profile = webdriver.FirefoxProfile(str(self._copy))
