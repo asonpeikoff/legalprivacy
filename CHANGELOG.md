@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- **Larger header logo** (same header height) and a larger, margin-trimmed logo in the README.
 - **Logo updated** to the latest version everywhere it appears (dashboard header, browser-tab icon, desktop app, README).
 - **Onion sites are named** in Activity and the Live Log (for example "BBC · …" or "Tor Browser Manual · …"), so you can tell what a long .onion address is.
 - **Onion list: 37 sites, all checked, and no wandering.** Added 19 public pages from the Tor Project's own published list (blog, support, forum, manuals and more; every address passes the v3 checksum). Removed dark.fail, a link directory that also lists illicit sites. The onion walk now only follows links on the same site or to another site on the list, never to an address nobody vetted.
