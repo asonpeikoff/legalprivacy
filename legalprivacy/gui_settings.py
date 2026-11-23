@@ -441,7 +441,7 @@ class SettingsTab(Tab):
                "and then downloads a file (discarded). Plain HTTP cannot do any of that and is easier to spot.")
         r = c.row()
         c.lbl(r, "Browser engine").pack(side="left")
-        self.f_combo(r, "engine", [("mix", "Mix every browser found (recommended)"), ("auto", "Match my own browser only"), ("chromium", "Chromium / Chrome"),
+        self.f_combo(r, "engine", [("mine", "My own Firefox, with my settings, add-ons and bookmarks (recommended)"), ("mix", "Mix every browser found"), ("auto", "Match my own browser only"), ("chromium", "Chromium / Chrome"),
                                    ("firefox", "Firefox")], 34).pack(side="left", padx=8)
         r = c.row()
         c.lbl(r, "Browser window").pack(side="left")
