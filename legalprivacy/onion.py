@@ -39,10 +39,17 @@ BUILTIN_ONION_SEEDS: list[tuple[str, str]] = [
     ("Blockchair", "http://blkchairbknpn73cfjhevhla7rkp4ed5gg2knctvv7it4lioy22defid.onion/"),
     ("Mullvad VPN", "http://o54hon2e2vj6c7m3aqqu6uyece65by3vgoxxhlqlsvkmacw6a7m7kiad.onion/"),
     ("Njalla", "http://njallalafimoej5i4eg7vlnqjvmb6zhdh27qxcatdn647jtwwwui3nad.onion/"),
-    ("Facebook", "https://facebookwkhpilnemxj7asaniu7vnjjbiltxjqhye3mhbshg7kx5tfyd.onion/"),
     ("Keybase", "http://keybase5wmilwokqirssclfnsqrjdsi7jdir5wy7y7iu3tanwmtp6oid.onion/"),
     ("keys.openpgp.org", "http://zkaan2xfbuxia2wpf7ofnkbz6r5zdbbvxbunvp5g2iebopbfc4iqmbad.onion/"),
     ("Archive.today", "http://archiveiya74codqgiixo33q62qlrqtkgmcitqx5u2oeqnmn5bpcbiyd.onion/"),
+    # Added after checking dark.fail, tor.taxi and daunt.link: only sites that at least two of the three list,
+    # and only lawful services (news, privacy software, email and chat, a VPN). Markets, drug, hacking, adult,
+    # piracy and law-enforcement entries were skipped.
+    ("Whonix", "http://dds6qkxpwdeubwucdiaord2xgbbeyds25rbsgr73tbfpqpt4a6vjwsyd.onion/"),
+    ("OnionShare", "http://lldan5gahapx5k7iafb3s4ikijc4ni7gx5iywdflkba5y2ezyg6sjgyd.onion/"),
+    ("Cryptostorm VPN", "http://stormwayszuh4juycoy4kwoww5gvcu2c4tdtpkup667pdwe4qenzwayd.onion/"),
+    ("XMPP.is", "http://6voaf7iamjpufgwoulypzwwecsm2nu7j5jpgadav2rfqixmpl4d65kid.onion/"),
+    ("The Tor Times", "http://tortimeswqlzti2aqbjoieisne4ubyuoeiiugel2layyudcfrwln76qd.onion/"),
     # The Tor Project's own published list (onion.torproject.org): its public, human-facing pages.
     # Infrastructure hosts (monitoring, mail, staging, donor systems) are left out.
     ("Tor Project Blog", "http://pzhdfe7jraknpj2qgu5cz2u3i4deuyfwmonvzu5i3nyw4t4bmg7o5pad.onion/"),

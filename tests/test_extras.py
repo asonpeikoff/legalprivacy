@@ -429,3 +429,29 @@ def test_onion_walk_never_leaves_the_vetted_list():
     picks = {f.next_from(html, a).url for _ in range(100)}
     assert picks <= {a + "docs", b}
     assert not OnionTargetFactory(rng=_r.Random(1), follow_offsite=False).next_from(f'<a href="{b}">listed</a>', a)
+
+
+def test_onion_list_has_no_facebook_and_has_the_cross_checked_additions():
+    from legalprivacy.onion import BUILTIN_ONION_SEEDS, is_valid_v3_onion
+    names = {n for n, _ in BUILTIN_ONION_SEEDS}
+    assert "Facebook" not in names
+    assert {"Whonix", "OnionShare", "Cryptostorm VPN", "XMPP.is", "The Tor Times"} <= names
+    assert all(is_valid_v3_onion(u.split("/")[2]) for _, u in BUILTIN_ONION_SEEDS)
+    assert len({u for _, u in BUILTIN_ONION_SEEDS}) == len(BUILTIN_ONION_SEEDS)
+
+
+def test_a_broken_certificate_counts_as_a_site_that_is_down_and_is_remembered(tmp_path, monkeypatch):
+    from legalprivacy.scheduler import _onion_offline
+    assert _onion_offline(HitResult(None, error="SOCKSHTTPSConnectionPool(host='x.onion'): SSLError(SSLCertVerificationError)"))
+    monkeypatch.setenv("LEGALPRIVACY_HOME", str(tmp_path))
+    r = _runner({}, probe=lambda *a: HitResult(200, "x"))
+    r.rate = object()                                   # app mode: kept between runs
+    url = "http://" + "a" * 56 + ".onion/"
+    r._onion_seen_dead(url)
+    r._onion_seen_dead(url)
+    assert r._onion_is_dead(url)
+    r2 = _runner({}, probe=lambda *a: HitResult(200, "x"))
+    r2.rate = object()
+    assert r2._onion_is_dead(url)                       # a new run still knows it was down
+    r2._onion_seen_alive(url)
+    assert not r2._onion_is_dead(url)
