@@ -66,7 +66,7 @@ def test_torrc_avoids_listed_relays(tmp_path, monkeypatch):
 def test_default_avoid_list_is_the_us_plus_governmental_names():
     from legalprivacy.config import Profile
     tor = Profile(name="d").transports["tor"]
-    assert tor.exclude_nodes == ["{us}"] and tor.exclude_gov_names is True and tor.exclude_strict is False
+    assert tor.exclude_nodes == ["{us}"] and tor.exclude_gov_names is True and tor.exclude_strict is True
 
 
 def test_governmental_names_are_found_without_catching_ordinary_words(tmp_path):

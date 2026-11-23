@@ -520,7 +520,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <textarea id="tExcl" rows="4" placeholder="{ru}&#10;0123456789ABCDEF0123456789ABCDEF01234567"></textarea>
     <label class="chk"><input type="checkbox" id="tExclGov"><span><b>Also avoid relays that look governmental</b> <span class="mute">— names like FBI, NSA, Police or Government, or a .gov / .mil contact address. A name proves nothing (anyone can pick one), so this is a best-effort filter, refreshed once a day from the Tor Project's public relay list.</span></span></label>
     <div class="small" id="tAvoidInfo"></div>
-    <label class="chk"><input type="checkbox" id="tExclStrict"><span><b>Strict</b> <span class="mute">— never use them, even if that stops Tor from connecting</span></span></label>
+    <label class="chk"><input type="checkbox" id="tExclStrict"><span><b>Strict</b> <span class="mute">(on by default) — never use them, even if that stops Tor from connecting. Turn it off if Tor won't connect.</span></span></label>
     <div class="small mute">Saved with the other Tor settings. Takes effect the next time Tor starts.</div>
   </div>
   <div class="card" id="relayCard"><h3><svg class="ic" aria-hidden="true"><use href="#i-tor"/></svg>Contribute to Tor: run a relay (optional)</h3>
@@ -671,8 +671,9 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div style="margin-top:10px"><b>Your own activity</b> <span class="small mute">— reads only your computer's total traffic counters, never what's in it</span></div>
     <label class="opt"><input type="radio" name="iact" value="off"> <b>Ignore it</b> <span class="mute">(default)</span></label>
     <label class="opt"><input type="radio" name="iact" value="backoff"> <b>Pause while I'm busy</b> <span class="mute">— stop noise while you use more than <input type="number" id="iBusy" min="10" step="50" style="width:80px"> kbit/s (400 recommended), so it never slows you down</span></label>
-    <label class="opt"><input type="radio" name="iact" value="follow"> <b>Mostly when I'm active</b> <span class="mute">— after 10 idle minutes most noise waits until you're back, so it blends into your real activity</span></label>
-    <label class="chk" style="margin-top:8px"><input type="checkbox" id="eMetrics"><span><b>Prometheus metrics</b> <span class="mute">(off by default) — at <code>/metrics?t=&lt;your dashboard token&gt;</code>, for Grafana and the like</span></span></label>
+    <label class="opt"><input type="radio" name="iact" value="follow"> <b>Mostly when I'm active</b> <span class="mute">— not recommended: after 10 idle minutes most noise waits until you're back, which also shows when you are at the computer and when you are not</span></label>
+    <details class="small" style="margin-top:8px"><summary>Advanced: monitoring</summary>
+      <label class="chk"><input type="checkbox" id="eMetrics"><span><b>Publish numbers for a monitoring dashboard</b> <span class="mute">(off by default; most people never need this) — for people who already run a tool such as Prometheus or Grafana. It adds a page at <code>/metrics?t=&lt;your dashboard token&gt;</code> with counts like hits and failures. Nothing leaves this computer.</span></span></label></details>
     <div style="margin-top:8px"><b>Search engines</b> <span class="small mute">— always adds up to 100%. Every engine also has a hard limit of 8 searches an hour.</span></div>
     <div id="eEngines"></div>
     <div class="row"><button id="eEngReset">Back to defaults</button> <span class="small mute">(defaults recommended: mostly Google and DuckDuckGo, like real people)</span></div>

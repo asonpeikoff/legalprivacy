@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- **Defaults:** the relay-avoid list is now strict by default (turn it off in the Tor tab if Tor will not connect), and long sessions are a little more common (about 9% of page visits).
+- **Clearer wording:** "Prometheus metrics" is now an Advanced, plain-language option for people who run a monitoring dashboard, and "Mostly when I'm active" is marked not recommended because it shows when you are at the computer. "Ignore it" stays the default.
 - **The header logo follows the tab you are on** (main, alternate, main, …) in both the web dashboard (with a fade) and the desktop app (an instant swap). Clicking the web logo still switches it by hand until you change tab. This replaces the 3-minute timer.
 - **Clicking the header logo switches** between the two logos at once (and restarts the 3-minute timer).
 - **Firefox leads:** when Firefox is installed for the noise browser, most desktop noise identities are Firefox and the rest Chromium; when it is not, none claim to be Firefox (so a user agent never disagrees with the browser running it).
