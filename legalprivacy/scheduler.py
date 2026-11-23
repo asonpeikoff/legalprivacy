@@ -782,7 +782,6 @@ class Runner:
             if self._stopped() or self.paused:
                 continue
             target = self._make_target(lane, eng_name, lane.identity)
-            t0 = time.time()
             try:
                 result = self._probe(lane, lane.identity, target)
             except Exception as exc:                       # a side stream must never take the app down
