@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- **Searches now lead to the sites visited.** About two thirds of visits to a persona site begin with a topical search (never just the site's name) on a randomly chosen search engine, and the click that follows goes to that site, a few seconds later instead of whenever the dice allow. Clicking a result after a search is also more likely (85%).
 - **New default persona "Ason"**: part data scientist, part ordinary web user (Web 2.0 sites, Wikipedia, everyday life, technology, news), part Objectivist (about 14% of visits, drawn from about 100 sites: Objectivist organisations, forums, publications and Substacks, chosen so no single site dominates). Python package installs are about twice as frequent, and .onion visits more than twice as frequent. An existing "Data scientist" setting is switched to Ason once; choose another persona in Settings any time.
 - **Fewer repeats:** popular sites in every theme are now favoured gently, so a long list is not dominated by a handful of sites.
 - **Defaults:** the relay-avoid list is now strict by default (turn it off in the Tor tab if Tor will not connect), and long sessions are a little more common (about 9% of page visits).

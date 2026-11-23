@@ -291,3 +291,34 @@ def test_search_engine_that_cuts_the_connection_is_rested_for_a_while():
     assert E._ENGINE_COOLDOWN.get(bing, 0) > 0
     E._ENGINE_COOLDOWN.pop(bing, None)
     assert lane
+
+
+def test_a_visit_to_a_persona_site_starts_with_a_search_that_leads_there():
+    from legalprivacy.interests import query_for_site
+    from legalprivacy.transports import Target
+    p = Profile(name="t")
+    apply_overrides(p, {"rate": {"mode": "steady", "level": 10}})
+    serp = '<html><body><a href="https://www.geeksforgeeks.org/pandas-groupby/">GfG</a><a href="https://other.example/x">o</a></body></html>'
+    r = Runner(profile=p, lanes=build_lanes(p, ["w"]), wordlist=["w"], sleep_fn=lambda s: None,
+               probe_fn=lambda lane, ident, t: HitResult(200, serp), rate=RatePlanner(random.Random(2), p.rate))
+    r.rng.seed(4)
+    lane = next(ln for ln in r.lanes if "search" in ln.engines and "crawl" in ln.engines)
+    for b in lane.budgets.values():
+        b.per_day, b.spent = 1000, 0
+    visit = Target(url="https://www.geeksforgeeks.org/", note="popular site")
+    led = None
+    for _ in range(40):
+        led = r._search_led(lane, visit)
+        if led:
+            break
+    assert led and led.role == "search" and "geeksforgeeks" in led.note       # a topical search, not the site's name
+    assert "geeksforgeeks" not in led.url.lower()
+    assert lane.pending_visit is visit
+    # when the search comes back, the click goes to that site and happens next
+    r._settle(lane, "search", led, HitResult(200, serp))
+    assert lane.follow_next is not None and "geeksforgeeks" in lane.follow_next.url and lane.follow_next.role == "result"
+    forced = r._follow_due([])
+    assert forced and forced[1] == "search" and forced[2].referer == led.url and lane.follow_next is None
+    assert query_for_site(random.Random(1), "en.wikipedia.org/wiki/Aristotle") in (
+        "Aristotle wikipedia", "Aristotle", "what is Aristotle", "Aristotle history")
+    assert query_for_site(random.Random(1), "no-such-site.example") is None
