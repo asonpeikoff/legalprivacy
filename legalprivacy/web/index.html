@@ -640,6 +640,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <label class="chk"><input type="checkbox" id="eHours"><span><b>Only make noise during these hours</b> <span class="mute">(off by default; noise outside your waking hours can look odd, so this helps if your days are regular)</span></span></label>
     <div class="row">from <select id="eFrom"></select> to <select id="eTo"></select> <span class="small mute">your local time</span></div>
     <label class="chk"><input type="checkbox" id="eDns"><span><b>Look sites up like a browser does</b> <span class="mute">(recommended, on) — also asks for IPv6 (AAAA) and HTTPS records, not just the address</span></span></label>
+    <label class="chk"><input type="checkbox" id="eLong"><span><b>Long sessions</b> <span class="mute">(on by default) — now and then the noise keeps going back to one page for half an hour or more, or leaves it open for a few hours as if you stepped away, then comes back to it. People do this with things they care about.</span></span></label>
     <label class="chk"><input type="checkbox" id="eTypos"><span><b>More typos in searches</b> <span class="mute">(off by default) — a few searches always have a small slip; this makes it about 1 in 9</span></span></label>
     <label class="chk"><input type="checkbox" id="ePolite"><span><b>Polite mode</b> <span class="mute">(off by default) — never the same site twice within a minute</span></span></label>
     <label class="chk"><input type="checkbox" id="eLow"><span><b>Low-data mode</b> <span class="mute">(off by default) — the real browser skips images, video and fonts. Saves data, but real browsers load images, so it looks less real</span></span></label>
@@ -1343,7 +1344,7 @@ function laneCard(l){
   const EN={search:'Web searches',crawl:'Visits to websites',dns:'Name (DNS) lookups',onion:'Visits to .onion sites (Tor)',packages:'Package installs (pip, npm)'};
   const isT=l.name==='tor';
   const rows=Object.entries(l.engines).map(([e,b])=>`<tr><td style="width:90px" title="${esc(EN[e]||e)}">${e==='onion'?'🧅 ':''}${esc(e)}</td><td><div class="bar ${isT?'tor':''}"><i style="width:${Math.min(100,100*b.spent/Math.max(1,b.per_day))}%"></i></div></td><td style="width:150px" class="mute"><span title="Requests of this kind used so far, out of the limit for this hour">${b.spent}/${b.per_day} this hour</span></td></tr>`).join('');
-  const st=!l.open?'<span class="pill warn" title="Tor is still starting. This lane begins as soon as Tor is ready.">waiting for Tor</span>':l.dimmed?'<span class="pill warn" title="A website pushed back, so noise moves on to other sites and this route is used a little less for a while. Normal; it recovers by itself.">slowed down</span>':'<span class="pill ok">active</span>';
+  const st=!l.open?'<span class="pill warn" title="Tor is still starting. This lane begins as soon as Tor is ready.">waiting for Tor</span>':l.linger==='away'?'<span class="pill" title="Long session: a page was left open as if you stepped away. This route stays quiet for a few hours, then comes back to the same page.">stepped away</span>':l.linger==='work'?'<span class="pill ok" title="Long session: it keeps going back to the same page for a while, like working on something.">long session</span>':l.dimmed?'<span class="pill warn" title="A website pushed back, so noise moves on to other sites and this route is used a little less for a while. Normal; it recovers by itself.">slowed down</span>':'<span class="pill ok">active</span>';
   return `<div class="card"><h3>${isT?'🧅 Through Tor':'Regular internet'} ${st}</h3><table><tbody>${rows}</tbody></table>${l.last_error?`<div class="small warnc" style="margin-top:6px">last error: ${esc(l.last_error)}</div>`:''}</div>`
 }
 function renderSpark(){
@@ -1692,7 +1693,7 @@ function fillSettings(force){
   $('#sClear').checked=p.transports.clearnet.enabled;loadUA();
   const ex=p.extras||{};const hrs=[...Array(24).keys()].map(h=>`<option value="${h}">${String(h).padStart(2,'0')}:00</option>`).join('');
   $('#eFrom').innerHTML=hrs;$('#eTo').innerHTML=hrs;$('#eFrom').value=ex.active_from??8;$('#eTo').value=ex.active_to??23;
-  $('#eHours').checked=!!ex.active_hours;$('#eDns').checked=ex.browser_dns!==false;$('#eTypos').checked=!!ex.typos;
+  $('#eHours').checked=!!ex.active_hours;$('#eDns').checked=ex.browser_dns!==false;$('#eTypos').checked=!!ex.typos;$('#eLong').checked=ex.long_sessions!==false;
   $('#ePolite').checked=!!ex.polite;$('#eLow').checked=!!ex.low_data;$('#eCap').value=ex.daily_data_mb||0;
   renderEngines(ex.search_engines||{});
   $('#ePkg').value=ex.packages||'auto';
@@ -1745,7 +1746,7 @@ async function saveSettings(auto){
       traffic:{pattern:(document.querySelector('input[name=xpat]:checked')||{}).value||'drift',...(()=>{const m=window._trMix.values();return {browser:m.browser,plain:m.plain,onion:m.onion??window._trOnion}})(),
                mobile_share:parseInt($('#xMobile').value||0)/100,device:$('#xDevice').value},
       extras:{active_hours:$('#eHours').checked,active_from:parseInt($('#eFrom').value),active_to:parseInt($('#eTo').value),
-              browser_dns:$('#eDns').checked,typos:$('#eTypos').checked,polite:$('#ePolite').checked,low_data:$('#eLow').checked,
+              browser_dns:$('#eDns').checked,typos:$('#eTypos').checked,long_sessions:$('#eLong').checked,polite:$('#ePolite').checked,low_data:$('#eLow').checked,
               daily_data_mb:parseFloat($('#eCap').value||0),search_engines:engWeights(),
               interests:$('#iOn').checked,interest_active:parseInt($('#iN').value||3),interest_rotate_days:parseInt($('#iDays').value||10),
               interest_share:parseInt($('#iShare').value||30)/100,
