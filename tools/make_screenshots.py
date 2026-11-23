@@ -151,9 +151,9 @@ def main() -> int:
     threading.Thread(target=srv.httpd.serve_forever, daemon=True).start()
     with sync_playwright() as pw:
         browser = pw.chromium.launch(executable_path=exe)
-        for theme in ("light",):
+        if True:
             page = browser.new_page(viewport={"width": 1280, "height": 900}, device_scale_factor=2,
-                                    color_scheme=theme)
+                                    color_scheme="light")
             page.goto(srv.url)
             page.wait_for_timeout(2500)
             page.add_style_tag(content="#wiz{display:none!important}")
