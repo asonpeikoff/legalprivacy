@@ -1369,7 +1369,7 @@ function renderAct(){
   $('#aCount').textContent=rows.length+' shown / '+hits.length;
   const lane=l=>l==='tor'?'🧅 tor':l==='clearnet-plain'?'plain HTTP':'clearnet';
   const onP=s=>!s?'':s<60?Math.round(s)+' s':s<3600?Math.floor(s/60)+' m '+Math.round(s%60)+' s':'1 h+';
-  $('#aBody').innerHTML=rows.map(h=>`<tr><td>${fmtT(h.ts)}</td><td class="acol">${lane(h.lane)}</td><td class="acol">${esc(h.engine)}</td><td class="url" title="${esc(h.url)}">${esc(shortUrl(h.url))}</td><td class="small">${esc([h.role==='result'?'clicked result':'',h.note,h.detail].filter(Boolean).join(' · '))}</td><td class="${h.ok?'ok':(/offline/.test(h.error||'')?'mute':'bad')}">${esc(h.status?('HTTP '+h.status):/offline/.test(h.error||'')?'site offline':(h.error||'error'))}</td><td class="acol">${h.latency_ms?Math.round(h.latency_ms)+' ms':''}</td><td class="acol">${onP(h.on_page_s)}</td></tr>`).join('');
+  $('#aBody').innerHTML=rows.map(h=>`<tr><td>${fmtT(h.ts)}</td><td class="acol">${lane(h.lane)}</td><td class="acol">${esc(h.engine)}</td><td class="url" title="${esc(h.url)}">${h.site?'<b>'+esc(h.site)+'</b> · ':''}${esc(shortUrl(h.url))}</td><td class="small">${esc([h.role==='result'?'clicked result':'',h.note,h.detail].filter(Boolean).join(' · '))}</td><td class="${h.ok?'ok':(/offline/.test(h.error||'')?'mute':'bad')}">${esc(h.status?('HTTP '+h.status):/offline/.test(h.error||'')?'site offline':(h.error||'error'))}</td><td class="acol">${h.latency_ms?Math.round(h.latency_ms)+' ms':''}</td><td class="acol">${onP(h.on_page_s)}</td></tr>`).join('');
   $$('#aBody tr').forEach(tr=>tr.onclick=()=>tr.classList.toggle('open'));
 }
 // log

@@ -407,3 +407,25 @@ def test_data_scientist_persona_also_has_everyday_life():
     assert picks.count("mail.google.com") > 20 and picks.count("outlook.live.com") > 10
     qs = [p.query() for _ in range(1000)]
     assert any(q.endswith("near me") or q.startswith("best ") or q.endswith(" reviews") for q in qs)
+
+
+def test_builtin_onion_list_is_valid_unique_and_has_no_directories():
+    from legalprivacy.onion import BUILTIN_ONION_SEEDS, builtin_site_name, is_valid_v3_onion
+    urls = [u for _, u in BUILTIN_ONION_SEEDS]
+    assert len(urls) >= 30 and len(set(urls)) == len(urls)
+    assert all(is_valid_v3_onion(u.split('/')[2]) for u in urls)                     # every address passes the v3 checksum
+    assert not any("dark.fail" in n.lower() for n, _ in BUILTIN_ONION_SEEDS)     # link directories lead to anything
+    assert builtin_site_name("http://2gzyxa5ihm7nsggfxnu52rck2vv4rvmdlkiu3zzui5du4xyclen53wid.onion/docs") == "Tor Project"
+
+
+def test_onion_walk_never_leaves_the_vetted_list():
+    import random as _r
+    from legalprivacy.onion import BUILTIN_ONION_SEEDS, OnionTargetFactory
+    a, b = BUILTIN_ONION_SEEDS[0][1], BUILTIN_ONION_SEEDS[1][1]
+    stranger = "http://" + "a" * 56 + ".onion/"                           # not on the list (and not even valid)
+    stranger2 = "http://" + "b" * 55 + "d.onion/market"
+    html = f'<a href="{stranger}">x</a><a href="{stranger2}">y</a><a href="{a}docs">same</a><a href="{b}">listed</a>'
+    f = OnionTargetFactory(rng=_r.Random(1))
+    picks = {f.next_from(html, a).url for _ in range(100)}
+    assert picks <= {a + "docs", b}
+    assert not OnionTargetFactory(rng=_r.Random(1), follow_offsite=False).next_from(f'<a href="{b}">listed</a>', a)

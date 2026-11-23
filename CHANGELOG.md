@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- **Onion sites are named** in Activity and the Live Log (for example "BBC · …" or "Tor Browser Manual · …"), so you can tell what a long .onion address is.
+- **Onion list: 37 sites, all checked, and no wandering.** Added 19 public pages from the Tor Project's own published list (blog, support, forum, manuals and more; every address passes the v3 checksum). Removed dark.fail, a link directory that also lists illicit sites. The onion walk now only follows links on the same site or to another site on the list, never to an address nobody vetted.
 - **Bigger logo in the same space:** the empty margin around the logo image is trimmed and the logo now fills the header slot, so it is larger and easier to read without making the header taller.
 - **Search engine cutting the connection (for example Bing: `ERR_HTTP2_PROTOCOL_ERROR`):** that engine is now rested for 30 to 120 minutes and other engines are used meanwhile, instead of failing repeatedly.
 - **Long sessions** (Settings → Extras, on by default): now and then a page, on the regular internet or a .onion site, becomes something the noise keeps going back to for about 15 minutes to 3 hours, or a page left open while "away" for 1 to 4 hours (that route goes quiet), after which it comes back to the same page and carries on. The lane cards show "long session" or "stepped away".
