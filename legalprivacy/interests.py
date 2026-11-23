@@ -91,6 +91,15 @@ CATEGORIES: dict[str, dict] = {
                               "rational egoism", "the virtue of selfishness", "capitalism the unknown ideal", "individual rights",
                               "objectivist epistemology", "Leonard Peikoff", "Harry Binswanger", "Yaron Brook", "John Galt",
                               "Atlas Society events", "free market economics", "reason and individualism"]},
+    "AI tools": {"sites": {"chatgpt.com": 6, "openai.com": 4, "claude.ai": 5, "www.anthropic.com": 3, "gemini.google.com": 4,
+                           "chat.mistral.ai": 3, "mistral.ai": 2, "www.perplexity.ai": 4, "huggingface.co": 5,
+                           "copilot.microsoft.com": 2, "grok.com": 2, "www.deepseek.com": 2, "cohere.com": 1,
+                           "ai.meta.com": 2, "ollama.com": 2, "lmarena.ai": 2, "www.linkedin.com": 3,
+                           "www.linkedin.com/feed/": 2, "www.linkedin.com/jobs/": 2},
+                 "queries": ["{t}", "{t} explained", "best {t}", "{t} vs", "how does {t} work"],
+                 "topics": ["large language models", "prompt engineering", "open weight models", "AI coding assistants",
+                            "retrieval augmented generation", "AI agents", "fine tuning", "model context protocol",
+                            "AI safety research", "local LLM", "speech to text", "image generation"]},
     "Web 2.0": {"sites": {"www.reddit.com": 10, "www.youtube.com": 10, "medium.com": 4, "substack.com": 3, "www.quora.com": 3,
                                "www.pinterest.com": 3, "www.tumblr.com": 2, "imgur.com": 3, "www.twitch.tv": 3, "open.spotify.com": 4,
                                "stackoverflow.com": 5, "github.com": 5, "news.ycombinator.com": 5, "www.linkedin.com": 3,
@@ -302,8 +311,8 @@ class Interests:
 PERSONAS: dict[str, dict[str, float]] = {
     "Data scientist": {"Data science": 0.85, "Everyday": 0.15},     # mostly data science, plus everyday life
     # Ason: part data scientist, part ordinary web user (Web 2.0, Wikipedia, everyday), part Objectivist.
-    "Ason": {"Data science": 0.22, "Everyday": 0.14, "Web 2.0": 0.16, "Wikipedia": 0.10, "Objectivism": 0.14,
-             "Technology": 0.10, "News": 0.05, "Books": 0.05, "Science": 0.04},
+    "Ason": {"Data science": 0.20, "Everyday": 0.13, "Web 2.0": 0.14, "Wikipedia": 0.09, "Objectivism": 0.14,
+             "AI tools": 0.09, "Technology": 0.08, "News": 0.05, "Books": 0.05, "Science": 0.03},
     "Developer": {"Technology": 0.6, "Data science": 0.2, "Science": 0.1, "Books": 0.1},
     "Sports fan": {"Sports": 0.7, "Fitness": 0.15, "Movies & TV": 0.15},
     "Student": {"Science": 0.3, "Books": 0.25, "Technology": 0.2, "Movies & TV": 0.15, "Personal finance": 0.1},

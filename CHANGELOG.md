@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- New "AI tools" interest (ChatGPT/OpenAI, Claude/Anthropic, Gemini, Mistral, Perplexity, Hugging Face, Copilot, Grok, DeepSeek and more, plus LinkedIn pages) and it is part of the Ason persona's mix.
+
 - The app now checks GitHub for a newer version when it opens and twice a day (one read-only request, nothing about you is sent). When it is behind, the dashboard shows a notice with how many updates and how to update (`git pull`); a button checks again, and Settings can turn it off.
 
 - Tor Browser: optional "Share this app's Tor with Tor Browser" (off by default). It opens Tor Browser on the app's own Tor through a separate, isolated door, so your real browsing and the noise use one entry connection. New Identity is blocked while sharing so open pages aren't cut off.
