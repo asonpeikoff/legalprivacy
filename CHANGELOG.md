@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- New "Shopping" interest (eBay, Amazon, Walmart, Target, Best Buy, Newegg and more) in the Ason mix. The Help tab now ends with a short About: made by Ason, inspired by Legalizing Privacy, with the GitHub link.
+
 - New "AI tools" interest (ChatGPT/OpenAI, Claude/Anthropic, Gemini, Mistral, Perplexity, Hugging Face, Copilot, Grok, DeepSeek and more, plus LinkedIn pages) and it is part of the Ason persona's mix.
 
 - The app now checks GitHub for a newer version when it opens and twice a day (one read-only request, nothing about you is sent). When it is behind, the dashboard shows a notice with how many updates and how to update (`git pull`); a button checks again, and Settings can turn it off.
