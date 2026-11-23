@@ -35,6 +35,12 @@ existing settings, start-up commands (`cricket`, `cricket-launch`) and `CRICKET_
 | pip | `pip install .` then `legalprivacy-launch` (or `python -m legalprivacy`) |
 | Docker | `docker compose up -d`, then `docker compose logs legalprivacy` for the dashboard link. See [docs/DOCKER.md](docs/DOCKER.md). |
 
+**Run it as a background service (Linux).** `./start-legalprivacy.sh --service` installs a systemd user service that
+starts when you log in and keeps legalPrivacy running with no window. The dashboard is still the same web page: run
+`./start-legalprivacy.sh --url` to print its link, and `./start-legalprivacy.sh --uninstall-service` to remove the service.
+Check on it with `systemctl --user status legalprivacy` and `journalctl --user -u legalprivacy -f`. The first time, open the
+dashboard once to answer the three setup questions; after that it starts noise by itself.
+
 > **Windows and macOS:** ready-made downloads are still under development and are not being built right now; we are leaving them for later. The source launchers (`Start-legalPrivacy.bat`, `start-legalprivacy.command`) and `pip install` are kept and still work from source. The build setup for both is kept, commented out, in `.github/workflows/release.yml`.
 
 Your browser opens the dashboard. The first run asks three questions (how much noise, whether

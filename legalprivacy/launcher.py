@@ -26,7 +26,22 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--no-browser", action="store_true", help="don't open a browser automatically")
     ap.add_argument("--port", type=int, help="dashboard port (default 8765)")
     ap.add_argument("--profile", help="use this profile YAML instead of the saved config")
+    ap.add_argument("--url", action="store_true", help="print the dashboard link and exit")
     args = ap.parse_args(argv)
+    if args.url:
+        import yaml
+        from .paths import config_path
+        from .webui import _load_token
+        port = args.port
+        if not port:
+            try:
+                with open(args.profile or config_path(), encoding="utf-8") as fh:
+                    raw = yaml.safe_load(fh) or {}
+                port = int((raw.get("app") or {}).get("port", 8765))
+            except (OSError, ValueError, yaml.YAMLError):
+                port = 8765
+        print(f"http://127.0.0.1:{port}/?t={_load_token()}")
+        return 0
     from .paths import ensure_utf8_console
     ensure_utf8_console()
     if args.text:
