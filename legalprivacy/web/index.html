@@ -253,8 +253,9 @@ input[type=range]:disabled{opacity:.45;cursor:not-allowed}
 /* charts: crisp 1px lines, tabular numerals */
 .vz .ax,.act .gridl{shape-rendering:crispEdges}
 .vz svg text,.act svg text{font-variant-numeric:tabular-nums;font-family:var(--font)}
-.spark-wrap{position:relative}
-#sparkPeak{position:absolute;right:0;top:-2px;font-size:var(--t-xs);color:var(--mute)}
+.spark-wrap{position:relative;padding-top:18px}
+[hidden]{display:none!important}
+#sparkPeak{position:absolute;right:0;top:0;font-size:var(--t-xs);color:var(--mute)}
 .spark{height:72px;display:block}
 .spark .base{stroke:var(--line-strong);stroke-width:1;vector-effect:non-scaling-stroke}
 .spark .gl{stroke:var(--line);stroke-width:1;vector-effect:non-scaling-stroke;stroke-dasharray:2 3}

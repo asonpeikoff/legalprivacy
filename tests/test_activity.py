@@ -27,7 +27,7 @@ def test_intended_steady_is_flat_and_active_hours_are_masked():
     assert p["p10"] == p["p90"]
     assert all(p["p50"][h] == 0 for h in list(range(0, 9)) + list(range(17, 24)))
     assert len({p["p50"][h] for h in range(9, 17)}) == 1 and p["p50"][9] > 0
-    assert "09:00–17:00" in p["verdict"] and "Student" in p["verdict"]
+    assert "9 AM–5 PM" in p["verdict"] and "Student" in p["verdict"]
     wrap = ac.intended(RateConfig("steady", 5.0, 0.0), 0.3, active_hours=True, a=22, b=6)
     assert wrap["p50"][23] > 0 and wrap["p50"][3] > 0 and wrap["p50"][12] == 0
 
@@ -88,7 +88,7 @@ def test_baseline_vs_noise_close_and_different():
     assert close["state"] == "ok" and close["similarity"] >= 0.9 and close["verdict"].startswith("✓")
     night = set(range(0, 5)) | day
     far = ac.baseline_vs_noise(_sel(_day_rows(day)), _noise_rows(night, seed=4))
-    assert far["state"] == "off" and far["verdict"].startswith("✗") and "Noise active at 0" in far["verdict"]
+    assert far["state"] == "off" and far["verdict"].startswith("✗") and "Noise active at 1 AM" in far["verdict"]
     assert len(far["you"]) == 24 and abs(sum(far["noise"]) - 1) < 0.01
     assert far["bursts"]["you"] and len(far["gaps"]["noise"]) == len(far["labels"])
 

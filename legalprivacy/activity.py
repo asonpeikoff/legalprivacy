@@ -22,7 +22,8 @@ BIN_LABELS = ["1", "2", "3-4", "5-9", "10-19", "20+"]
 
 
 def hh(h: int) -> str:
-    return f"{h % 24:02d}:00"
+    h %= 24
+    return f"{h % 12 or 12} {'AM' if h < 12 else 'PM'}"
 
 
 def _in_active(h: int, a: int, b: int) -> bool:
