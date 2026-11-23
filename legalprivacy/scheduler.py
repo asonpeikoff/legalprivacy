@@ -665,8 +665,13 @@ class Runner:
             "note": target.note, "role": target.role, "detail": getattr(result, "detail", None),
             "on_page_s": round(getattr(result, "on_page_s", 0) or 0, 1),
         }
+        if eng_name == "onion" and target.kind == "html":
+            from .onion import builtin_site_name
+            rec["site"] = builtin_site_name(target.url) or "a site from your own list"
         self.hit_log.append(rec)
         short = shown if len(shown) <= 90 else shown[:87] + "…"
+        if rec.get("site"):
+            short = f"{rec['site']} · {short}"
         tag = f" [{target.note}]" if target.note else (" [click]" if target.role == "result" else "")
         self._emit("info" if result.ok or getattr(result, "offline", False) else "warn", lane.name,
                    f"{eng_name:6s} {short}{tag} → {status}"

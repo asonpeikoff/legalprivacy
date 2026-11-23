@@ -43,8 +43,41 @@ BUILTIN_ONION_SEEDS: list[tuple[str, str]] = [
     ("Keybase", "http://keybase5wmilwokqirssclfnsqrjdsi7jdir5wy7y7iu3tanwmtp6oid.onion/"),
     ("keys.openpgp.org", "http://zkaan2xfbuxia2wpf7ofnkbz6r5zdbbvxbunvp5g2iebopbfc4iqmbad.onion/"),
     ("Archive.today", "http://archiveiya74codqgiixo33q62qlrqtkgmcitqx5u2oeqnmn5bpcbiyd.onion/"),
-    ("dark.fail", "http://darkfailenbsdla5mal2mxn2uz66od5vtzd5qozslagrfzachha3f3id.onion/"),
+    # The Tor Project's own published list (onion.torproject.org): its public, human-facing pages.
+    # Infrastructure hosts (monitoring, mail, staging, donor systems) are left out.
+    ("Tor Project Blog", "http://pzhdfe7jraknpj2qgu5cz2u3i4deuyfwmonvzu5i3nyw4t4bmg7o5pad.onion/"),
+    ("Tor Project Community", "http://xmrhfasfg5suueegrnc4gsgyi2tyclcy5oz7f5drnrodmdtob6t2ioyd.onion/"),
+    ("Tor Project Support", "http://rzuwtpc4wb3xdzrj3yeajsvm3fkq4vbeubm2tdxaqruzzzgs5dwemlad.onion/"),
+    ("Tor Project Forum", "http://v236xhqtyullodhf26szyjepvkbv6iitrhjgrqj4avaoukebkk6n6syd.onion/"),
+    ("Tor Browser Manual", "http://dsbqrprgkqqifztta6h3w7i2htjhnq7d3qkh3c7gvc35e66rrcv66did.onion/"),
+    ("Tor Specifications", "http://i3xi5qxvbrngh3g6o7czwjfxwjzigook7zxzjmgwg5b7xnjcn5hzciad.onion/"),
+    ("Tor Research Portal", "http://xhqthou6scpfnwjyzc3ekdgcbvj76ccgyjyxp6cgypxjlcuhnxiktnqd.onion/"),
+    ("Tor Metrics", "http://hctxrvjzfpvmzh2jllqhgvvkoepxb4kfzdjm6h7egcwlumggtktiftid.onion/"),
+    ("Tor Project Newsletter", "http://a4ygisnerpgtc5ayerl22pll6cls3oyj54qgpm7qrmb66xrxts6y3lyd.onion/"),
+    ("Tor Onion Services Guide", "http://ttevhjjsjxz6uqqcjkbig5cycd7n7xv7cmd6f5fcvrqaaa7f3bj36wad.onion/"),
+    ("Snowflake", "http://oljlphash3bpqtrvqpr5gwzrhroziw4mddidi5d2qa4qjejcbrmoypqd.onion/"),
+    ("Arti (Tor in Rust)", "http://hjirlp6fu47kox4cnede4zlvaeq672bibss3oxgmsnsc5mdxygqshbqd.onion/"),
+    ("Stem (Tor library)", "http://mf34jlghauz5pxjcmdymdqbe5pva4v24logeys446tdrgd5lpsrocmqd.onion/"),
+    ("Nyx (Tor monitor)", "http://3ewfgrt4gzfccp6bnquhqb266r3zepiqpnsk3falwygkegtluwuyevid.onion/"),
+    ("Tor Style Guide", "http://7khzpw47s35pwo3lvtctwf2szvnq3kgglvzc22elx7of2awdzpovqmqd.onion/"),
+    ("ExoneraTor", "http://pm46i5h2lfewyx6l7pnicbxhts2sxzacvsbmqiemqaspredf2gm3dpad.onion/"),
+    ("Tor Project GitLab", "http://eweiibe6tdjsdprb4px6rqrzzcsi22m4koia44kc5pcjr7nec2rlxyad.onion/"),
+    ("Tails", "http://tzoz3bensgxyzs7da7lpgsn3a74h7hlbm4wa6ytq2tg6ktd57w22vqqd.onion/"),
+    ("The Onion Router (history)", "http://tttyx2vwp7ihml3vkhywwcizv6nbwrikpgeciy3qrow7l7muak2pnhad.onion/"),
 ]
+
+def _host(url: str) -> str:
+    return (urllib.parse.urlparse(url).hostname or "").lower()
+
+
+def builtin_site_name(url: str) -> str | None:
+    """The name of a built-in site, e.g. 'BBC', for any address on that site."""
+    h = _host(url)
+    for name, u in BUILTIN_ONION_SEEDS:
+        if _host(u) == h:
+            return name
+    return None
+
 
 _ONION_RE = re.compile(r"^[a-z2-7]{56}$")
 
@@ -92,9 +125,9 @@ def clean_seed_list(urls: list[str]) -> tuple[list[str], list[str]]:
 class OnionTargetFactory:
     """Random walk over onion sites: start at a seed, follow links, restart often.
 
-    `follow_offsite` lets the walk hop to other valid onion services it finds
-    (organic discovery); off-site non-onion links are always ignored so this
-    engine can never leak a clearnet request.
+    The walk stays on the current site, or hops to another site that is on the list (`follow_offsite`).
+    It never follows a link to an onion address that is not on the list, so it can't wander into
+    anything nobody vetted, and non-onion links are always ignored so it can never leak a clearnet request.
     """
     rng: random.Random
     seeds: list[str] = field(default_factory=lambda: [u for _, u in BUILTIN_ONION_SEEDS])
@@ -105,6 +138,9 @@ class OnionTargetFactory:
     def __post_init__(self) -> None:
         good, _ = clean_seed_list(self.seeds)
         self.seeds = good or [u for _, u in BUILTIN_ONION_SEEDS]
+        # The walk only ever stays on a site from the list or hops to another site ON the list. It never
+        # follows a link to an address nobody vetted, however a page links to it.
+        self.allowed_hosts = {_host(u) for u in self.seeds}
 
     def make(self, identity=None) -> Target:
         return Target(url=self.rng.choice(self.seeds), timeout=self.timeout)
@@ -122,7 +158,8 @@ class OnionTargetFactory:
             p = urllib.parse.urlparse(absu)
             if p.scheme not in ("http", "https") or not is_onion_url(absu):
                 continue
-            if not self.follow_offsite and (p.hostname or "").lower() != base_host:
+            host = (p.hostname or "").lower()
+            if host != base_host and not (self.follow_offsite and host in self.allowed_hosts):
                 continue
             links.append(absu)
         return Target(url=self.rng.choice(links), timeout=self.timeout) if links else None
