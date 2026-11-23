@@ -24,7 +24,8 @@ def _onion_offline(result) -> bool:
     """Tor reports an unreachable .onion (offline, moved, or descriptor not found) with these."""
     e = (result.error or "").lower()
     return any(k in e for k in ("host unreachable", "ttl expired", "general socks server failure",
-                                "0x04", "0x06", "0x01", "connection refused", "timed out", "timeout"))
+                                "0x04", "0x06", "0x01", "connection refused", "timed out", "timeout",
+                                "sslerror", "ssl:", "certificate", "wrong version number"))   # a broken certificate: unusable too
 
 
 class MaxFailuresExceeded(RuntimeError):
@@ -381,17 +382,54 @@ class Runner:
         h = (_up.urlparse(url).hostname or "").removeprefix("www.")
         return time.time() < self.__dict__.get("_rested", {}).get(h, 0.0)
 
+    def _dead_path(self):
+        from .paths import app_dir
+        return app_dir() / "onion_dead.json"
+
+    def _dead_sites(self) -> dict:
+        """Onion sites that kept failing: host -> (misses, rest until). Kept between runs, so a site that is
+        down is not retried every time the app starts."""
+        d = self.__dict__.get("_onion_dead")
+        if d is None:
+            import json
+            try:
+                if self.rate is None:                       # tests and the command line keep it in memory only
+                    raise OSError
+                raw = json.loads(self._dead_path().read_text(encoding="utf-8"))
+                d = {h: (int(v[0]), float(v[1])) for h, v in raw.items()}
+            except (OSError, ValueError, TypeError, IndexError):
+                d = {}
+            self.__dict__["_onion_dead"] = d
+        return d
+
     def _onion_seen_dead(self, url: str) -> None:
         import urllib.parse as _up
         host = _up.urlparse(url).hostname or ""
-        dead = self.__dict__.setdefault("_onion_dead", {})
+        dead = self._dead_sites()
         fails, _ = dead.get(host, (0, 0.0))
         fails += 1
-        dead[host] = (fails, time.time() + (6 * 3600 if fails >= 2 else 0))   # two misses: rest it 6 hours
+        # two misses: rest it 6 hours; the longer it keeps failing, the longer the rest (up to 3 days)
+        dead[host] = (fails, time.time() + (min(6 * 3600 * (fails - 1) ** 2, 72 * 3600) if fails >= 2 else 0))
+        self._save_dead()
+
+    def _onion_seen_alive(self, url: str) -> None:
+        import urllib.parse as _up
+        host = _up.urlparse(url).hostname or ""
+        if self._dead_sites().pop(host, None) is not None:
+            self._save_dead()
+
+    def _save_dead(self) -> None:
+        import json
+        if self.rate is None:
+            return
+        try:
+            self._dead_path().write_text(json.dumps({h: list(v) for h, v in self._dead_sites().items()}), encoding="utf-8")
+        except OSError:
+            pass
 
     def _onion_is_dead(self, url: str) -> bool:
         import urllib.parse as _up
-        fails, until = self.__dict__.get("_onion_dead", {}).get(_up.urlparse(url).hostname or "", (0, 0.0))
+        fails, until = self._dead_sites().get(_up.urlparse(url).hostname or "", (0, 0.0))
         return fails >= 2 and time.time() < until
 
     def _active_hour(self, hour: int) -> bool:
@@ -604,6 +642,8 @@ class Runner:
         budget = lane.budgets[eng_name]
         if result.ok:
             budget.record_hit(self.clock())
+            if eng_name == "onion":
+                self._onion_seen_alive(target.url)
             lane.hits_by_identity += 1
             lane.hits_total += 1
             lane.consecutive_failures = 0

@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- **Onion list:** removed Facebook (its onion failed with a certificate error) and added Whonix, OnionShare, Cryptostorm VPN, XMPP.is and The Tor Times, each listed by at least two of dark.fail, tor.taxi and daunt.link (markets, drug, hacking, adult, piracy and law-enforcement entries skipped; every address passes the v3 checksum).
+- **Down onion sites are remembered between runs:** a site that fails twice (including with a broken certificate) rests for 6 hours, longer if it keeps failing (up to 3 days), and comes back as soon as it works.
 - **Your own Firefox is the noise browser** (new default "My own Firefox"): the real program, started on a private copy of your profile with your settings, add-ons and bookmarks. Logins, cookies, saved passwords, form history and the list of pages you visited are never copied; your real profile is only read; the copy is deleted when the browser closes. Needs Selenium (now a dependency) and a Firefox that is not a Snap or Flatpak; otherwise the app falls back to its own browsers and says why. Tested with a stand-in browser, not yet with a live Firefox.
 - **README screenshots of every graph and the dashboard**, taken with example data by a new maintainer tool (`tools/make_screenshots.py`): the dashboard, the 6-hour traffic timeline, the live map, the planned pattern, this session against the plan, you against the noise, burst and gap lengths, the match score, off versus on, and the amount, DNS and bridge settings.
 - **Fixed:** the "No hits yet" message stayed on screen over a working hits-per-minute graph, and the "peak" label overlapped the tallest bar.
