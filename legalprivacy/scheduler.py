@@ -55,6 +55,7 @@ class Lane:
     last_error: str | None = None
     last_hit_ts: float | None = None
     last_latency_ms: float | None = None
+    linger: dict | None = None                # a long session on one page: {mode, url, engine, until, next_at}
 
     @property
     def open(self) -> bool:
@@ -183,6 +184,7 @@ class Runner:
                 "hits": lane.hits_total, "failures": lane.failures_total,
                 "last_error": lane.last_error, "last_hit_ts": lane.last_hit_ts,
                 "latency_ms": lane.last_latency_ms,
+                "linger": (lane.linger or {}).get("mode"),
                 "identity": (lane.identity.persona if lane.identity and hasattr(lane.identity, "persona") else None),
                 "engines": {e: {"spent": b.spent, "per_day": b.per_day, "failures": b.failures}
                             for e, b in lane.budgets.items()},
@@ -508,18 +510,24 @@ class Runner:
             (lane, eng_name)
             for lane in self.lanes for eng_name in lane.engines
             if not lane.budgets[eng_name].exhausted and lane.open and eng_name not in self.side_streams
+            and not self._lane_away(lane)
         ]
-        if not options:
+        forced = self._linger_due(options)
+        if not options and forced is None:
             return False
         weights = []
-        for lane, eng_name in options:
+        for lane, eng_name in options or []:
             w = float(lane.budgets[eng_name].remaining)
             if getattr(lane.transport, "dimmed", False):
                 w *= 0.1  # down-weight dimmed transport so traffic prefers healthy lanes
             weights.append(max(w, 0.01))
-        lane, eng_name = self.rng.choices(options, weights=weights)[0]
-        identity, pacer = self._identity_pacer_for(lane)
-        target = self._make_target(lane, eng_name, identity)
+        if forced is not None:
+            lane, eng_name, target = forced
+            identity, pacer = self._identity_pacer_for(lane)
+        else:
+            lane, eng_name = self.rng.choices(options, weights=weights)[0]
+            identity, pacer = self._identity_pacer_for(lane)
+            target = self._make_target(lane, eng_name, identity)
         ex = getattr(self.profile, "extras", None)
         if ex is not None and ex.polite and target.kind == "html" and target.role != "search":
             import urllib.parse as _up
@@ -591,6 +599,7 @@ class Runner:
             if getattr(lane.transport, "dimmed", False):
                 lane.transport.dimmed = False
             self._settle(lane, eng_name, target, result)
+            self._maybe_linger(lane, eng_name, target)
         else:
             budget.record_failure(self.clock())
             lane.failures_total += 1
@@ -761,6 +770,56 @@ class Runner:
             iterations += 1
         return {lane.name: {eng: lane.budgets[eng].spent for eng in lane.engines}
                 for lane in self.lanes}
+
+    # ── long sessions: one page for a long time, or away for hours and back to it ──────────────
+    def _lane_away(self, lane: Lane) -> bool:
+        lg = lane.linger
+        return bool(lg and lg["mode"] == "away" and self.clock() < lg["until"])
+
+    def _linger_due(self, options) -> tuple | None:
+        """The page a long session goes back to now, if one is due: (lane, engine, target)."""
+        now = self.clock()
+        for lane in self.lanes:
+            lg = lane.linger
+            if not lg or not lane.open:
+                continue
+            if lg["mode"] == "work" and now >= lg["until"]:
+                lane.linger = None                         # finished with it
+                continue
+            due = now >= (lg["until"] if lg["mode"] == "away" else lg["next_at"])
+            if not due or lane.budgets[lg["engine"]].exhausted:
+                continue
+            scale = self.profile.realtime_scale
+            if lg["mode"] == "away":                       # back at the computer: carry on with the same page
+                note = "back after being away, same page"
+                lane.linger = {**lg, "mode": "work", "until": now + self.rng.uniform(600, 2400) * scale,
+                               "next_at": now + self.rng.uniform(120, 600) * scale}
+            else:
+                note = "still working on the same page"
+                lg["next_at"] = now + self.rng.uniform(120, 600) * scale
+            return lane, lg["engine"], Target(url=lg["url"], timeout=60.0 if lg["engine"] == "onion" else 25.0,
+                                              note=note, role="linger", dwell=self.rng.uniform(60, 300) * scale)
+        return None
+
+    def _maybe_linger(self, lane: Lane, eng_name: str, target: Target) -> None:
+        """Now and then a page becomes something you work on for a long time, or leave open for hours."""
+        ex = getattr(self.profile, "extras", None)
+        if (self.rate is None or ex is None or not getattr(ex, "long_sessions", False) or lane.linger
+                or target.kind != "html" or target.role in ("search", "linger") or eng_name not in ("crawl", "onion")):
+            return
+        r, now, scale = self.rng.random(), self.clock(), self.profile.realtime_scale
+        if r < 0.015:
+            hours = self.rng.uniform(1.0, 4.0)
+            lane.linger = {"mode": "away", "url": target.url, "engine": eng_name,
+                           "until": now + hours * 3600 * scale, "next_at": 0.0}
+            self._emit("info", lane.name, f"Long session: left a page open and stepped away for about {hours:.1f} h "
+                                          "(this route is quiet until then).")
+        elif r < 0.05:
+            minutes = min(180.0, max(15.0, self.rng.lognormvariate(3.7, 0.6)))    # typically ~40 minutes
+            lane.linger = {"mode": "work", "url": target.url, "engine": eng_name,
+                           "until": now + minutes * 60 * scale, "next_at": now + self.rng.uniform(120, 600) * scale}
+            self._emit("info", lane.name, f"Long session: keeps coming back to the same page for about "
+                                          f"{minutes:.0f} minutes.")
 
     def _side_loop(self, eng_name: str) -> None:
         """One kind of noise on its own schedule, at the same time as everything else."""

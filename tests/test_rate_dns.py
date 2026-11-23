@@ -210,3 +210,63 @@ def test_side_stream_records_its_own_hits_at_the_same_time():
     stop.set()
     th.join(2)
     assert [h for h in r.hit_log if h["engine"] == "dns"]
+
+
+def _app_runner(p, clock):
+    return Runner(profile=p, lanes=build_lanes(p, ["w"]), wordlist=["w"], sleep_fn=lambda s: None, clock=clock,
+                  probe_fn=lambda *a: HitResult(200, ""), rate=RatePlanner(random.Random(2), p.rate))
+
+
+def test_long_session_keeps_returning_to_the_same_page():
+    p = Profile(name="t")
+    apply_overrides(p, {"rate": {"mode": "steady", "level": 10}})
+    now = [1000.0]
+    r = _app_runner(p, lambda: now[0])
+    r.plan_hour(14)
+    lane = next(ln for ln in r.lanes if "crawl" in ln.engines)
+    for b in lane.budgets.values():
+        b.per_day = 1000
+    lane.linger = {"mode": "work", "url": "https://example.org/notes", "engine": "crawl",
+                   "until": now[0] + 3600, "next_at": now[0]}
+    r.run_once(wait=False)
+    assert r.hit_log[-1]["url"] == "https://example.org/notes" and r.hit_log[-1]["role"] == "linger"
+    now[0] += 4000                                           # the session is over
+    r.run_once(wait=False)
+    assert lane.linger is None
+
+
+def test_stepping_away_keeps_the_route_quiet_then_resumes_the_same_page():
+    p = Profile(name="t")
+    apply_overrides(p, {"rate": {"mode": "steady", "level": 10}})
+    now = [1000.0]
+    r = _app_runner(p, lambda: now[0])
+    r.plan_hour(14)
+    for ln in r.lanes:
+        for b in ln.budgets.values():
+            b.per_day = 1000
+        ln.linger = {"mode": "away", "url": "https://example.org/doc", "engine": "crawl",
+                     "until": now[0] + 7200, "next_at": 0.0}
+    assert r.run_once(wait=False) is False                     # away: nothing on these routes
+    now[0] += 7300
+    assert r.run_once(wait=False) is True
+    assert r.hit_log[-1]["url"] == "https://example.org/doc" and "back after being away" in r.hit_log[-1]["note"]
+    assert r.lanes[0].linger["mode"] == "work"                 # and carries on with it for a while
+
+
+def test_long_sessions_start_now_and_then_and_can_be_turned_off():
+    from legalprivacy.transports import Target
+    p = Profile(name="t")
+    assert p.extras.long_sessions is True
+    r = _app_runner(p, lambda: 0.0)
+    lane = r.lanes[0]
+    started = 0
+    for _ in range(2000):
+        lane.linger = None
+        r._maybe_linger(lane, "crawl", Target(url="https://example.org/"))
+        started += lane.linger is not None
+    assert 40 < started < 200                                  # about 5% of page visits
+    r.profile.extras.long_sessions = False
+    lane.linger = None
+    for _ in range(500):
+        r._maybe_linger(lane, "crawl", Target(url="https://example.org/"))
+    assert lane.linger is None

@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- **Long sessions** (Settings → Extras, on by default): now and then a page, on the regular internet or a .onion site, becomes something the noise keeps going back to for about 15 minutes to 3 hours, or a page left open while "away" for 1 to 4 hours (that route goes quiet), after which it comes back to the same page and carries on. The lane cards show "long session" or "stepped away".
 - **Updated logo** (cleaner lettering) in the dashboard header, the browser-tab icon, the desktop app and the README.
 - **Fixed: the dashboard said "disconnected" and the Tor tab stayed empty while noise was running.** A drawing error in the lane cards (added with the dashboard redesign) stopped the page from finishing each update, so the status pill showed "disconnected" and the Tor status and circuits were never drawn, even though noise and Tor were working. A drawing problem can no longer be shown as "disconnected", and a new browser test checks the dashboard and Tor tab while running.
 - **The browser-tab icon is now the new logo** (the gold "P"); it was still the old green icon. The desktop app uses it as its window icon too.

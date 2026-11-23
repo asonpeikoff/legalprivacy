@@ -242,6 +242,7 @@ class ExtrasConfig:
     interest_active: int = 3      # how many themes at once
     interest_rotate_days: int = 10
     interest_share: float = 0.3   # share of visits and searches that follow the themes
+    long_sessions: bool = True    # now and then stay on one page a long time, or leave it open for hours and come back
     interest_salt: str = ""       # random, set on first use: keeps your themes yours
     activity: str = "off"         # your own activity: off | backoff | follow
     busy_kbps: int = 400          # backoff: pause while your own traffic is above this
