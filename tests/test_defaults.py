@@ -142,3 +142,17 @@ def test_old_default_persona_is_switched_to_ason_once(tmp_path, monkeypatch):
     assert c2.profile.extras.persona == "Ason"
     c2.apply_config({"extras": {"persona": "Data scientist"}})          # a later, deliberate choice is kept
     assert Controller(str(cfg)).profile.extras.persona == "Data scientist"
+
+
+def test_launcher_prints_the_dashboard_link_and_the_start_script_can_install_a_service(tmp_path, monkeypatch, capsys):
+    from legalprivacy import launcher
+    monkeypatch.setenv("LEGALPRIVACY_HOME", str(tmp_path))
+    assert launcher.main(["--url"]) == 0
+    out = capsys.readouterr().out.strip()
+    assert out.startswith("http://127.0.0.1:8765/?t=") and len(out.split("t=")[1]) >= 16
+    assert launcher.main(["--url", "--port", "9000"]) == 0
+    assert capsys.readouterr().out.startswith("http://127.0.0.1:9000/?t=")
+    import pathlib
+    sh = (pathlib.Path(__file__).resolve().parent.parent / "start-legalprivacy.sh").read_text()
+    assert "--service" in sh and "--uninstall-service" in sh and "systemctl --user" in sh
+    assert "ExecStart=$DIR/.venv/bin/python -m legalprivacy --no-browser" in sh and "NoNewPrivileges=true" in sh
