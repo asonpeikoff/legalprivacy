@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/logo/legalprivacy-logo.png" alt="legalPrivacy" width="560"></p>
+<p align="center"><img src="docs/logo/legalprivacy-logo.png" alt="legalPrivacy" width="720"></p>
 
 # legalPrivacy
 
