@@ -17,14 +17,29 @@ This project was called noisyCricket until v2.9;
 existing settings, start-up commands (`cricket`, `cricket-launch`) and `CRICKET_*` environment variables keep working.
 
 <p align="center">
-  <img src="docs/screenshots/proof.png" alt="The Proof tab: a live map of every machine this computer talks to, six hours of traffic per minute with the noise-on periods shaded, and how closely the noise matches your own rhythm" width="900">
-  <br><sub>The <b>Proof</b> tab: who this computer is talking to, your traffic with the noise off and on, and how much the noise looks like you (example data).</sub>
+  <img src="docs/screenshots/dashboard.png" alt="The dashboard: a green Protection is on banner, quick controls, today's counts, hits per minute for the last half hour, and the activity of each route" width="900">
+  <br><sub>The <b>Dashboard</b>: is it on, how much it did today, and the last half hour minute by minute (all screenshots use made-up example data).</sub>
+</p>
+
+### The graphs
+
+<p align="center">
+  <img src="docs/screenshots/proof-timeline.png" alt="Connections per minute over the last 6 hours: your own traffic in teal, legalPrivacy's in green and Tor's in purple, with the time the noise was on shaded" width="900">
+  <br><sub><b>Proof, last 6 hours:</b> your traffic (teal), the noise (green) and Tor (purple), minute by minute. The shaded part is when the noise was on.</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/proof-map.png" alt="A live map of every machine this computer is talking to: your apps, legalPrivacy and Tor" width="900">
+  <br><sub><b>Proof, live map:</b> every machine this computer is talking to right now, and whose traffic it is.</sub>
 </p>
 
 | | |
 |---|---|
-| <img src="docs/screenshots/amount.png" alt="Amount of noise: a 1–10 slider with an explanation, randomness, and the mix of activity" width="440"><br><sub>How much noise, how random, and the mix</sub> | <img src="docs/screenshots/looks-like-you.png" alt="Off vs on table and the does-the-noise-look-like-you score" width="440"><br><sub>Off vs on, and the “looks like you” score (example data)</sub> |
-| <img src="docs/screenshots/dns.png" alt="DNS settings: normal, secure or mix, with the resolver table and live checks" width="440"><br><sub>DNS: your resolvers, checked live</sub> | <img src="docs/screenshots/bridges.png" alt="Tor bridges: built-in obfs4, Snowflake and meek, your own, automatic fallback and request links" width="440"><br><sub>Tor bridges, built in or your own</sub> |
+| <img src="docs/screenshots/planned-pattern.png" alt="Planned requests per hour of the day with the usual range shaded" width="440"><br><sub><b>The plan:</b> how much noise to expect at each hour of the day, with the usual range.</sub> | <img src="docs/screenshots/session-vs-plan.png" alt="Noise requests per 10 minutes against the planned range, with your own activity as a line" width="440"><br><sub><b>This session vs the plan:</b> green bars stayed inside the planned range; red would mean off plan.</sub> |
+| <img src="docs/screenshots/you-vs-noise.png" alt="Share of the day's activity by hour: yours (solid) against the noise (dashed)" width="440"><br><sub><b>You vs the noise:</b> when your activity happens, against when the noise's does.</sub> | <img src="docs/screenshots/bursts-and-gaps.png" alt="How long busy bursts and quiet gaps last, you against the noise" width="440"><br><sub><b>Bursts and gaps:</b> how long busy spells and pauses last, yours against the noise's.</sub> |
+| <img src="docs/screenshots/proof-looks-like-you.png" alt="A 72% match score with Looks like you and four similarity bars" width="440"><br><sub><b>Does it look like you?</b> A score and four checks.</sub> | <img src="docs/screenshots/proof-off-vs-on.png" alt="Noise off against noise on: addresses and requests per minute" width="440"><br><sub><b>Off vs on:</b> what an observer sees with and without the noise.</sub> |
+| <img src="docs/screenshots/amount.png" alt="Amount of noise: a 1 to 10 slider, randomness, the mix of activity and background lookups and installs" width="440"><br><sub>How much noise, how random, and the mix</sub> | <img src="docs/screenshots/dns.png" alt="DNS settings: normal, secure or mix, with the resolver table and live checks" width="440"><br><sub>DNS: your resolvers, checked live</sub> |
+| <img src="docs/screenshots/bridges.png" alt="Tor bridges: built-in obfs4, Snowflake and meek, or your own" width="440"><br><sub>Tor bridges</sub> | |
 
 ## Quick start
 

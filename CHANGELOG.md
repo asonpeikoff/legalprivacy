@@ -1,6 +1,9 @@
 # Changelog
 
 ## Unreleased
+- **README screenshots of every graph and the dashboard**, taken with example data by a new maintainer tool (`tools/make_screenshots.py`): the dashboard, the 6-hour traffic timeline, the live map, the planned pattern, this session against the plan, you against the noise, burst and gap lengths, the match score, off versus on, and the amount, DNS and bridge settings.
+- **Fixed:** the "No hits yet" message stayed on screen over a working hits-per-minute graph, and the "peak" label overlapped the tallest bar.
+- Active-hours explanations in the charts ("busiest around 4 PM") now use 12-hour times.
 - **12-hour times in every chart and menu** (web and desktop): hour labels such as "9 PM" instead of "21:00", clock times with AM/PM, and the active-hours pickers.
 - **Run as a service (Linux):** `./start-legalprivacy.sh --service` installs a systemd user service that starts at login and runs with no window (the dashboard is still the web page); `--url` prints the dashboard link and `--uninstall-service` removes it.
 - **Searches now lead to the sites visited.** About two thirds of visits to a persona site begin with a topical search (never just the site's name) on a randomly chosen search engine, and the click that follows goes to that site, a few seconds later instead of whenever the dice allow. Clicking a result after a search is also more likely (85%).
