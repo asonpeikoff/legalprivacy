@@ -387,6 +387,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
 <section id="t-dash" class="tab on">
   <div id="banner" class="banner"></div>
   <div id="dashNote"></div>
+  <div id="updBar" class="banner warn" hidden><span class="bi">⬆</span><span id="updTx"></span><small><button id="updGo" class="small">Check again</button></small></div>
   <div class="card" id="quick">
     <h3>Quick controls</h3>
     <div class="row">
@@ -688,6 +689,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div class="row">Clearnet proxy <input type="text" id="sProxy" placeholder="optional  http:// or socks5://…" style="flex:1;min-width:220px"></div>
     <label class="chk"><input type="checkbox" id="sClear"><span>Clearnet noise enabled</span></label>
     <label class="chk"><input type="checkbox" id="sAuto"><span>Start noise automatically when legalPrivacy opens</span></label>
+    <label class="chk"><input type="checkbox" id="sUpd"><span>Check GitHub for a newer legalPrivacy when it opens, and twice a day (sends nothing about you) <button id="updNow" class="small" type="button">Check now</button> <span class="small mute" id="updInfo"></span></span></label>
     <label class="chk"><input type="checkbox" id="sClearLogs"><span>Clear the Live Log and Activity each time noise starts <span class="mute">(recommended, default)</span>. They're kept in memory only and always cleared when legalPrivacy quits.</span></label>
   </div>
   <div class="card"><h3>Realism</h3>
@@ -1546,6 +1548,14 @@ async function avoidRefresh(force){try{const a=await api('/api/avoid'+(force?'?r
     (a.count?`<details class="small"><summary>Show them</summary>${a.relays.map(x=>esc(x.nickname)+' — '+esc(x.why)).join('<br>')}</details>`:'')+
     ` <button id="tAvoidNow" class="small">Scan now</button>`;
   $('#tAvoidNow').onclick=()=>avoidRefresh(true)}catch(e){$('#tAvoidInfo').textContent=e.message}}
+async function updRefresh(check){try{const u=await api(check?'/api/update/check':'/api/update',check?{}:undefined);
+  const bar=$('#updBar');bar.hidden=u.status!=='behind';
+  if(u.status==='behind')$('#updTx').textContent='A newer legalPrivacy is available'+(u.behind_by?` (${u.behind_by} update${u.behind_by===1?'':'s'} ahead of yours)`:'')+(u.latest_message?`: “${u.latest_message}”`:'')+(u.how?'. To update, run: git pull':'. Download it from GitHub.');
+  const t=u.status==='current'?'Up to date.':u.status==='behind'?'A newer version is out.':(u.error||'Not checked yet.');
+  $('#updInfo').textContent=`${u.version} · ${t}`;return u}catch(e){$('#updInfo').textContent=e.message}}
+$('#updGo').onclick=async()=>{await updRefresh(true);toast($('#updBar').hidden?'You have the newest version.':'A newer version is available.')};
+$('#updNow').onclick=async()=>{await updRefresh(true)};
+setTimeout(updRefresh,4000);setInterval(updRefresh,600000);
 let tbTimer=null;
 async function tbRefresh(){try{const s=await api('/api/torbrowser');
   const o=$('#tbOpen');o.textContent=s.supported?(s.installed?'Open Tor Browser':'Install and open Tor Browser'):'Get Tor Browser (torproject.org)';
@@ -1749,7 +1759,7 @@ function fillSettings(force){
   $('#xMobile').value=Math.round((tr.mobile_share??0.55)*100);$('#xDevice').value=tr.device||'iPhone 13';
   $('#xDevice').onchange=()=>{dirty.set=true;$('#sSaved').textContent='unsaved changes'};
   $('#sBrowser').value=p.transports.clearnet.browser||'auto';$('#sEngine').value=p.transports.clearnet.browser_engine||'mine';$('#sWin').value=p.transports.clearnet.browser_window||'hidden';$('#sCookies').value=String(p.transports.clearnet.cookie_hours??1);$('#sCookieVary').checked=p.transports.clearnet.cookie_vary!==false;
-  const q=p.queries||{};$('#qLive').checked=q.live!==false;$('#qData').checked=q.dataset!==false;$('#qBuiltin').checked=q.builtin!==false;$('#qWords').checked=q.words!==false;$('#sAuto').checked=!!S.app.autostart;$('#sClearLogs').checked=S.app.clear_logs_on_restart!==false;$('#sPath').textContent=S.config_path;dirty.set=false;
+  const q=p.queries||{};$('#qLive').checked=q.live!==false;$('#qData').checked=q.dataset!==false;$('#qBuiltin').checked=q.builtin!==false;$('#qWords').checked=q.words!==false;$('#sAuto').checked=!!S.app.autostart;$('#sUpd').checked=S.app.update_check!==false;$('#sClearLogs').checked=S.app.clear_logs_on_restart!==false;$('#sPath').textContent=S.config_path;dirty.set=false;
   fillAcc(p);
   $$('#t-set input').forEach(i=>i.oninput=()=>{dirty.set=true;$('#sSaved').textContent='unsaved changes'});
 }
@@ -1775,7 +1785,7 @@ async function saveSettings(auto){
               metrics:$('#eMetrics').checked,site_list:$('#eSites').value,
               household:$('#hOn').checked,household_size:parseInt($('#hSize').value||3),
               persona:$('#pers').value,persona_share:parseInt($('#persShare').value||90)/100,packages:$('#ePkg').value}});
-    await api('/api/app',{autostart:$('#sAuto').checked,clear_logs_on_restart:$('#sClearLogs').checked});dirty.set=false;$('#sSaved').textContent='Saved ✓ '+(S&&S.running?(needApply(),'(going live…)'):'');poll()}catch(e){$('#sSaved').textContent='Not saved: '+e.message;if(!auto)toast(e.message,1)}
+    await api('/api/app',{autostart:$('#sAuto').checked,update_check:$('#sUpd').checked,clear_logs_on_restart:$('#sClearLogs').checked});dirty.set=false;$('#sSaved').textContent='Saved ✓ '+(S&&S.running?(needApply(),'(going live…)'):'');poll()}catch(e){$('#sSaved').textContent='Not saved: '+e.message;if(!auto)toast(e.message,1)}
 }
 // ---------- optional signed-in accounts (Settings → Accounts)
 const ACC=[['google','Google','Gmail inbox, a Google search, YouTube'],['microsoft','Microsoft (Outlook)','Outlook inbox and calendar, Bing, microsoft.com']];
