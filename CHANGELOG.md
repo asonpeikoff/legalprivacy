@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- **Logo updated** to the newest artwork (header, desktop app, README).
 - **Logo updated** again (header, desktop app, README); the browser-tab icon is unchanged.
 - **Larger header logo** (same header height) and a larger, margin-trimmed logo in the README.
 - **Logo updated** to the latest version everywhere it appears (dashboard header, browser-tab icon, desktop app, README).
