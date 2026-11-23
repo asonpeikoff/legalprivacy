@@ -576,7 +576,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div style="margin-top:10px"><b>Also running in the background</b> <span class="small mute">— these happen at the same time as the activity above and never take a share from it, just like your computer does lookups and installs while you browse.</span></div>
     <div class="row">DNS lookups <select id="sDnsAmt" title="Name lookups that happen alongside everything else"><option value="0">Off</option><option value="0.5">Fewer</option><option value="1">Normal</option><option value="2">More</option></select>
       Package installs (pip, npm) <select id="sPkgAmt" title="Real pip and npm downloads in a throwaway folder that is deleted straight after. Sometimes one package, sometimes a whole project's requirements."><option value="0">Off</option><option value="0.04">Rare</option><option value="0.075">Normal</option><option value="0.15">Often</option></select></div>
-    <div class="small mute">Package installs run automatically for the Data scientist and Developer personas, one package at a time or a whole requirements file at once, and everything downloaded is deleted straight afterwards.</div>
+    <div class="small mute">Package installs run automatically for the Ason, Data scientist and Developer personas, one package at a time or a whole requirements file at once, and everything downloaded is deleted straight afterwards.</div>
   </div>
   <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-wave"/></svg>DNS lookups</h3>
     <div class="small mute">In Activity and the Live Log each lookup shows the site looked up and which resolver answered, e.g. <code>www.reddit.com [via your normal DNS]</code>.</div>
@@ -657,7 +657,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div class="row">How closely it's followed <input type="range" id="persShare" min="10" max="95" step="5" style="flex:1;max-width:220px"> <b class="small" id="persShareP"></b>
       <span class="small mute">(90% recommended, default: mostly, not perfectly; the rest is everyday browsing)</span></div>
     <div class="small mute" id="persMix"></div>
-    <div class="row">📦 Package installs <select id="ePkg"><option value="auto">Automatic: on for Data scientist and Developer (recommended, default)</option><option value="on">On</option><option value="off">Off</option></select></div>
+    <div class="row">📦 Package installs <select id="ePkg"><option value="auto">Automatic: on for Ason, Data scientist and Developer (recommended, default)</option><option value="on">On</option><option value="off">Off</option></select></div>
     <div class="small mute">Real <code>pip install</code>, <code>pip download</code> and <code>pip uninstall</code> of popular packages (and <code>npm</code>, if you have it), the way someone who codes talks to PyPI and npm. Everything happens in legalPrivacy's own separate environment, never in yours: only ready-built packages, nothing is ever run, and what's installed is removed again. The environment is wiped and rebuilt daily.</div>
     <div style="margin-top:10px"><b>Interests</b> <span class="small mute">— a person has a few steady interests, not random everything</span></div>
     <label class="chk"><input type="checkbox" id="iOn"><span><b>Follow a few themes at a time</b> <span class="mute">(off by default) — a share of visits and searches stays on the active themes, which change every so often</span></span></label>
@@ -981,8 +981,8 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
   </div>
   <div id="w2" style="display:none">
     <h2 style="margin-top:0">2 of 3</h2><p><b>Add Tor darknet (.onion) noise?</b></p>
-    <label class="opt t"><input type="radio" name="tor" value="off" checked> <b>No</b> <span class="mute">— regular internet only (default)</span></label>
-    <label class="opt t"><input type="radio" name="tor" value="onion"> <b>Yes — visit onion sites</b> <span class="mute">— fully automatic: legalPrivacy installs and runs its own private Tor for you</span></label>
+    <label class="opt t"><input type="radio" name="tor" value="off"> <b>No</b> <span class="mute">— regular internet only</span></label>
+    <label class="opt t"><input type="radio" name="tor" value="onion" checked> <b>Yes — visit onion sites</b> (default) <span class="mute">— fully automatic: legalPrivacy installs and runs its own private Tor for you</span></label>
     <div class="note small">You can change this any time on the 🧅 Tor tab. Ordinary web noise never goes through Tor; Tor is used only for .onion sites.</div>
   </div>
   <div id="w3" style="display:none">
@@ -1680,7 +1680,7 @@ function fillSettings(force){
   if(!S||(dirty.set&&!force))return;const p=S.profile;
   const torOn=!!(p.transports.tor&&p.transports.tor.enabled);
   const ENAME={search:'Searches',crawl:'Following links',dns:'DNS lookups',onion:'🧅 Onion sites',packages:'📦 Package installs'};
-  const exP=p.extras||{},pkgOn=exP.packages==='on'||(exP.packages!=='off'&&['Data scientist','Developer'].includes(exP.persona));
+  const exP=p.extras||{},pkgOn=exP.packages==='on'||(exP.packages!=='off'&&['Ason','Data scientist','Developer'].includes(exP.persona));
   window._engMix=MixBar($('#engines'),Object.entries(p.engines).filter(([n])=>(n!=='onion'||torOn)&&n!=='dns'&&n!=='packages')
     .map(([n,e])=>({key:n,label:ENAME[n]||n,value:e.enabled?e.budget_per_day:0})));
   {const base=Math.max(1,['search','crawl'].reduce((a,n)=>a+((p.engines[n]&&p.engines[n].enabled)?p.engines[n].budget_per_day:0),0));
@@ -1715,8 +1715,8 @@ function fillSettings(force){
     $('#iN').innerHTML=d.themes.map((_,i)=>`<option value="${i+1}">${i+1}</option>`).join('');$('#iN').value=ex.interest_active||3;
     $('#iThemes').innerHTML='Allowed themes: '+d.themes.map(t=>`<label style="margin-right:10px;white-space:nowrap"><input type="checkbox" data-th="${esc(t)}" ${allowed.includes(t)?'checked':''}> ${esc(t)}</label>`).join('');
     $('#iNow').textContent=d.active.length&&!d.persona?('Active right now: '+d.active.join(', ')):'';
-    $('#pers').innerHTML='<option value="">Nobody in particular (neutral)</option>'+Object.keys(d.personas).map(n=>`<option value="${esc(n)}">${esc(n)}${n==='Data scientist'?' (default)':''}</option>`).join('');
-    $('#pers').value=ex.persona??'Data scientist';
+    $('#pers').innerHTML='<option value="">Nobody in particular (neutral)</option>'+Object.keys(d.personas).map(n=>`<option value="${esc(n)}">${esc(n)}${n==='Ason'?' (default)':''}</option>`).join('');
+    $('#pers').value=ex.persona??'Ason';
     const mixTxt=()=>{const m=d.personas[$('#pers').value];$('#persMix').textContent=m?('Mostly: '+Object.entries(m).map(([k,v])=>`${k} ${Math.round(v*100)}%`).join(' · ')+'. A persona takes the place of rotating Interests.'):''};
     mixTxt();$('#pers').addEventListener('change',mixTxt);
     $('#hNow').textContent=(d.household||[]).length?('Your household right now: '+d.household.join(' · ')):'';

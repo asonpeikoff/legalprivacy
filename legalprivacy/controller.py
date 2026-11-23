@@ -49,7 +49,7 @@ def wipe_old_log_files() -> None:
             pass
 
 
-APP_DEFAULTS = {"observe": True, "autostart": True, "open_browser": True, "port": 8765, "intensity": "normal",
+APP_DEFAULTS = {"migrated_ason": False, "observe": True, "autostart": True, "open_browser": True, "port": 8765, "intensity": "normal",
                 "auto_refresh_sources": False,   # off: use the snapshot shipped with the app (no lookups)
                 "ml_auto": False, "ml_history": [],
                 "clear_logs_on_restart": True}
@@ -65,6 +65,8 @@ class Controller:
         self.app: dict[str, Any] = dict(APP_DEFAULTS)
         self.profile: Profile = Profile(name="default")
         self._load()
+        if self.profile.extras.persona == "Ason" and self.app.get("migrated_ason") and not self.first_run:
+            self._save()                          # remember that the one-time switch to the new default happened
         self.tor: TorManager | None = None
         self.feeds = FeedStore(self.log)
         from .observe import TrafficObserver
@@ -110,6 +112,9 @@ class Controller:
             raw = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
             self.profile = apply_overrides(Profile(name="default"), raw)
             self.app |= {k: v for k, v in (raw.get("app") or {}).items() if k in APP_DEFAULTS}
+            if self.profile.extras.persona == "Data scientist" and not self.app.get("migrated_ason"):
+                self.profile.extras.persona = "Ason"        # the new default persona replaces the old default once
+                self.app["migrated_ason"] = True
         except Exception as exc:
             self.log.error("app", f"Could not read config ({exc}); using defaults.")
 

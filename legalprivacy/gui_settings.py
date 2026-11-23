@@ -371,7 +371,7 @@ class SettingsTab(Tab):
         self.pers_mix = c.note("", pady=(2, 2))
         r = c.row()
         c.lbl(r, "Package installs").pack(side="left")
-        self.f_combo(r, "packages", [("auto", "Automatic: on for Data scientist and Developer (recommended)"), ("on", "On"),
+        self.f_combo(r, "packages", [("auto", "Automatic: on for Ason, Data scientist and Developer (recommended)"), ("on", "On"),
                                      ("off", "Off")], 54).pack(side="left", padx=8)
         c.note("Real pip install / download / uninstall of popular packages (and npm, if you have it), the way someone who "
                "codes talks to PyPI and npm. It happens in legalPrivacy's own separate environment, never in yours: only "
@@ -632,7 +632,7 @@ class SettingsTab(Tab):
     def _got_interests(self, d: dict) -> None:
         self.interest = d
         keep = self._get_persona() or self.app.ctl.profile.extras.persona
-        self.pers_box.configure(values=["Nobody in particular (neutral)"] + [n + (" (default)" if n == "Data scientist" else "") for n in d["personas"]])
+        self.pers_box.configure(values=["Nobody in particular (neutral)"] + [n + (" (default)" if n == "Ason" else "") for n in d["personas"]])
         self._set_persona(keep)
         allowed = list(self.app.ctl.profile.extras.interest_list)
         for w in self.theme_frame.winfo_children():
