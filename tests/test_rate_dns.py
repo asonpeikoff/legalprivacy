@@ -322,3 +322,23 @@ def test_a_visit_to_a_persona_site_starts_with_a_search_that_leads_there():
     assert query_for_site(random.Random(1), "en.wikipedia.org/wiki/Aristotle") in (
         "Aristotle wikipedia", "Aristotle", "what is Aristotle", "Aristotle history")
     assert query_for_site(random.Random(1), "no-such-site.example") is None
+
+
+def test_during_a_long_session_visits_to_other_sites_of_that_kind_are_rare():
+    import math
+    p = Profile(name="t")
+    apply_overrides(p, {"rate": {"mode": "steady", "level": 10}})
+    now = [1000.0]
+    r = _app_runner(p, lambda: now[0])
+    r.plan_hour(14)
+    lane = next(ln for ln in r.lanes if "crawl" in ln.engines)
+    lane.linger = {"mode": "work", "url": "https://example.org/a", "engine": "crawl", "until": now[0] + 7200,
+                   "next_at": now[0] + 600, "other_at": now[0] + 1800}
+    assert r._staying_on_page(lane, "crawl") and not r._staying_on_page(lane, "search")
+    now[0] += 1801
+    assert not r._staying_on_page(lane, "crawl")                          # the detour is allowed
+    gaps = [r._other_site_gap() for _ in range(4000)]
+    mean_min = sum(gaps) / len(gaps) / 60
+    assert 50 < mean_min < 75                                              # about an hour
+    share = sum(1 for g in gaps if g < 600) / len(gaps)
+    assert abs(share - 0.15) < 0.03 and abs(-600 / math.log(1 - 0.15) / 60 - 61.6) < 0.5

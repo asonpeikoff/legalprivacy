@@ -435,7 +435,8 @@ def test_onion_list_has_no_facebook_and_has_the_cross_checked_additions():
     from legalprivacy.onion import BUILTIN_ONION_SEEDS, is_valid_v3_onion
     names = {n for n, _ in BUILTIN_ONION_SEEDS}
     assert "Facebook" not in names
-    assert {"Whonix", "OnionShare", "Cryptostorm VPN", "XMPP.is", "The Tor Times"} <= names
+    assert {"Whonix", "OnionShare", "Cryptostorm VPN", "XMPP.is"} <= names
+    assert not names & {"The Tor Times", "Keybase", "Archive.today", "The Intercept"}      # could not be verified
     assert all(is_valid_v3_onion(u.split("/")[2]) for _, u in BUILTIN_ONION_SEEDS)
     assert len({u for _, u in BUILTIN_ONION_SEEDS}) == len(BUILTIN_ONION_SEEDS)
 

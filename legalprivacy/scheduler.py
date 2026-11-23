@@ -550,7 +550,7 @@ class Runner:
             (lane, eng_name)
             for lane in self.lanes for eng_name in lane.engines
             if not lane.budgets[eng_name].exhausted and lane.open and eng_name not in self.side_streams
-            and not self._lane_away(lane)
+            and not self._lane_away(lane) and not self._staying_on_page(lane, eng_name)
         ]
         forced = self._follow_due(options) or self._linger_due(options)
         if not options and forced is None:
@@ -583,6 +583,9 @@ class Runner:
                     break
         if target.role == "search" and eng_name != "search":           # a visit that starts with a search
             eng_name = "search"
+        if lane.linger and lane.linger["mode"] == "work" and lane.linger["engine"] == eng_name \
+                and target.role != "linger" and self.clock() >= lane.linger.get("other_at", 0.0):
+            lane.linger["other_at"] = self.clock() + self._other_site_gap()     # a detour: the next one is far off
         self.current = {"lane": lane.name, "engine": eng_name, "url": target.url, "started": time.time(),
                         "role": target.role}
         try:
@@ -874,6 +877,18 @@ class Runner:
         lg = lane.linger
         return bool(lg and lg["mode"] == "away" and self.clock() < lg["until"])
 
+    # While a long session is on, the same kind of visit elsewhere is rare: about a 15% chance in any 10 minutes
+    # (once an hour or so), so most of the time is spent on the page that matters to "you".
+    OTHER_SITE_CHANCE_10MIN = 0.15
+
+    def _other_site_gap(self) -> float:
+        mean_s = -600.0 / math.log(1.0 - self.OTHER_SITE_CHANCE_10MIN)            # about 61 minutes
+        return self.rng.expovariate(1.0 / mean_s) * self.profile.realtime_scale
+
+    def _staying_on_page(self, lane: Lane, eng_name: str) -> bool:
+        lg = lane.linger
+        return bool(lg and lg["mode"] == "work" and lg["engine"] == eng_name and self.clock() < lg.get("other_at", 0.0))
+
     def _linger_due(self, options) -> tuple | None:
         """The page a long session goes back to now, if one is due: (lane, engine, target)."""
         now = self.clock()
@@ -891,7 +906,8 @@ class Runner:
             if lg["mode"] == "away":                       # back at the computer: carry on with the same page
                 note = "back after being away, same page"
                 lane.linger = {**lg, "mode": "work", "until": now + self.rng.uniform(600, 2400) * scale,
-                               "next_at": now + self.rng.uniform(120, 600) * scale}
+                               "next_at": now + self.rng.uniform(120, 600) * scale,
+                               "other_at": now + self._other_site_gap()}
             else:
                 note = "still working on the same page"
                 lg["next_at"] = now + self.rng.uniform(120, 600) * scale
@@ -915,7 +931,8 @@ class Runner:
         elif r < 0.09:
             minutes = min(180.0, max(15.0, self.rng.lognormvariate(3.7, 0.6)))    # typically ~40 minutes
             lane.linger = {"mode": "work", "url": target.url, "engine": eng_name,
-                           "until": now + minutes * 60 * scale, "next_at": now + self.rng.uniform(120, 600) * scale}
+                           "until": now + minutes * 60 * scale, "next_at": now + self.rng.uniform(120, 600) * scale,
+                           "other_at": now + self._other_site_gap()}
             self._emit("info", lane.name, f"Long session: keeps coming back to the same page for about "
                                           f"{minutes:.0f} minutes.")
 
