@@ -320,10 +320,11 @@ class SecurityTab(Tab):
         if sig == self._sigs.get("q"):
             return
         self._sigs["q"] = sig
+        from .gui_logic import clock12
         self.q_tree.delete(*self.q_tree.get_children())
         for q in items:
-            self.q_tree.insert("", "end", iid=q["id"], values=(q["original"], q["signature"],
-                                                               time.strftime("%Y-%m-%d %H:%M", time.localtime(q["when"]))))
+            when = time.strftime("%Y-%m-%d ", time.localtime(q["when"])) + clock12(q["when"])
+            self.q_tree.insert("", "end", iid=q["id"], values=(q["original"], q["signature"], when))
         self._show(self.q_empty, not items)
 
     def _render_log(self, lines: list, seq: int) -> None:

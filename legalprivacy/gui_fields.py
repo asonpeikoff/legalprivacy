@@ -306,7 +306,8 @@ def account_status_text(a: dict) -> tuple[str, str]:
         return "Signed in" + (f" · saved {time.strftime('%Y-%m-%d', time.localtime(saved))}" if saved else ""), "ok"
     if st == "needs_attention":
         until = a.get("attention_until")
-        return "Paused" + (f" until about {time.strftime('%a %H:%M', time.localtime(until))}" if until else ""), "warn"
+        from .gui_logic import clock12
+        return "Paused" + (f" until about {clock12(until, day=True)}" if until else ""), "warn"
     if st == "needs_signin":
         return "Needs sign-in again", "warn"
     return "Signed out", "off"

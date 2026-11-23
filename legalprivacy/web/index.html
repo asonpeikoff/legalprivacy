@@ -1210,7 +1210,7 @@ function svgTimeline(rows){
       if(!v)continue;const y0=y(base),y1=y(base+v);g+=`<rect x="${x}" y="${y1}" width="${Math.max(1,bw-0.4)}" height="${y0-y1}" fill="${col}"/>`;base+=v}
   });
   let ax='';for(let k=0;k<=mx;k+=Math.max(1,Math.ceil(mx/4)))ax+=`<line class="ax" x1="${P}" x2="${W-4}" y1="${y(k)}" y2="${y(k)}" opacity=".5"/><text x="${P-6}" y="${y(k)+3}" text-anchor="end">${k}</text>`;
-  let tl='';for(let i=0;i<n;i+=60){const d=new Date(rows[i].t*1000);tl+=`<text x="${P+i*bw}" y="${H-6}">${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}</text>`}
+  let tl='';for(let i=0;i<n;i+=60){const d=new Date(rows[i].t*1000);tl+=`<text x="${P+i*bw}" y="${H-6}">${t12(d)}</text>`}
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Connections per minute over the last 6 hours">${ax}${g}${tl}</svg>`;
 }
 $('#pObs').onchange=()=>act('/api/app',{observe:$('#pObs').checked});
@@ -1221,7 +1221,8 @@ function renderMlBase(b){const el=$('#mlBase');if(!el)return;
   if(!b){el.innerHTML='';return}
   const none=b.source==='none'||(b.enough===false);
   el.innerHTML=`<div class="note ${none?'warn':''} small" style="margin:0">${esc(b.status||'')}${none?'':''} <span class="mute">Details and the HAR import are in the Proof tab.</span></div>`}
-const aH=h=>String(h).padStart(2,'0')+':00';
+const h12=h=>{h=((h%24)+24)%24;return (h%12===0?12:h%12)+(h<12?' AM':' PM')};const t12=d=>d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit',hour12:true});
+const aH=h12;
 function aGrid(W,H,L,R,T,B,mx,unit){
   let g='';const step=mx<=10?2:mx<=25?5:mx<=60?10:mx<=150?25:50;
   for(let k=0;k<=mx;k+=step){const y=T+(H-T-B)*(1-k/mx);g+=`<line class="gridl" x1="${L}" x2="${W-R}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}"/><text x="${L-5}" y="${(y+3).toFixed(1)}" text-anchor="end">${k}</text>`}
@@ -1234,7 +1235,7 @@ function svgIntended(p){
     pts.push(`${x(h).toFixed(1)},${y(md).toFixed(1)} ${x(h+1).toFixed(1)},${y(md).toFixed(1)}`);
     g+=`<rect x="${x(h).toFixed(1)}" y="${T}" width="${(pw/24).toFixed(1)}" height="${ph}" fill="transparent"><title>${aH(h)}: ${md?`typically ${md} requests (range ${lo}–${hi})`:'quiet (outside active hours or nearly idle)'}</title></rect>`;
     if(h%4===0)g+=`<text x="${x(h).toFixed(1)}" y="${H-8}" text-anchor="middle">${aH(h)}</text>`}
-  g+=`<polyline points="${pts.join(' ')}" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/><text x="${W-R}" y="${H-8}" text-anchor="end">24:00</text>`;
+  g+=`<polyline points="${pts.join(' ')}" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/><text x="${W-R}" y="${H-8}" text-anchor="end">12 AM</text>`;
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Intended requests per hour of the day: ${esc(p.verdict)}"><title>Intended pattern: expected requests per hour</title>${g}</svg>`}
 function svgSession(s,plan){
   const bs=s.buckets||[];if(!bs.length)return '';
@@ -1246,7 +1247,7 @@ function svgSession(s,plan){
     g+=`<rect class="band" x="${x.toFixed(1)}" y="${y(b.hi).toFixed(1)}" width="${(bw+.4).toFixed(1)}" height="${Math.max(0,y(b.lo)-y(b.hi)).toFixed(1)}"/>`;
     if(b.req)g+=`<rect x="${(x+1).toFixed(1)}" y="${y(b.req).toFixed(1)}" width="${Math.max(1,bw-2).toFixed(1)}" height="${(y(0)-y(b.req)).toFixed(1)}" fill="${off(b.t)?'var(--bad)':'var(--acc)'}" rx="1.5"><title>${new Date(b.t*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}: ${b.req} requests (planned ${b.lo}–${b.hi})${off(b.t)?' · off plan':''}</title></rect>`;
     line.push(`${(x+bw/2).toFixed(1)},${y(b.you).toFixed(1)}`);
-    if(i%6===0){const d=new Date(b.t*1000);g+=`<text x="${x.toFixed(1)}" y="${H-8}">${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}</text>`}});
+    if(i%6===0){const d=new Date(b.t*1000);g+=`<text x="${x.toFixed(1)}" y="${H-8}">${t12(d)}</text>`}});
   g+=`<polyline points="${line.join(' ')}" fill="none" stroke="var(--you)" stroke-width="1.5" stroke-linejoin="round"/>`;
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Noise requests per 10 minutes over the last 6 hours against the planned range. ${esc(s.verdict)}"><title>This session, actual versus intended</title>${g}</svg>`}
 function svgShares(bv){
@@ -1696,7 +1697,7 @@ function fillSettings(force){
   $('#dOpenN').textContent=(S.opennic||[]).length;$('#dOpenList').innerHTML=(S.opennic||[]).map(o=>esc(o[1]+' '+o[0]+' ('+(o[2]||'?')+')'+(o[3]?' · '+(o[3]==='none'?'no logs':'anonymized logs')+' · '+(o[4]||''):''))).join('<br>')+'<div style="margin-top:4px">Noise lookups to these servers are ordinary (unencrypted) DNS, like most lookups; the encryption requirement is a quality bar for the servers.</div>';
   $('#sScale').value=p.realtime_scale;$('#sMaxF').value=p.daily_max_failures;$('#sProxy').value=p.transports.clearnet.proxy||'';
   $('#sClear').checked=p.transports.clearnet.enabled;loadUA();
-  const ex=p.extras||{};const hrs=[...Array(24).keys()].map(h=>`<option value="${h}">${String(h).padStart(2,'0')}:00</option>`).join('');
+  const ex=p.extras||{};const hrs=[...Array(24).keys()].map(h=>`<option value="${h}">${h12(h)}</option>`).join('');
   $('#eFrom').innerHTML=hrs;$('#eTo').innerHTML=hrs;$('#eFrom').value=ex.active_from??8;$('#eTo').value=ex.active_to??23;
   $('#eHours').checked=!!ex.active_hours;$('#eDns').checked=ex.browser_dns!==false;$('#eTypos').checked=!!ex.typos;$('#eLong').checked=ex.long_sessions!==false;
   $('#ePolite').checked=!!ex.polite;$('#eLow').checked=!!ex.low_data;$('#eCap').value=ex.daily_data_mb||0;
@@ -1884,7 +1885,7 @@ $('#toolSpeed').onclick=async()=>{
 // ML tab
 const FNAME={hour:'Hour of day',weekday:'Weekday',gap:'Rhythm (time between requests)',popularity:'How popular the sites are',revisit:'Revisiting the same sites',ending:'Domain endings'};
 const DAYS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-function valName(f,v){if(f==='hour')return String(v).padStart(2,'0')+':00';if(f==='weekday')return DAYS[+v]||v;
+function valName(f,v){if(f==='hour')return h12(+v);if(f==='weekday')return DAYS[+v]||v;
   if(f==='gap')return '≈'+(2**(+v)<60?2**(+v)+' s':2**(+v)<3600?Math.round(2**(+v)/60)+' min':Math.round(2**(+v)/3600)+' h')+' since the last request';
   if(f==='revisit')return v==='0'?'first visit that day':v+' earlier visits that day';if(f==='popularity')return {top100:'top 100 site',top1k:'top 1,000 site',top10k:'top 10,000 site',ranked:'ranked site',unranked:'unranked site'}[v]||v;
   if(f==='ending')return '.'+v;return v}
@@ -1899,9 +1900,9 @@ function barsFeat(per){const e=Object.entries(per);return e.map(([f,v])=>`<div c
   <div style="flex:1;max-width:260px;background:var(--line);height:10px;border-radius:5px;position:relative"><div style="position:absolute;left:0;top:0;bottom:0;width:${Math.max(0,(v-50)*2)}%;background:var(--noi);border-radius:0 4px 4px 0"></div></div><b class="small" style="min-width:40px">${v}%</b></div>`).join('')}
 function svgHours(you,noi){const W=600,H=170,P=26,mx=Math.max(1,...you,...noi),bw=(W-P-8)/24,x=i=>P+i*bw,y=v=>H-P-(v/mx)*(H-P-10);
   let g='';for(let i=0;i<24;i++){const hy=(H-P)-y(you[i]),hn=(H-P)-y(noi[i]);
-    g+=`<rect x="${(x(i)+1).toFixed(1)}" y="${y(you[i]).toFixed(1)}" width="${(bw/2-2).toFixed(1)}" height="${Math.max(0,hy).toFixed(1)}" rx="2" fill="var(--you)"><title>${String(i).padStart(2,'0')}:00 — you: ${you[i]}</title></rect>
-        <rect x="${(x(i)+bw/2).toFixed(1)}" y="${y(noi[i]).toFixed(1)}" width="${(bw/2-2).toFixed(1)}" height="${Math.max(0,hn).toFixed(1)}" rx="2" fill="var(--noi)"><title>${String(i).padStart(2,'0')}:00 — noise: ${noi[i]}</title></rect>`;
-    if(i%3===0)g+=`<text x="${x(i)+bw/2}" y="${H-P+13}" text-anchor="middle">${String(i).padStart(2,'0')}</text>`}
+    g+=`<rect x="${(x(i)+1).toFixed(1)}" y="${y(you[i]).toFixed(1)}" width="${(bw/2-2).toFixed(1)}" height="${Math.max(0,hy).toFixed(1)}" rx="2" fill="var(--you)"><title>${h12(i)} — you: ${you[i]}</title></rect>
+        <rect x="${(x(i)+bw/2).toFixed(1)}" y="${y(noi[i]).toFixed(1)}" width="${(bw/2-2).toFixed(1)}" height="${Math.max(0,hn).toFixed(1)}" rx="2" fill="var(--noi)"><title>${h12(i)} — noise: ${noi[i]}</title></rect>`;
+    if(i%3===0)g+=`<text x="${x(i)+bw/2}" y="${H-P+13}" text-anchor="middle">${h12(i)}</text>`}
   return `<svg viewBox="0 0 ${W} ${H}" style="max-width:900px" role="img" aria-label="Requests by hour"><line class="ax" x1="${P}" y1="${H-P}" x2="${W-8}" y2="${H-P}"/>${g}<text x="${(W+P)/2}" y="${H-2}" text-anchor="middle">hour of day (local)</text></svg>`}
 function svgTrend(h){if(!h.length)return 'No runs yet.';const W=300,H=90,P=24,xs=h.map((_,i)=>P+(h.length<2?0:i*(W-P-8)/(h.length-1))),y=v=>H-14-((v-50)/50)*(H-24);
   const d=h.map((r,i)=>(i?'L':'M')+xs[i].toFixed(1)+','+y(r[1]).toFixed(1)).join('');
@@ -1923,13 +1924,13 @@ function renderML(d){
   $('#mlVals').innerHTML='<table><thead><tr><th>Signal</th><th>Value</th><th>You</th><th>Noise</th><th>Leans</th></tr></thead><tbody>'+d.giveaways.map(g=>`<tr><td>${esc(FNAME[g.feature]||g.feature)}</td><td>${esc(valName(g.feature,g.value))}</td><td>${g.you}</td><td>${g.noise}</td><td><i class="dot" style="background:var(--${g.leans==='noise'?'noi':'you'})"></i>${g.leans} (${g.ratio>=1?g.ratio+'×':(1/g.ratio).toFixed(1)+'×'})</td></tr>`).join('')+'</tbody></table>';
 }
 async function loadMLTab(){try{const m=await api('/api/ml');renderMlBase(m.baseline);$('#mlAuto').checked=m.auto;$('#mlTrend').innerHTML=svgTrend(m.history);if(m.last)renderML(m.last)}catch(e){}}
-$('#mlHour').innerHTML=[...Array(24).keys()].map(h=>`<option value="${h}" ${h===21?'selected':''}>${String(h).padStart(2,'0')}:00</option>`).join('');
+$('#mlHour').innerHTML=[...Array(24).keys()].map(h=>`<option value="${h}" ${h===21?'selected':''}>${h12(h)}</option>`).join('');
 $('#stRun').onclick=async()=>{$('#mlHead').innerHTML='<div class="small mute">Reading your history and simulating the noise… a few seconds.</div>';$('#stRun').disabled=true;
   try{renderML(await api('/api/tools/selftest?days='+encodeURIComponent($('#stDays').value||14)));const m=await api('/api/ml');$('#mlTrend').innerHTML=svgTrend(m.history)}
   catch(e){$('#mlHead').innerHTML=`<div class="note bad small">${esc(e.message)}</div>`}finally{$('#stRun').disabled=false}};
 $('#mlAuto').onchange=()=>act('/api/app',{ml_auto:$('#mlAuto').checked});
 $('#mlPred').onclick=async()=>{try{const d=await api('/api/ml/predict?site='+encodeURIComponent($('#mlSite').value)+'&hour='+$('#mlHour').value+'&weekday='+$('#mlDay').value);
-  $('#mlPredOut').innerHTML=`<b>${d.noise_probability}%</b> likely to be noise — <code>${esc(d.site)}</code> on ${DAYS[d.weekday]} at ${String(d.hour).padStart(2,'0')}:00`}catch(e){$('#mlPredOut').textContent=e.message}};
+  $('#mlPredOut').innerHTML=`<b>${d.noise_probability}%</b> likely to be noise — <code>${esc(d.site)}</code> on ${DAYS[d.weekday]} at ${h12(d.hour)}`}catch(e){$('#mlPredOut').textContent=e.message}};
 $('#toolEst').onclick=async()=>{try{const d=await api('/api/tools/estimate');
   $('#toolEstOut').innerHTML=`About <b>${d.mb_per_day} MB a day</b> (≈${d.gb_per_month} GB a month): ≈${d.actions_per_hour} actions an hour for ${d.hours_per_day} hours${d.real_browser?(d.low_data?', real browser without images':', real browser with images'):', plain HTTP'}${d.cap_mb?`, capped at ${d.cap_mb} MB a day`:''}.`}catch(e){$('#toolEstOut').textContent=e.message}};
 $('#toolPriv').onclick=async()=>{try{const d=await api('/api/tools/privacy');const ic={ok:'✅',warn:'⚠️',info:'ℹ️'};
