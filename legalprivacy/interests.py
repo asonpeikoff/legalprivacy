@@ -120,6 +120,17 @@ CATEGORIES: dict[str, dict] = {
                        "topics": ["dungeon crawler carl", "litrpg", "dirty bomb", "studio mistral", "election results",
                                   "Atlas Shrugged Part II", "Juan Williams", "Arye Gross", "twister movie streaming",
                                   "ayn rand courses", "ai avatar video", "wearable habit device"]},
+    "Authors and readers": {"sites": {"www.bookbub.com": 5, "reedsy.com": 5, "www.royalroad.com": 4, "www.goodreads.com": 4,
+                                      "www.thestorygraph.com": 2, "www.wattpad.com": 2, "www.draft2digital.com": 3,
+                                      "www.bookfunnel.com": 3, "storyoriginapp.com": 2, "booksprout.com": 2,
+                                      "www.smashwords.com": 1, "www.kobo.com": 2, "www.ingramspark.com": 2,
+                                      "writtenwordmedia.com": 2, "www.scribophile.com": 1, "www.authorsguild.org": 2,
+                                      "www.publishersweekly.com": 2, "www.librarything.com": 1, "www.audible.com": 3,
+                                      "www.scribd.com": 1, "kdp.amazon.com": 1, "www.nanowrimo.org": 1},
+                            "queries": ["{t}", "best {t} books", "{t} author tips", "how to market {t}", "{t} new releases"],
+                            "topics": ["litrpg", "progression fantasy", "self publishing", "book cover design",
+                                       "author newsletter", "audiobook narration", "kindle unlimited", "web serial",
+                                       "writing a series", "book marketing", "science fiction", "fantasy"]},
     "Web 2.0": {"sites": {"www.reddit.com": 10, "www.youtube.com": 10, "medium.com": 4, "substack.com": 3, "www.quora.com": 3,
                                "www.pinterest.com": 3, "www.tumblr.com": 2, "imgur.com": 3, "www.twitch.tv": 3, "open.spotify.com": 4,
                                "stackoverflow.com": 5, "github.com": 5, "news.ycombinator.com": 1, "www.zotero.org/peikoff/library": 5, "www.zotero.org": 1,
@@ -333,7 +344,7 @@ class Interests:
 PERSONAS: dict[str, dict[str, float]] = {
     "Data scientist": {"Data science": 0.85, "Everyday": 0.15},     # mostly data science, plus everyday life
     # Ason: part data scientist, part ordinary web user (Web 2.0, Wikipedia, everyday), part Objectivist.
-    "Ason": {"Data science": 0.15, "Everyday": 0.10, "My own corners": 0.08, "Web 2.0": 0.12, "Wikipedia": 0.09, "Objectivism": 0.14,
+    "Ason": {"Data science": 0.12, "Everyday": 0.10, "My own corners": 0.08, "Authors and readers": 0.03, "Web 2.0": 0.12, "Wikipedia": 0.09, "Objectivism": 0.14,
              "AI tools": 0.09, "Shopping": 0.07, "Technology": 0.06, "News": 0.04, "Books": 0.04, "Science": 0.02},
     "Developer": {"Technology": 0.6, "Data science": 0.2, "Science": 0.1, "Books": 0.1},
     "Sports fan": {"Sports": 0.7, "Fitness": 0.15, "Movies & TV": 0.15},

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- New "Authors and readers" interest (BookBub, Reedsy, Royal Road, Goodreads, Draft2Digital, BookFunnel, StoryOrigin, Booksprout, Kobo, IngramSpark and more) in the Ason mix.
+
 - New "My own corners" interest in the Ason mix, built from the owner's phone browsing history: public pages and topics only (no logins, billing, order tracking, health or account pages).
 
 - Ason mix: Hacker News is now rare (it was picked often), and your Zotero library (zotero.org/peikoff/library) is visited regularly.
