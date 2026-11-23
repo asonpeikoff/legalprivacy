@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Ason mix: Hacker News is now rare (it was picked often), and your Zotero library (zotero.org/peikoff/library) is visited regularly.
+
 - New "Shopping" interest (eBay, Amazon, Walmart, Target, Best Buy, Newegg and more) in the Ason mix. The Help tab now ends with a short About: made by Ason, inspired by Legalizing Privacy, with the GitHub link.
 
 - New "AI tools" interest (ChatGPT/OpenAI, Claude/Anthropic, Gemini, Mistral, Perplexity, Hugging Face, Copilot, Grok, DeepSeek and more, plus LinkedIn pages) and it is part of the Ason persona's mix.
