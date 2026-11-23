@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- **Bigger logo in the same space:** the empty margin around the logo image is trimmed and the logo now fills the header slot, so it is larger and easier to read without making the header taller.
+- **Search engine cutting the connection (for example Bing: `ERR_HTTP2_PROTOCOL_ERROR`):** that engine is now rested for 30 to 120 minutes and other engines are used meanwhile, instead of failing repeatedly.
 - **Long sessions** (Settings → Extras, on by default): now and then a page, on the regular internet or a .onion site, becomes something the noise keeps going back to for about 15 minutes to 3 hours, or a page left open while "away" for 1 to 4 hours (that route goes quiet), after which it comes back to the same page and carries on. The lane cards show "long session" or "stepped away".
 - **Updated logo** (cleaner lettering) in the dashboard header, the browser-tab icon, the desktop app and the README.
 - **Fixed: the dashboard said "disconnected" and the Tor tab stayed empty while noise was running.** A drawing error in the lane cards (added with the dashboard redesign) stopped the page from finishing each update, so the status pill showed "disconnected" and the Tor status and circuits were never drawn, even though noise and Tor were working. A drawing problem can no longer be shown as "disconnected", and a new browser test checks the dashboard and Tor tab while running.

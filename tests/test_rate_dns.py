@@ -270,3 +270,24 @@ def test_long_sessions_start_now_and_then_and_can_be_turned_off():
     for _ in range(500):
         r._maybe_linger(lane, "crawl", Target(url="https://example.org/"))
     assert lane.linger is None
+
+
+def test_search_engine_that_cuts_the_connection_is_rested_for_a_while():
+    from legalprivacy import engines as E
+    from legalprivacy.transports import Target
+    p = Profile(name="t")
+    r = Runner(profile=p, lanes=build_lanes(p, ["w"]), wordlist=["w"], sleep_fn=lambda s: None,
+               probe_fn=lambda *a: HitResult(None, error="net::ERR_HTTP2_PROTOCOL_ERROR at https://www.bing.com/search?q=x"))
+    bing = next(e for e in E.SEARCH_ENDPOINTS if "bing.com" in e)
+    E._ENGINE_COOLDOWN.pop(bing, None)
+    r._make_target = lambda lane, eng, ident: Target(url="https://www.bing.com/search?q=x", role="search")
+    lane = next(ln for ln in r.lanes if "search" in ln.engines)
+    r.rng.seed(1)
+    # run until the search lane is chosen
+    for _ in range(50):
+        r.run_once(wait=False)
+        if E._ENGINE_COOLDOWN.get(bing, 0) > 0:
+            break
+    assert E._ENGINE_COOLDOWN.get(bing, 0) > 0
+    E._ENGINE_COOLDOWN.pop(bing, None)
+    assert lane
