@@ -175,7 +175,7 @@ class DnsConfig:
     opennic: bool = False         # extra: the whole OpenNIC no-log directory as primaries
     quad9: bool = False           # extra: Quad9 (9.9.9.9 / 149.112.112.112) as primaries
     custom: list[str] = field(default_factory=list)   # extra resolver IPs, your choice
-    system_share: float = 0.5     # mix mode: share of time on your normal DNS
+    system_share: float = 0.85    # mix mode: share of time on your normal DNS (the rest on the secure resolvers)
     block_minutes: list[int] = field(default_factory=lambda: [10, 60])   # mix mode: switch every 10-60 min
 
     def validate(self) -> None:
@@ -379,7 +379,7 @@ class Profile:
     engines: dict[str, EngineConfig] = field(default_factory=lambda: {
         "search": EngineConfig(budget_per_day=120),
         "crawl": EngineConfig(budget_per_day=40),
-        "dns": EngineConfig(budget_per_day=200),
+        "dns": EngineConfig(budget_per_day=320),
         "onion": EngineConfig(budget_per_day=40, max_depth=3),
         "packages": EngineConfig(budget_per_day=12),
     })

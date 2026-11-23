@@ -25,6 +25,24 @@ DESKTOP_WEIGHTS = {
     "desktop-firefox": 0.34,
     "desktop-chromium": 0.06,
 }
+# When the noise browser has Firefox, Firefox leads (it is tried before Chromium); when it does not, no
+# noise identity claims to be Firefox, so a user agent never disagrees with the engine that runs it.
+_FIREFOX_ENGINE: bool | None = None          # None = the plain weights above
+
+
+def set_firefox_engine(available: bool | None) -> None:
+    global _FIREFOX_ENGINE
+    _FIREFOX_ENGINE = available
+
+
+def desktop_weights() -> dict:
+    if _FIREFOX_ENGINE is None:
+        return dict(DESKTOP_WEIGHTS)
+    if _FIREFOX_ENGINE:
+        return {"desktop-firefox": 0.55, "desktop-chrome": 0.38, "desktop-chromium": 0.07}
+    return {"desktop-firefox": 0.0, "desktop-chrome": 0.90, "desktop-chromium": 0.10}
+
+
 DEFAULT_MOBILE_SHARE = 0.55
 DEFAULT_DEVICE = "iPhone 13"
 
@@ -141,7 +159,7 @@ def _phone_kinds(device: str) -> dict[str, float]:
 
 
 def persona_weights(mobile_share: float = DEFAULT_MOBILE_SHARE, device: str = DEFAULT_DEVICE) -> dict:
-    out = {p: (1 - mobile_share) * w for p, w in DESKTOP_WEIGHTS.items()}
+    out = {p: (1 - mobile_share) * w for p, w in desktop_weights().items()}
     for p, w in _phone_kinds(device).items():
         out[p] = mobile_share * w
     return out

@@ -92,3 +92,22 @@ def test_governmental_names_are_found_without_catching_ordinary_words(tmp_path):
     def offline(url):
         raise OSError("no network")
     assert len(F.refresh(cache, offline, max_age=0)) == 1          # offline: keeps the last list
+
+
+def test_dns_defaults_lean_on_normal_dns_and_do_more_lookups():
+    from legalprivacy.config import Profile
+    p = Profile(name="d")
+    assert p.dns.mode == "mix" and p.dns.system_share == 0.85
+    assert p.engines["dns"].budget_per_day > p.engines["search"].budget_per_day
+
+
+def test_firefox_leads_when_the_engine_is_there_and_nobody_claims_it_when_it_is_not():
+    from legalprivacy import useragents as U
+    try:
+        U.set_firefox_engine(True)
+        w = U.persona_weights(0.0)
+        assert w["desktop-firefox"] > w["desktop-chrome"] > w["desktop-chromium"]
+        U.set_firefox_engine(False)
+        assert U.persona_weights(0.0)["desktop-firefox"] == 0
+    finally:
+        U.set_firefox_engine(None)
