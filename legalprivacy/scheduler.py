@@ -584,6 +584,15 @@ class Runner:
             if host:
                 self._emit("warn", lane.name, f"{host} showed its “are you a robot?” check. Using other search "
                            f"engines for about {hours:.0f} h, the way a person would switch.")
+        if target.role == "search" and not result.ok and any(
+                k in (result.error or "") for k in ("ERR_HTTP2_PROTOCOL_ERROR", "ERR_CONNECTION_RESET",
+                                                   "ERR_EMPTY_RESPONSE", "ERR_QUIC_PROTOCOL_ERROR")):
+            from .engines import cool_down_engine       # the engine is cutting the connection: use others for a while
+            minutes = self.rng.uniform(30, 120)
+            host = cool_down_engine(target.url, minutes * 60)
+            if host:
+                self._emit("warn", lane.name, f"{host} cut the connection ({result.error[:60]}). Using other search "
+                           f"engines for about {minutes:.0f} minutes.")
         if target.kind == "html":
             import urllib.parse as _up
             self._host_last[_up.urlparse(target.url).hostname or ""] = self.clock()
