@@ -456,3 +456,19 @@ def test_a_broken_certificate_counts_as_a_site_that_is_down_and_is_remembered(tm
     assert r2._onion_is_dead(url)                       # a new run still knows it was down
     r2._onion_seen_alive(url)
     assert not r2._onion_is_dead(url)
+
+
+def test_ason_searches_almost_only_with_duckduckgo_unless_you_choose_otherwise():
+    engines._ENGINE_HITS.clear()
+    engines.configure_search({}, False, "Ason")
+    try:
+        picks = [pick_search_endpoint(random.Random(i), now=1e6 + i * 10_000) for i in range(300)]
+        ddg = sum(1 for u in picks if u.startswith("https://duckduckgo.com/"))
+        assert ddg / len(picks) > 0.8
+        engines.configure_search({"Bing": 5}, False, "Ason")          # your own choice wins
+        assert dict(zip(ENGINE_NAMES, engines._current_weights()))["Bing"] == 5
+        engines.configure_search({}, False, None)                       # other personas keep the usual mix
+        assert dict(zip(ENGINE_NAMES, engines._current_weights()))["Google"] == 35.0
+    finally:
+        engines._ENGINE_HITS.clear()
+        engines.configure_search({})

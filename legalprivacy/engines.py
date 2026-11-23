@@ -41,8 +41,13 @@ ENGINE_NAMES = ["Google", "DuckDuckGo", "Bing", "Brave", "Startpage", "Ecosia", 
 SEARCH_OPTIONS: dict = {"weights": {}, "typos": False}
 
 
-def configure_search(weights: dict | None = None, typos: bool = False) -> None:
-    SEARCH_OPTIONS["weights"] = dict(weights or {})
+# The Ason persona searches almost only with DuckDuckGo (anything chosen in Settings -> Search engines wins).
+PERSONA_SEARCH = {"Ason": {"DuckDuckGo": 88.0, "Google": 5.0, "Bing": 3.0, "Brave": 2.0, "Startpage": 1.0,
+                           "DuckDuckGo Lite": 1.0}}
+
+
+def configure_search(weights: dict | None = None, typos: bool = False, persona: str | None = None) -> None:
+    SEARCH_OPTIONS["weights"] = dict(weights or PERSONA_SEARCH.get(persona or "", {}))
     SEARCH_OPTIONS["typos"] = bool(typos)
 
 

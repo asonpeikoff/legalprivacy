@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The Ason persona now searches almost only with DuckDuckGo (about 88%), with a little Google, Bing, Brave and Startpage. Anything you set under Settings → Search engines still wins.
+
 - Your own Firefox is now started with `--no-remote`, so it no longer registers on the desktop bus and should stop printing "unable to unregister root object from within onNameLost" when the app stops it.
 
 - New "Authors and readers" interest (BookBub, Reedsy, Royal Road, Goodreads, Draft2Digital, BookFunnel, StoryOrigin, Booksprout, Kobo, IngramSpark and more) in the Ason mix.

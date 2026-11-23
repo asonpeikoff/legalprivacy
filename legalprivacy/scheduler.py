@@ -165,7 +165,7 @@ class Runner:
         ex = getattr(self.profile, "extras", None)
         if ex is not None:
             from .engines import configure_search
-            configure_search(ex.search_engines, ex.typos)
+            configure_search(ex.search_engines, ex.typos, ex.persona)
         self._ua = UaChooser(self.rng, self.profile.identity,
                              mobile=lambda: (self._mobile_now, tc.device if tc else "iPhone 13"))
         self._hour_end = 0.0
