@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The app now checks GitHub for a newer version when it opens and twice a day (one read-only request, nothing about you is sent). When it is behind, the dashboard shows a notice with how many updates and how to update (`git pull`); a button checks again, and Settings can turn it off.
+
 - Tor Browser: optional "Share this app's Tor with Tor Browser" (off by default). It opens Tor Browser on the app's own Tor through a separate, isolated door, so your real browsing and the noise use one entry connection. New Identity is blocked while sharing so open pages aren't cut off.
 - Tor Browser is now kept up to date automatically (checked every few hours, never replaced while open). Its signature is verified on each install, the programs are re-checked against fingerprints taken at that moment before every launch, and a changed copy is reinstalled instead of run. The Tor tab shows the verified key and date.
 - **Tor tab:** the Details list is now two columns, so the Status and Details cards are both short instead of Status stretching to match a tall list.

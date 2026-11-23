@@ -49,7 +49,7 @@ def wipe_old_log_files() -> None:
             pass
 
 
-APP_DEFAULTS = {"migrated_ason": False, "observe": True, "autostart": True, "open_browser": True, "port": 8765, "intensity": "normal",
+APP_DEFAULTS = {"migrated_ason": False, "observe": True, "update_check": True, "autostart": True, "open_browser": True, "port": 8765, "intensity": "normal",
                 "auto_refresh_sources": False,   # off: use the snapshot shipped with the app (no lookups)
                 "ml_auto": False, "ml_history": [],
                 "clear_logs_on_restart": True}
@@ -213,7 +213,7 @@ class Controller:
         return self.apply_config(json.loads(p.read_text(encoding="utf-8")))
 
     def update_app(self, raw: dict[str, Any]) -> None:
-        for k in ("autostart", "open_browser", "auto_refresh_sources", "ml_auto", "observe", "clear_logs_on_restart"):
+        for k in ("autostart", "open_browser", "auto_refresh_sources", "ml_auto", "observe", "clear_logs_on_restart", "update_check"):
             if k in raw:
                 self.app[k] = bool(raw[k])
         if "observe" in raw:
@@ -755,6 +755,34 @@ class Controller:
         except (OSError, ValueError):
             at = None
         return {"count": len(found), "at": at, "relays": found[:60]}
+
+    # ── is this copy out of date? ────────────────────────────────────────────
+    def update_state(self) -> dict:
+        return {"enabled": bool(self.app.get("update_check", True)), "version": __version__,
+                **(getattr(self, "_update", None) or {"status": "unchecked"})}
+
+    def update_check(self, fn=None) -> dict:
+        from . import updatecheck
+        try:
+            self._update = (fn or updatecheck.check)(__version__)
+            if self._update["status"] == "behind":
+                n = self._update.get("behind_by")
+                self.log.add("warn", "app", "A newer legalPrivacy is available"
+                             + (f" ({n} update{'s' if n != 1 else ''} behind)" if n else "") + ". "
+                             "Update with: git pull" if self._update.get("how") else
+                             "A newer legalPrivacy is available. Download it from GitHub.")
+        except Exception as exc:                                # offline is fine
+            self._update = {"status": "unchecked", "error": f"Couldn't reach GitHub: {exc}"}
+        return self.update_state()
+
+    def update_watch(self) -> None:
+        """Ask GitHub once at start-up and then twice a day."""
+        def loop():
+            while True:
+                if self.app.get("update_check", True):
+                    self.update_check()
+                time.sleep(43200)
+        threading.Thread(target=loop, daemon=True, name="update-watch").start()
 
     # ── Tor Browser (for your own private browsing) ──────────────────────────
     def torbrowser_state(self) -> dict:

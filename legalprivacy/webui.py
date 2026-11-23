@@ -186,6 +186,8 @@ class UIServer:
                 try:
                     if u.path == "/api/avoid":
                         return self._json(ctl.avoid_info(refresh=(q.get("refresh") or [""])[0] == "1"))
+                    if u.path == "/api/update":
+                        return self._json(ctl.update_state())
                     if u.path == "/api/torbrowser":
                         return self._json(ctl.torbrowser_state())
                     if u.path == "/api/defaults":
@@ -345,6 +347,8 @@ class UIServer:
                         return self._json(ctl.apply_config(body))
                     elif path == "/api/torbrowser/open":
                         return self._json(ctl.torbrowser_open())
+                    elif path == "/api/update/check":
+                        return self._json(ctl.update_check())
                     elif path == "/api/torbrowser/check":
                         return self._json(ctl.torbrowser_check())
                     elif path == "/api/defaults/recommended":
@@ -420,6 +424,7 @@ def start_services(ctl) -> None:
         except ConfigError as exc:
             ctl.log.error("app", str(exc))
     ctl.torbrowser_watch()
+    ctl.update_watch()
     ctl.relay_autostart()                 # "start the relay with the app" is on by default, in practice mode (nothing published)
 
 
