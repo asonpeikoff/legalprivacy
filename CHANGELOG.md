@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- **Alternate logo:** the web header alternates between the main logo and a second artwork every 3 minutes, fading one out as the other fades in (instant swap if your system asks for reduced motion). The desktop app keeps the main logo.
 - **Logo updated** to the newest artwork (header, desktop app, README).
 - **Logo updated** again (header, desktop app, README); the browser-tab icon is unchanged.
 - **Larger header logo** (same header height) and a larger, margin-trimmed logo in the README.
