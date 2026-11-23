@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- New "My own corners" interest in the Ason mix, built from the owner's phone browsing history: public pages and topics only (no logins, billing, order tracking, health or account pages).
+
 - Ason mix: Hacker News is now rare (it was picked often), and your Zotero library (zotero.org/peikoff/library) is visited regularly.
 
 - New "Shopping" interest (eBay, Amazon, Walmart, Target, Best Buy, Newegg and more) in the Ason mix. The Help tab now ends with a short About: made by Ason, inspired by Legalizing Privacy, with the GitHub link.
