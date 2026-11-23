@@ -84,6 +84,8 @@ class TransportConfig:
     dns_port: int = 0                 # Tor DNS (optional): 0 = off, else the preferred local UDP port for Tor's DNSPort
     dns_lan: bool = False             # share Tor DNS on one private network address (off; loopback only by default)
     dns_lan_addr: str = ""            # which of this computer's private addresses, when dns_lan is on
+    exclude_nodes: list[str] = field(default_factory=list)   # relays (40-letter fingerprints) or countries ({ru}) Tor must avoid
+    exclude_strict: bool = False      # True: never use them, even if that means Tor can't connect
 
     def validate(self, name: str) -> None:
         if self.browser not in ("auto", "on", "off"):
@@ -94,6 +96,9 @@ class TransportConfig:
             raise ConfigError(f"transport '{name}': browser_engine must be mix, auto, chromium or firefox")
         if self.bridge_mode not in ("off", "obfs4", "snowflake", "meek", "custom"):
             raise ConfigError("tor bridge_mode must be off, obfs4, snowflake, meek or custom")
+        for n in self.exclude_nodes:
+            if not valid_exclude_entry(n):
+                raise ConfigError(f"'{n}' isn't a relay fingerprint (40 letters and digits) or a country like {{ru}}")
         for b in self.bridges:
             if not valid_bridge_line(b):
                 raise ConfigError("a Tor bridge line isn't in the usual form (for example "
@@ -106,6 +111,12 @@ class TransportConfig:
                 validate_dns(self.dns_port, self.dns_lan, self.dns_lan_addr)
             except TorDnsError as exc:
                 raise ConfigError(str(exc)) from exc
+
+
+def valid_exclude_entry(entry: str) -> bool:
+    """A relay fingerprint (optionally with a leading $) or a two-letter country in braces. Nothing else:
+    the entry goes into the torrc, so it must never be able to carry another setting."""
+    return bool(re.fullmatch(r"\$?[0-9A-Fa-f]{40}|\{[A-Za-z]{2}\}", entry or ""))
 
 
 @dataclass
@@ -121,6 +132,7 @@ class RelayConfig:
     autostart: bool = True            # start the relay with the app. On by default, but only ever in practice mode
                                       # (loopback, nothing published); a public relay still needs the checklist once
     acknowledged: bool = False        # the checklist was completed once (needed for autostart)
+    private: bool = False             # bridge only: a private bridge for your own use, not handed out to anyone else
 
     def validate(self) -> None:
         from .relay import RelayConfigError
@@ -138,7 +150,7 @@ class RelayConfig:
         from .relay import RelaySpec
         return RelaySpec(mode=self.mode, nickname=self.nickname, contact=self.contact or None,
                          bandwidth_rate=self.bandwidth_rate, or_port=self.or_port,
-                         dir_port=self.dir_port, practice=self.practice)
+                         dir_port=self.dir_port, practice=self.practice, private=self.private)
 
 
 RECOMMENDED_RESOLVERS = [

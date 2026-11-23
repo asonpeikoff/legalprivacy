@@ -509,6 +509,11 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
       <div class="small mute" id="dnsNote"></div>
     </div>
   </div>
+  <div class="card" id="exclCard"><h3><svg class="ic" aria-hidden="true"><use href="#i-tor"/></svg>Relays to avoid (optional) <details class="why"><summary>ⓘ</summary><div>Tor picks relays you cannot vet. If you know of relays or whole countries you do not trust, list them here and the app's Tor will avoid them for every step it can, including looking up onion addresses. One per line: a relay's 40-letter fingerprint, or a country in braces such as {ru}. Lists published by network researchers can be pasted in. Without "strict", Tor may still use them if it cannot connect otherwise.</div></details></h3>
+    <textarea id="tExcl" rows="4" placeholder="{ru}&#10;0123456789ABCDEF0123456789ABCDEF01234567"></textarea>
+    <label class="chk"><input type="checkbox" id="tExclStrict"><span><b>Strict</b> <span class="mute">— never use them, even if that stops Tor from connecting</span></span></label>
+    <div class="small mute">Saved with the other Tor settings. Takes effect the next time Tor starts.</div>
+  </div>
   <div class="card" id="relayCard"><h3><svg class="ic" aria-hidden="true"><use href="#i-tor"/></svg>Contribute to Tor: run a relay (optional)</h3>
     <div class="note tor">A relay passes other people's encrypted Tor traffic along, which helps the network. It is <b>not an exit</b>: it never connects to websites for anyone, and legalPrivacy can never make it one. A relay or bridge also does <b>not</b> provide DNS (only exit relays look up names). Relay addresses are <b>public by design</b>: the Tor network publishes them in a list anyone can read. The relay runs as its own separate Tor program; it never starts by itself.</div>
     <div class="row"><label class="opt t" style="flex:1;min-width:210px"><input type="radio" name="rmode" value="middle"> <b>Middle relay</b> <span class="mute">— listed publicly; carries traffic between other relays</span></label>
@@ -518,6 +523,8 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
       Port (ORPort) <input type="number" id="rPort" min="1024" max="65535" style="width:90px"></div>
     <div class="small mute" id="rEst"></div>
     <div class="row">Contact (optional) <input type="text" id="rContact" size="34" placeholder="you@example.org (shown publicly if you add it)"></div>
+    <label class="chk"><input type="checkbox" id="rPrivate"><span><b>Private bridge (only for me)</b> <span class="mute">— for a bridge on a server you own. It is not handed out to anyone else. Once it is running and reachable, copy the line below into <b>Bridges</b> on the computer that should use it, replacing {YOUR-SERVER-IP} with the server's address, and choose "My own bridges".</span></span></label>
+    <div class="row" id="rBridgeLineRow" style="display:none"><input type="text" id="rBridgeLine" readonly style="flex:1" aria-label="Bridge line to copy"><button id="rBridgeCopy">Copy</button></div>
     <label class="chk"><input type="checkbox" id="rPractice"><span><b>Practice mode (not published)</b> — the relay only listens on this computer and never announces itself, so nobody can use it. It still downloads Tor's public relay list like any Tor program. Needs no checklist. Untick it only when you are ready to join the network.</span></label>
     <div id="rCheck"><div class="small"><b>Before a public relay</b> (tick each one):</div>
       <label class="chk"><input type="checkbox" data-ck="address"><span>This computer has a public IP address, or my router forwards the ORPort to it.</span></label>
@@ -1437,7 +1444,7 @@ function fillTor(force){
   if(!S||(dirty.tor&&!force))return;const c=S.profile.transports.tor;
   $('#tEnable').checked=c.enabled;$('#tOnion').checked=c.onion;$('#tManage').checked=c.manage;
   $('#tSocks').value=c.socks;$('#tCtl').value=c.control||'';$('#tExt').style.display=c.manage?'none':'flex';
-  $('#tSeeds').value=((c.onion_seeds&&c.onion_seeds.length)?c.onion_seeds:S.builtin_onion_seeds.map(b=>b.url)).join('\n');$('#tBridges').value=(c.bridges||[]).join('\n');
+  $('#tSeeds').value=((c.onion_seeds&&c.onion_seeds.length)?c.onion_seeds:S.builtin_onion_seeds.map(b=>b.url)).join('\n');$('#tExcl').value=(c.exclude_nodes||[]).join('\n');$('#tExclStrict').checked=!!c.exclude_strict;$('#tBridges').value=(c.bridges||[]).join('\n');
   (document.querySelector(`input[name=bmode][value=${c.bridge_mode||'off'}]`)||{}).checked=true;$('#bAuto').checked=c.bridge_auto!==false;
   $('#tBuiltin').innerHTML=S.builtin_onion_seeds.map(b=>`<div>${esc(b.name)}: <code>${esc(b.url)}</code></div>`).join('');
   $('#dnsOn').checked=(c.dns_port||0)>0;$('#dnsLan').checked=!!c.dns_lan;fillDnsAddrs();showDns();
@@ -1445,7 +1452,7 @@ function fillTor(force){
 }
 $$('#t-tor input,#t-tor textarea').forEach(i=>i.oninput=()=>{dirty.tor=true;$('#tExt').style.display=$('#tManage').checked?'none':'flex';$('#tSaved').textContent='unsaved changes'});
 async function saveTor(auto){
-  try{await api('/api/config',{transports:{tor:{enabled:$('#tEnable').checked,onion:$('#tOnion').checked,manage:$('#tManage').checked,socks:$('#tSocks').value,control:$('#tCtl').value||null,onion_seeds:$('#tSeeds').value,bridges:$('#tBridges').value,bridge_mode:(document.querySelector('input[name=bmode]:checked')||{}).value||'off',bridge_auto:$('#bAuto').checked,dns_port:$('#dnsOn').checked?((S&&S.profile.transports.tor.dns_port)||19053):0,dns_lan:$('#dnsOn').checked&&$('#dnsLan').checked&&!!$('#dnsAddr').value,dns_lan_addr:$('#dnsAddr').value||''}}});
+  try{await api('/api/config',{transports:{tor:{enabled:$('#tEnable').checked,onion:$('#tOnion').checked,manage:$('#tManage').checked,socks:$('#tSocks').value,control:$('#tCtl').value||null,onion_seeds:$('#tSeeds').value,bridges:$('#tBridges').value,exclude_nodes:$('#tExcl').value,exclude_strict:$('#tExclStrict').checked,bridge_mode:(document.querySelector('input[name=bmode]:checked')||{}).value||'off',bridge_auto:$('#bAuto').checked,dns_port:$('#dnsOn').checked?((S&&S.profile.transports.tor.dns_port)||19053):0,dns_lan:$('#dnsOn').checked&&$('#dnsLan').checked&&!!$('#dnsAddr').value,dns_lan_addr:$('#dnsAddr').value||''}}});
     dirty.tor=false;$('#tSaved').textContent='Saved ✓ '+(S&&S.running?(needApply(),'(going live…)'):'');await poll()}catch(e){$('#tSaved').textContent='Not saved: '+e.message;if(!auto)toast(e.message,1)}
 }
 $('#tSave').onclick=()=>saveTor(false);
@@ -1482,7 +1489,7 @@ let R=null,rFilled=false,rBusy=false,rPrevT=null;
 const rCk=()=>$$('#rCheck [data-ck]');
 function rBody(){const ck={};rCk().forEach(x=>ck[x.dataset.ck]=x.checked);
   return {mode:(document.querySelector('input[name=rmode]:checked')||{}).value||'middle',nickname:$('#rNick').value,bandwidth_mb:parseFloat($('#rBw').value),
-    or_port:parseInt($('#rPort').value,10),contact:$('#rContact').value,practice:$('#rPractice').checked,checklist:ck}}
+    or_port:parseInt($('#rPort').value,10),contact:$('#rContact').value,practice:$('#rPractice').checked,private:$('#rPrivate').checked,checklist:ck}}
 function rEstimate(){const mb=parseFloat($('#rBw').value);
   $('#rEst').textContent=mb>0?`At full speed that is up to about ${Math.round(mb*86400*30/1000).toLocaleString()} GB a month each way (${Math.round(mb*86400*30/500).toLocaleString()} GB in total). A relay usually uses much less. Tor needs at least about 0.08 MBytes per second.`:''}
 function rGate(){
@@ -1502,7 +1509,7 @@ function renderRelay(){
   if(!rFilled||up){
     if(!rFilled||!$('#relayCard').contains(document.activeElement)){
       (document.querySelector(`input[name=rmode][value=${s.mode}]`)||{}).checked=true;$('#rNick').value=s.nickname;$('#rBw').value=s.bandwidth_mb;
-      $('#rPort').value=s.or_port;$('#rContact').value=s.contact;$('#rPractice').checked=s.practice;$('#rTorrc').value=R.torrc;rEstimate()}
+      $('#rPort').value=s.or_port;$('#rContact').value=s.contact;$('#rPractice').checked=s.practice;$('#rPrivate').checked=!!s.private;{const bl=R.bridge_line;$('#rBridgeLineRow').style.display=bl?'':'none';$('#rBridgeLine').value=bl||''}$('#rTorrc').value=R.torrc;rEstimate()}
     $('#rAuto').checked=s.autostart;rFilled=true}
   const pill=$('#rPill');
   const label={stopped:'Stopped',starting:'Starting…',running:st.practice?'Running (practice, not published)':st.reachable?'Running, reachable':'Running',error:'Error'}[st.state]||st.state;
@@ -1512,6 +1519,7 @@ function renderRelay(){
   const box=$('#rLog').parentElement;box.scrollTop=box.scrollHeight;rGate()}
 async function pollRelay(){if(!$('#t-tor').classList.contains('on'))return;try{R=await api('/api/relay');renderRelay()}catch(e){}}
 setInterval(pollRelay,2500);$$('#nav button').forEach(b=>{if(b.dataset.t==='tor')b.addEventListener('click',()=>setTimeout(pollRelay,0))});
+$('#rBridgeCopy').onclick=()=>{const e=$('#rBridgeLine');e.select();try{navigator.clipboard.writeText(e.value)}catch(x){document.execCommand('copy')}toast('Copied')};
 $('#rStart').onclick=async()=>{rBusy=true;rGate();
   try{R=await api('/api/relay/start',rBody());toast('Relay starting…');renderRelay()}catch(e){toast(e.message,1);$('#rMsg').textContent=e.message}
   finally{rBusy=false;rGate()}};

@@ -35,6 +35,7 @@ class RelaySpec:
     dir_port: int = 9030
     socks_policy: str = "reject *:*"
     practice: bool = False            # True: ORPort on loopback only, nothing published (safe to try)
+    private: bool = False             # bridge: don't tell the bridge authority, so only people you give the line to can use it
 
     def validate(self) -> None:
         if self.mode not in ("middle", "bridge"):
@@ -98,7 +99,7 @@ def generate_torrc(spec: RelaySpec, data_dir: str | None = None) -> str:
         lines += ["", "# Safety: publish reachable, non-exit relay", "AssumeReachable 0"]
     if spec.mode == "bridge":
         lines += ["", "# Bridge mode: no descriptor publication to the main directory", "BridgeRelay 1"]
-        lines.append("PublishServerDescriptor 0" if spec.practice else "PublishServerDescriptor bridge")
+        lines.append("PublishServerDescriptor 0" if (spec.practice or spec.private) else "PublishServerDescriptor bridge")
     else:
         lines += ["", "BridgeRelay 0"]
         if spec.practice:

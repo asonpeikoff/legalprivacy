@@ -155,6 +155,8 @@ class Controller:
             if bad:
                 raise ConfigError("invalid onion address(es): " + ", ".join(bad[:3]))
             tor_raw["onion_seeds"] = good
+        if "exclude_nodes" in tor_raw and isinstance(tor_raw["exclude_nodes"], str):
+            tor_raw["exclude_nodes"] = [x.strip() for x in re.split(r"[\s,]+", tor_raw["exclude_nodes"]) if x.strip()]
         if "bridges" in tor_raw and isinstance(tor_raw["bridges"], str):
             tor_raw["bridges"] = [ln.strip() for ln in tor_raw["bridges"].splitlines() if ln.strip()]
         apply_overrides(new, raw)
@@ -223,14 +225,17 @@ class Controller:
                 or self.tor.bridges != [b.strip() for b in cfg.bridges if b.strip()] \
                 or self.tor.configured_bridge_mode != cfg.bridge_mode or self.tor.bridge_auto != cfg.bridge_auto \
                 or (self.tor.dns_port_cfg, self.tor.dns_lan, self.tor.dns_lan_addr) != (
-                    cfg.dns_port, cfg.dns_lan, cfg.dns_lan_addr):
+                    cfg.dns_port, cfg.dns_lan, cfg.dns_lan_addr) \
+                or (self.tor.exclude_nodes, self.tor.exclude_strict) != (
+                    [e.strip() for e in cfg.exclude_nodes if e.strip()], bool(cfg.exclude_strict)):
             if self.tor and self.tor.state not in ("stopped",):
                 self.tor.stop()
             self.tor = TorManager(self.log, mode=mode, socks=cfg.socks, control=cfg.control,
                                   control_password=cfg.control_password,
                                   bridges=cfg.bridges, auto_install=cfg.auto_install,
                                   bridge_mode=cfg.bridge_mode, bridge_auto=cfg.bridge_auto,
-                                  dns_port=cfg.dns_port, dns_lan=cfg.dns_lan, dns_lan_addr=cfg.dns_lan_addr)
+                                  dns_port=cfg.dns_port, dns_lan=cfg.dns_lan, dns_lan_addr=cfg.dns_lan_addr,
+                                  exclude_nodes=cfg.exclude_nodes, exclude_strict=cfg.exclude_strict)
         return self.tor
 
     # ── DNS resolver table: health + verification ──────────────────────────
@@ -747,11 +752,20 @@ class Controller:
             rc = RelayConfig(mode=str(body.get("mode", cur.mode)), nickname=str(body.get("nickname", cur.nickname)),
                              contact=str(body.get("contact") or "").strip() or None,
                              bandwidth_rate=f"{mb:g} MBytes", or_port=int(body.get("or_port", cur.or_port)),
-                             dir_port=0, practice=body.get("practice", cur.practice) is True)
+                             dir_port=0, practice=body.get("practice", cur.practice) is True,
+                             private=body.get("private", cur.private) is True)
             rc.validate()
             return {"torrc": generate_torrc(rc.spec(), data_dir="(the relay's own data folder)"), "error": None}
         except (ConfigError, TypeError, ValueError) as exc:
             return {"torrc": "", "error": str(exc)}
+
+    def _bridge_line(self) -> str | None:
+        """What to paste into the Tor tab of the computer that should use this bridge. The address is left for
+        you to fill in: the app does not look up its own public address."""
+        st = self.relay.snapshot()
+        if st.get("mode") != "bridge" or st.get("practice") or not st.get("fingerprint"):
+            return None
+        return f"{{YOUR-SERVER-IP}}:{st['or_port']} {st['fingerprint']}"
 
     def relay_state(self) -> dict:
         from .relayrun import monthly_estimate
@@ -766,8 +780,8 @@ class Controller:
         return {
             "settings": {"mode": rc.mode, "nickname": rc.nickname, "contact": rc.contact or "",
                          "bandwidth_mb": mb, "or_port": rc.or_port, "practice": rc.practice,
-                         "autostart": rc.autostart, "acknowledged": rc.acknowledged},
-            "status": self.relay.snapshot(), "torrc": torrc,
+                         "autostart": rc.autostart, "acknowledged": rc.acknowledged, "private": rc.private},
+            "status": self.relay.snapshot(), "torrc": torrc, "bridge_line": self._bridge_line(),
             "tor_found": bool(find_tor_binary()), "estimate": monthly_estimate(mb),
             "checklist": list(self.RELAY_CHECKLIST), "platform": sys.platform,
         }
@@ -792,6 +806,7 @@ class Controller:
         raw = {"mode": str(body.get("mode", cur.mode)), "nickname": str(body.get("nickname", cur.nickname)),
                "contact": str(body.get("contact") or "").strip() or None,
                "bandwidth_rate": f"{mb:g} MBytes", "or_port": or_port, "dir_port": 0, "practice": practice,
+               "private": body.get("private", cur.private) is True,
                "acknowledged": cur.acknowledged or not practice}
         if "autostart" in body:
             raw["autostart"] = body["autostart"] is True

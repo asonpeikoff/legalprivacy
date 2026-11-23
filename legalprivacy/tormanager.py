@@ -150,8 +150,10 @@ class TorManager:
                  control_password: str | None = None, bridges: list[str] | None = None,
                  bridge_mode: str = "off", bridge_auto: bool = True,
                  auto_install: bool = True, dns_port: int = 0, dns_lan: bool = False,
-                 dns_lan_addr: str = ""):
+                 dns_lan_addr: str = "", exclude_nodes: list[str] | None = None, exclude_strict: bool = False):
         self.log = log
+        self.exclude_nodes = [e.strip() for e in (exclude_nodes or []) if e.strip()]
+        self.exclude_strict = bool(exclude_strict)
         self.mode = mode                      # managed | external
         self.ext_socks, self.ext_control = socks, control
         self.control_password = control_password
@@ -401,6 +403,12 @@ class TorManager:
         dns_line = tordns.torrc_line(self.dns_port, self.dns_lan, self.dns_lan_addr) if self.dns_port else None
         if dns_line:        # optional Tor DNS: loopback unless one private LAN address was explicitly chosen
             lines.append(dns_line)
+        from .config import valid_exclude_entry
+        excl = [e if e.startswith("{") else "$" + e.lstrip("$") for e in self.exclude_nodes if valid_exclude_entry(e)]
+        if excl:                                  # relays you don't trust: Tor avoids them for every hop it can
+            lines += ["ExcludeNodes " + ",".join(excl), f"StrictNodes {1 if self.exclude_strict else 0}"]
+            self.log.info("tor", f"Avoiding {len(excl)} relay(s)/countries you listed"
+                                 f"{' (strictly)' if self.exclude_strict else ''}.")
         bundle_data = Path(self.binary).resolve().parent.parent / "data"
         for name, key in (("geoip", "GeoIPFile"), ("geoip6", "GeoIPv6File")):
             if (bundle_data / name).exists():
