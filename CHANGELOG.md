@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- **Relays to avoid** (Tor tab): list relay fingerprints or countries (like {ru}) and the app's Tor avoids them for every step it can, optionally strictly. Pasted entries are checked so they can never add another Tor setting.
+- **Private bridge:** the relay card has a "Private bridge (only for me)" option for a bridge on your own server that is not handed out to anyone else, and shows a line to copy into Bridges on the computer that should use it (you fill in the server's address). The public relay option is unchanged.
 - **DNS lookups and package installs now run alongside everything else**, on their own schedule, instead of taking a share of the same stream. The "Mix of activity" bar is now just searching, following links and .onion sites; DNS lookups and package installs have their own Off/Fewer/Normal/More settings under "Also running in the background". Searches per hour are unchanged.
 - **Package noise looks more like real work:** besides single installs, it now sometimes installs a whole requirements file (3 to 14 packages from a web, data or tools stack, with their dependencies). Everything is installed into a temporary folder that is deleted straight after, with pip's cache turned off so nothing is kept.
 - **Browser mix by default:** the noise browser now uses every browser it finds, one per identity (Firefox-style identities in Firefox when it is installed for the noise browser, the rest in Chromium), instead of only matching your own. "Browser engine" and "User agent" now default to Mix; choose "Match my own browser only" or a single engine to override. Existing saved settings are kept.
