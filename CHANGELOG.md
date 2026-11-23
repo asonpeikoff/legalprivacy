@@ -1,6 +1,9 @@
 # Changelog
 
 ## Unreleased
+- **Clicking the header logo switches** between the two logos at once (and restarts the 3-minute timer).
+- **Firefox leads:** when Firefox is installed for the noise browser, most desktop noise identities are Firefox and the rest Chromium; when it is not, none claim to be Firefox (so a user agent never disagrees with the browser running it).
+- **DNS defaults:** about two and a half times more DNS lookups, and the mix of normal and secure DNS now stays on your normal DNS 85% of the time.
 - **Alternate logo:** the web header alternates between the main logo and a second artwork every 3 minutes, fading one out as the other fades in (instant swap if your system asks for reduced motion). The desktop app keeps the main logo.
 - **Logo updated** to the newest artwork (header, desktop app, README).
 - **Logo updated** again (header, desktop app, README); the browser-tab icon is unchanged.

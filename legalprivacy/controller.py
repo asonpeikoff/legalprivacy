@@ -915,8 +915,12 @@ class Controller:
                                     stop_event=stop, scale=lambda: self.profile.realtime_scale,
                                     on_event=lambda lvl, msg: self.log.add(lvl, "browser", msg))
         if not mix:
+            from . import useragents as _ua0
+            _ua0.set_firefox_engine(None)
             return make(engine)
         ff = make("firefox") if find_playwright_firefox() else None
+        from . import useragents as _ua
+        _ua.set_firefox_engine(ff is not None)          # Firefox leads when it is there; none claim it when it isn't
         self.log.info("browser", "Mixing browsers: Chromium" + (" and Firefox." if ff else
                       " only (Firefox isn't installed for the noise browser: run python -m playwright install firefox)."))
         return MixedBrowserTransport(make("chromium"), ff)
