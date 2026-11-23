@@ -257,7 +257,14 @@ class SearchTargetFactory:
             query = add_typo(self.rng, query)
         return Target(url=endpoint + urllib.parse.quote_plus(query), note=origin, role="search")
 
-    def result_target(self, html: str, search_url: str) -> Target | None:
+    def for_query(self, query: str, note: str | None = None) -> Target:
+        """A search for exactly this query, on a weighted-random engine."""
+        endpoint = pick_search_endpoint(self.rng)
+        if self.html_mode and "duckduckgo.com/?q=" in endpoint and "lite." not in endpoint:
+            endpoint = "https://html.duckduckgo.com/html/?q="
+        return Target(url=endpoint + urllib.parse.quote_plus(query), note=note, role="search")
+
+    def result_target(self, html: str, search_url: str, prefer_host: str | None = None) -> Target | None:
         links = [u for u in extract_result_links(html, search_url) if english_url(u)]
         if not links:
             return None
@@ -266,6 +273,10 @@ class SearchTargetFactory:
         rest = sum(weights[1:])
         if rest:
             weights = [rest] + weights[1:]
+        if prefer_host:                                   # looking for a particular site: it is the one clicked
+            bare = prefer_host.lower().removeprefix("www.").split("/")[0]
+            weights = [w * (50.0 if bare in (urllib.parse.urlparse(u).hostname or "").lower() else 1.0)
+                       for w, u in zip(weights, links)]
         return Target(url=self.rng.choices(links, weights=weights)[0], referer=search_url, role="result")
 
 

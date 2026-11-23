@@ -7,6 +7,7 @@ import random
 import sys
 import threading
 import time
+import urllib.parse
 from collections import deque
 from dataclasses import dataclass
 from collections.abc import Callable
@@ -55,6 +56,7 @@ class Lane:
     last_error: str | None = None
     last_hit_ts: float | None = None
     last_latency_ms: float | None = None
+    pending_visit: Target | None = None       # a site we are searching for; the search's click goes to it
     linger: dict | None = None                # a long session on one page: {mode, url, engine, until, next_at}
 
     @property
@@ -127,7 +129,7 @@ class Runner:
     tor_seeds: list[str] | None = None  # extra onion seeds from the profile
     queries: object | None = None      # QuerySource shared by all lanes (live/real queries)
     domains: object | None = None      # DomainPool (real popular domains)
-    click_prob: float = 0.6            # chance a search is followed by opening a result
+    click_prob: float = 0.85           # chance a search is followed by opening a result
     rate: object | None = None         # RatePlanner: hourly plan (app mode). None = daily budgets (CLI/tests)
     dns_plan: object | None = None     # DnsPlan: which resolver DNS noise uses
     mix: bool = False                  # app mode: lane shares + pattern from profile.traffic
@@ -512,7 +514,7 @@ class Runner:
             if not lane.budgets[eng_name].exhausted and lane.open and eng_name not in self.side_streams
             and not self._lane_away(lane)
         ]
-        forced = self._linger_due(options)
+        forced = self._follow_due(options) or self._linger_due(options)
         if not options and forced is None:
             return False
         weights = []
@@ -541,6 +543,8 @@ class Runner:
                 target = self._make_target(lane, eng_name, identity)
                 if target.kind != "html" or target.role == "search" or not self._host_rested(target.url):
                     break
+        if target.role == "search" and eng_name != "search":           # a visit that starts with a search
+            eng_name = "search"
         self.current = {"lane": lane.name, "engine": eng_name, "url": target.url, "started": time.time(),
                         "role": target.role}
         try:
@@ -640,7 +644,9 @@ class Runner:
         if result.dim_transport and hasattr(lane.transport, "dimmed"):
             lane.transport.dimmed = True
         if wait:
-            if self.rate is None or pacer.backoff_pending():
+            if any(ln.follow_next is not None for ln in self.lanes):       # about to click a result: a few seconds
+                pacer.sleep_fn(self.rng.uniform(4, 18) * self.profile.realtime_scale)
+            elif self.rate is None or pacer.backoff_pending():
                 pacer.wait(hour)                       # CLI/tests, or honouring a failure backoff
             else:
                 # app mode: irregular sittings whose hourly total still fits the hour
@@ -698,7 +704,15 @@ class Runner:
                 import urllib.parse as _u
                 self.domains.remember(_u.urlparse(target.url).hostname or "")
             if result.html:
-                if target.role == "search" and self.rng.random() < self.click_prob \
+                if target.role == "search" and lane.pending_visit is not None:
+                    pv, lane.pending_visit = lane.pending_visit, None
+                    pick = lane.search_factory.result_target(result.html, target.url, prefer_host=pv.host) \
+                        if lane.search_factory is not None else None
+                    if pick is None or pv.host.removeprefix("www.") not in pick.url:
+                        pick = Target(url=pv.url, referer=target.url, role="result")   # the site we were after
+                    pick.note = "found by searching"
+                    lane.follow_next = pick
+                elif target.role == "search" and self.rng.random() < self.click_prob \
                         and lane.search_factory is not None:
                     lane.follow_next = lane.search_factory.result_target(result.html, target.url)
                 elif target.role == "result" and self.rng.random() < 0.25:
@@ -759,7 +773,9 @@ class Runner:
                                                     max_depth=cfg.max_depth,
                                                     same_site_only=cfg.same_site_only,
                                                     domains=self.domains)
-            return lane.crawl_factory.make(identity)
+            visit = lane.crawl_factory.make(identity)
+            led = self._search_led(lane, visit)
+            return led or visit
         if eng_name == "dns":
             fac = DnsNoise(rng=self.rng, words=words, domains=self.domains, plan=self.dns_plan)
             _packet, domain, server = fac.make_query()
@@ -784,6 +800,34 @@ class Runner:
             iterations += 1
         return {lane.name: {eng: lane.budgets[eng].spent for eng in lane.engines}
                 for lane in self.lanes}
+
+    # ── search-led visits: look the topic up first, then click through to the site ──────────────────
+    def _search_led(self, lane: Lane, visit: Target) -> Target | None:
+        """Most visits to a site from the persona begin with a search that would lead there."""
+        if self.rate is None or "search" not in lane.engines or lane.budgets["search"].exhausted \
+                or self.rng.random() > 0.65:
+            return None
+        from .interests import query_for_site
+        host = urllib.parse.urlparse(visit.url).netloc + urllib.parse.urlparse(visit.url).path
+        query = query_for_site(self.rng, host)
+        if not query:
+            return None
+        from .engines import SearchTargetFactory
+        if lane.search_factory is None:
+            lane.search_factory = SearchTargetFactory(
+                rng=self.rng, words=self.wordlist, queries=self.queries,
+                html_mode=not getattr(lane.transport, "is_browser", False))
+        lane.pending_visit = visit
+        return lane.search_factory.for_query(query, note=f"looking for {urllib.parse.urlparse(visit.url).netloc}")
+
+    def _follow_due(self, options):
+        """A search was just done: its click-through comes next, right away, not whenever the dice allow."""
+        for lane in self.lanes:
+            nxt = lane.follow_next
+            if nxt is not None and lane.open and not self._lane_away(lane):
+                lane.follow_next = None
+                return lane, "search", nxt
+        return None
 
     # ── long sessions: one page for a long time, or away for hours and back to it ──────────────
     def _lane_away(self, lane: Lane) -> bool:

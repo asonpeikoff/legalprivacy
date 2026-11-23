@@ -260,6 +260,21 @@ def _pick_query(rng: random.Random, theme: str, real_share: float = 0.8) -> str:
     return rng.choice(cat["queries"]).format(t=rng.choice(cat["topics"]))
 
 
+def query_for_site(rng: random.Random, site: str) -> str | None:
+    """A topical search a person might make that leads to this site (never just the site's name), or None."""
+    import urllib.parse as _u
+    s = site.lower().removeprefix("www.").rstrip("/")
+    if s.startswith("en.wikipedia.org/wiki/"):
+        title = _u.unquote(site.split("/wiki/", 1)[1].rstrip("/")).replace("_", " ")
+        if ":" in title:                                  # Special:Random and the like are not something to search for
+            return None
+        return rng.choice([f"{title} wikipedia", title, f"what is {title}", f"{title} history"])
+    for theme, cat in CATEGORIES.items():
+        if any(k.lower().removeprefix("www.").rstrip("/") == s for k in cat["sites"]):
+            return _pick_query(rng, theme)
+    return None
+
+
 class Interests:
     """The active themes right now, and sites and searches drawn from them."""
 
