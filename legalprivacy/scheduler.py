@@ -70,7 +70,8 @@ def build_lanes(profile: Profile, wordlist: list[str],
                 tor_gate: Callable[[], bool] | None = None,
                 tor_endpoint: Callable[[], tuple[str, str | None]] | None = None,
                 clearnet_transport: Transport | None = None,
-                plain_transport: Transport | None = None) -> list[Lane]:
+                plain_transport: Transport | None = None,
+                tor_transport: Transport | None = None) -> list[Lane]:
     """Build the active lanes.
 
     The tor lane exists only when Tor is enabled and carries the onion engine only; ordinary web noise,
@@ -104,10 +105,10 @@ def build_lanes(profile: Profile, wordlist: list[str],
         names = profile.active_engines("tor")
         lanes.append(Lane(
             name="tor",
-            transport=TorTransport(socks=socks, control=control,
-                                   identities_per_circuit=t.identities_per_circuit,
-                                   control_password=t.control_password,
-                                   share_browser=bool(getattr(t, "share_browser", False))),
+            transport=tor_transport or TorTransport(socks=socks, control=control,
+                                                    identities_per_circuit=t.identities_per_circuit,
+                                                    control_password=t.control_password,
+                                                    share_browser=bool(getattr(t, "share_browser", False))),
             engines=names,
             budgets={n: _budget(n, 1 if n == "onion" else share) for n in names},
             gate=tor_gate,

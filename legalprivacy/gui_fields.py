@@ -22,6 +22,7 @@ FIELDS: dict[str, tuple[tuple, str]] = {
     "proxy": (("transports", "clearnet", "proxy"), "optstr"),
     "clearnet_enabled": (("transports", "clearnet", "enabled"), "bool"),
     "tor_enabled": (("transports", "tor", "enabled"), "bool"), "tor_onion": (("transports", "tor", "onion"), "bool"),
+    "tor_onion_browser": (("transports", "tor", "onion_browser"), "bool"),
     "tor_manage": (("transports", "tor", "manage"), "bool"), "tor_socks": (("transports", "tor", "socks"), "str"),
     "tor_control": (("transports", "tor", "control"), "optstr"),
     "tor_seeds": (("transports", "tor", "onion_seeds"), "lines"),

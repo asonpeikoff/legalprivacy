@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Onion visits now use the real Tor Browser** (Tor tab: "Use the real Tor Browser for onion visits", on by default). The Tor lane used to be Python `requests` with Tor Browser's headers: no scrolling, no reading pauses, no JavaScript, and a TLS handshake that was not Tor Browser's. It now drives the verified Tor Browser the app installs (Selenium and geckodriver) through this app's own Tor, at security level Safest, with the same human behaviour as the clearnet lane: scrolling in bursts, reading pauses, back-scrolls, mouse paths and time on page. Sessions, revisits and "stepped away" spells work the same on both lanes. Each start uses a throw-away profile, never your Tor Browser's; a new identity closes it and starts a fresh one. If it cannot start (Selenium missing, Tor Browser not installed yet, running as the administrator), the old lane carries on and the Live Log says why, once. Not covered: multiple tabs (neither lane has them yet).
+
 ## v2.17.0
 
 - **Fix: Tor Browser opened from the app could not load any page.** The app started it with `TOR_TRANSPROXY=0`, but Tor Browser only checks that the variable exists; it then switches its own proxy off (no SOCKS address at all) and every page fails. Reproduced and fixed on a real Tor Browser 16.0.3: it now ends up with SOCKS on this app's Tor, Safest security level and the 37 onion bookmarks on its toolbar.

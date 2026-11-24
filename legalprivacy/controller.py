@@ -979,6 +979,25 @@ class Controller:
         return {"setting": cfg.browser, "available": ok, "detail": detail,
                 "active": bool(active and ok), "visible": cfg.browser_visible}
 
+    def _tor_lane_transport(self, stop: threading.Event):
+        """The Tor lane's browser: the real Tor Browser through this app's Tor, or None (the plain lane is used)."""
+        cfg = self._tor_cfg()
+        if not (cfg.enabled and cfg.onion and cfg.onion_browser):
+            return None
+        from . import torlane
+        ok, why = torlane.support()
+        if not ok:
+            self.log.info("browser", f"Onion sites will be visited with the plain lane: {why}.")
+            return None
+        import os as _os
+        headless = not (self.profile.transports["clearnet"].browser_visible or
+                        sys.platform in ("win32", "darwin") or bool(_os.environ.get("DISPLAY")))
+        return torlane.TorBrowserTransport(
+            socks=cfg.socks, control=cfg.control, identities_per_circuit=cfg.identities_per_circuit,
+            control_password=cfg.control_password, share_browser=bool(cfg.share_browser), headless=headless,
+            stop_event=stop, scale=lambda: self.profile.realtime_scale,
+            on_event=lambda lvl, msg: self.log.add(lvl, "browser", msg))
+
     def _clearnet_transport(self, stop: threading.Event):
         cfg = self.profile.transports["clearnet"]
         if cfg.browser == "off":
@@ -1129,7 +1148,7 @@ class Controller:
                 from .transports import ClearnetTransport
                 plain_tr = ClearnetTransport(proxy=prof.transports["clearnet"].proxy)
             lanes = build_lanes(prof, words, tor_gate=gate, clearnet_transport=browser_tr,
-                                plain_transport=plain_tr)
+                                plain_transport=plain_tr, tor_transport=self._tor_lane_transport(self._stop))
             if not lanes:
                 raise ConfigError("Nothing to run: enable clearnet noise or Tor/onion noise in Settings.")
             import random as _r
