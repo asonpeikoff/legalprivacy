@@ -247,7 +247,7 @@ class UIServer:
                     if u.path == "/api/tools/estimate":
                         return self._json(ctl.estimate())
                     if u.path == "/api/tools/selftest":
-                        return self._json(ctl.selftest(_qfloat(q, "days", "14")))
+                        return self._json(ctl.selftest(_qfloat(q, "days", "14"), demo=(q.get("demo") or ["0"])[0] == "1"))
                     if u.path == "/api/ml":
                         return self._json(ctl.ml_state())
                     if u.path == "/api/ml/predict":

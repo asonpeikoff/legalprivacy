@@ -316,7 +316,11 @@ class MLTab(Tab):
         ttk.Spinbox(r, from_=2, to=60, width=5, textvariable=self.days).pack(side="left", padx=6)
         c.lbl(r, "days (14 recommended)", True).pack(side="left")
         self.b_run = app.btn(r, "Run test", "play", "primary", self.run)
-        self.b_run.pack(side="left", padx=12)
+        self.b_run.pack(side="left", padx=(12, 6))
+        self.b_demo = app.btn(r, "Try the demo", None, "secondary", lambda: self.run(demo=True),
+                              "Compare the noise your current settings would make with a made-up typical person, "
+                              "so you can see what this tab shows without using your own history.")
+        self.b_demo.pack(side="left")
         self.f_check(c, "ml_auto", "Run automatically once a day", "Off by default.")
         self.warn = c.note("", pady=(4, 0))
         self.base = c.note("", pady=(2, 4))
@@ -390,20 +394,24 @@ class MLTab(Tab):
         if m.get("last") and self.last is None:
             self.render(m["last"])
 
-    def run(self) -> None:
+    def run(self, demo: bool = False) -> None:
         self.b_run.state(["disabled"])
-        self.empty.configure(text="Reading your history and simulating the noise… a few seconds.")
+        self.b_demo.state(["disabled"])
+        self.empty.configure(text="Making up a typical person and simulating the noise… a few seconds." if demo
+                             else "Reading your history and simulating the noise… a few seconds.")
         days = float(self.days.get() or 14)
 
         def done(d):
             self.b_run.state(["!disabled"])
+            self.b_demo.state(["!disabled"])
             self.render(d)
             self.on_show()
 
         def fail(e):
             self.b_run.state(["!disabled"])
+            self.b_demo.state(["!disabled"])
             self.empty.configure(text=str(e))
-        self.app.work(lambda: self.app.ctl.selftest(days), done, fail)
+        self.app.work(lambda: self.app.ctl.selftest(days, demo=demo), done, fail)
 
     def render(self, d: dict) -> None:
         self.last = d
