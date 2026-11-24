@@ -474,20 +474,42 @@ class Runner:
         if not domain:
             return HitResult(None, error="malformed dns target")
         packet = build_dns_query(domain, qid=self.rng.randint(0, 0xFFFF))
+        ex = getattr(self.profile, "extras", None)
         if server == "system":
             if DnsNoise.resolve_system(domain, timeout=target.timeout):
-                return HitResult(200, "")
+                res = HitResult(200, "")
+                res.bytes = 100 * (1 + self._dns_burst(server, domain, None))
+                return res
             return HitResult(None, error="lookup via your normal DNS failed")
         noise = DnsNoise(self.rng, self.wordlist, self.domains)
         if noise.fire(packet, server, timeout=target.timeout):
-            ex = getattr(self.profile, "extras", None)
             if ex is not None and ex.browser_dns:        # browsers also ask for IPv6 and HTTPS records
                 for qtype in ("AAAA", "HTTPS"):
                     noise.fire(build_dns_query(domain, self.rng.randint(0, 0xFFFF), qtype), server, timeout=1.5)
             res = HitResult(200, "")
-            res.bytes = 300 if ex is not None and ex.browser_dns else 100
+            res.bytes = (300 if ex is not None and ex.browser_dns else 100) * (1 + self._dns_burst(server, domain, noise))
             return res
         return HitResult(None, error=f"dns query to {server} failed")
+
+    DNS_BURST_CHANCE = 0.85          # most lookups in real traffic come from a page load, so most are followed by a burst
+
+    def _dns_burst(self, server: str, domain: str, noise) -> int:
+        """The lookups a page load makes right after the site's own (fonts, scripts, other sites), a few tens of
+        milliseconds apart. Returns how many were made. They are part of the one DNS hit, not extra hits."""
+        ex = getattr(self.profile, "extras", None)
+        if ex is None or not getattr(ex, "dns_bursts", False) or self.rng.random() >= self.DNS_BURST_CHANCE:
+            return 0
+        from .engines import DnsNoise, build_dns_query, burst_hosts
+        n = 0
+        for host in burst_hosts(self.rng, self.domains, domain):
+            if self._stopped():
+                break
+            self.sleep_fn(self.rng.uniform(0.02, 0.35))
+            if server == "system":
+                n += bool(DnsNoise.resolve_system(host, timeout=2.0))
+            else:
+                n += bool(noise.fire(build_dns_query(host, self.rng.randint(0, 0xFFFF)), server, timeout=1.5))
+        return n
 
     def _packages(self, lane: Lane):
         pk = self.__dict__.get("_pkg")

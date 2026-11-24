@@ -33,6 +33,7 @@ FIELDS: dict[str, tuple[tuple, str]] = {
     "tor_dns_addr": (("transports", "tor", "dns_lan_addr"), "str"),
     "active_hours": (("extras", "active_hours"), "bool"), "active_from": (("extras", "active_from"), "int"),
     "active_to": (("extras", "active_to"), "int"), "browser_dns": (("extras", "browser_dns"), "bool"),
+    "dns_bursts": (("extras", "dns_bursts"), "bool"),
     "typos": (("extras", "typos"), "bool"), "polite": (("extras", "polite"), "bool"),
     "low_data": (("extras", "low_data"), "bool"), "data_cap": (("extras", "daily_data_mb"), "float"),
     "site_list": (("extras", "site_list"), "str"), "persona": (("extras", "persona"), "str"),
