@@ -1531,6 +1531,18 @@ class Controller:
                 add(f"Python library: {lib}", "ok", "installed")
             except ImportError:
                 add(f"Python library: {lib}", "fail", "missing — reinstall legalPrivacy")
+        try:
+            import random as _r
+            from .fingerprint_audit import audit_identity
+            from .identity import make_identity
+            rng, bad = _r.Random(0), []
+            for k in range(300):
+                bad += audit_identity(make_identity(rng, k, []))
+            add("Identity consistency", "ok" if not bad else "warn",
+                "300 sample identities checked: user agent, platform, client hints and language all agree" if not bad
+                else f"{len(bad)} contradictions in 300 sample identities, for example: {bad[0]}")
+        except Exception as exc:
+            add("Identity consistency", "info", f"not checked ({exc})")
         wl = next((e.wordlist for e in self.profile.engines.values() if e.enabled and e.wordlist), None)
         if wl:
             path = resolve_resource(wl)

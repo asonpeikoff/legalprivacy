@@ -42,6 +42,7 @@ class Lane:
     identity: Identity | None = None
     pacer: Pacer | None = None
     hits_by_identity: int = 0
+    ident_limit: int = 0                      # visits before the next new identity, drawn at random each time
     consecutive_failures: int = 0
     crawl_factory: object | None = None
     crawl_next: Target | None = None
@@ -551,8 +552,12 @@ class Runner:
         Tor rotations also signal NEWNYM so the circuit itself turns over,
         not just the fingerprint.
         """
-        limit = getattr(lane.transport, "identities_per_circuit", None) or 10
+        base = getattr(lane.transport, "identities_per_circuit", None) or 10
+        limit = getattr(lane, "ident_limit", None) or base
         if lane.identity is None or lane.hits_by_identity >= limit:
+            # A new identity after a random number of visits, usually a handful and now and then more (log-normal, median
+            # about 40% of the configured number), instead of every Nth visit exactly: a fixed count is itself a pattern.
+            lane.ident_limit = max(1, round(base * self.rng.lognormvariate(-0.9, 0.7)))
             self._ident_counter += 1
             lane.identity = make_identity(self.rng, self._ident_counter, self.wordlist,
                                           entry=self._entry_for_next_identity())
