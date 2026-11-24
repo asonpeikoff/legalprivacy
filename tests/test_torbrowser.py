@@ -342,3 +342,13 @@ def test_site_names_are_learned_from_the_pages_the_noise_visits(tmp_path, monkey
     assert onion.site_label(url) == "Example Wiki"                           # the first name sticks
     onion.learn_title(onion.BUILTIN_ONION_SEEDS[0][1], "<title>Not this</title>")
     assert onion.site_label(onion.BUILTIN_ONION_SEEDS[0][1]) == onion.BUILTIN_ONION_SEEDS[0][0]
+
+
+def test_shared_env_never_sets_tor_transproxy_which_switches_tor_browsers_proxy_off(monkeypatch):
+    from legalprivacy import torbrowser as tb
+    env = tb.shared_env("127.0.0.1:19150", "127.0.0.1:19151", "/tmp/cookie")
+    assert "TOR_TRANSPROXY" not in env                                      # even "0" counts: Tor Browser checks existence
+    assert env["TOR_SKIP_LAUNCH"] == "1" and env["TOR_SOCKS_PORT"] == "19150" and env["TOR_CONTROL_PORT"] == "19151"
+    assert env["TOR_CONTROL_COOKIE_AUTH_FILE"] == "/tmp/cookie"
+    monkeypatch.setenv("TOR_TRANSPROXY", "0")
+    assert "TOR_TRANSPROXY" not in tb.clean_env()                           # and one inherited from outside is dropped

@@ -248,8 +248,10 @@ def install(progress: Callable[[float], None] | None = None, http: Callable[...,
 def shared_env(socks: str, control: str | None, cookie: str | None) -> dict[str, str]:
     """Environment that makes Tor Browser use the app's Tor instead of starting its own."""
     sh, _, sp = socks.rpartition(":")
-    env = {"TOR_SKIP_LAUNCH": "1", "TOR_SOCKS_HOST": sh or "127.0.0.1", "TOR_SOCKS_PORT": sp,
-           "TOR_TRANSPROXY": "0"}
+    # Never TOR_TRANSPROXY, not even set to 0: Tor Browser only checks that the variable EXISTS, and then runs in
+    # "transparent proxy" mode: it switches its own proxy off (network.proxy.type = 0, no SOCKS address) and every
+    # page fails to load. (Checked in Tor Browser 16.0.3's TorLauncherUtil.getPreferredSocksConfiguration.)
+    env = {"TOR_SKIP_LAUNCH": "1", "TOR_SOCKS_HOST": sh or "127.0.0.1", "TOR_SOCKS_PORT": sp}
     if control:
         ch, _, cp = control.rpartition(":")
         env.update({"TOR_CONTROL_HOST": ch or "127.0.0.1", "TOR_CONTROL_PORT": cp})
@@ -264,6 +266,7 @@ def clean_env() -> dict[str, str]:
     inherits that, and Tor Browser (and the tor inside it) then loads the wrong copies of shared libraries and cannot
     connect. Hand it the original values back."""
     env = dict(os.environ)
+    env.pop("TOR_TRANSPROXY", None)           # see shared_env: its mere presence turns Tor Browser's proxy off
     if getattr(sys, "frozen", False) or getattr(sys, "_MEIPASS", None):
         for var in ("LD_LIBRARY_PATH", "DYLD_LIBRARY_PATH", "DYLD_FALLBACK_LIBRARY_PATH"):
             orig = env.pop(var + "_ORIG", None)
