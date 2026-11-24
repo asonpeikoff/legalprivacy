@@ -84,6 +84,13 @@ already has the recommended value, and settings save themselves as you change th
 | **Tools** | Data-use estimate, privacy check, DNS leak check, speed test, clear the live log |
 | **Proof** | A live EtherApe-style map of every machine this computer talks to, 6 hours of traffic per minute with the noise on/off periods shaded, and whether the noise's rhythm looks like yours |
 
+**Nudge the mix.** The Dashboard tab has a "Nudge the mix" card: minus and plus buttons for web pages in a real browser,
+web pages over plain HTTP, Tor .onion sites (when Tor is on) and the phone share. Each press moves one part by 10 points,
+the others give or take the difference so the total stays 100%, and the change is saved and applied live. Fine control
+stays in Settings → Traffic mix.
+
+<p align="center"><img src="docs/screenshots/nudge-the-mix.png" alt="The Nudge the mix card: web pages in a real browser 90%, web pages over plain HTTP 10%, share that is a phone 65%, each with minus and plus buttons" width="900"></p>
+
 The dashboard listens only on `127.0.0.1` and needs the token in its link. Settings live in
 `~/.legalprivacy/config.yaml` (`%APPDATA%\legalPrivacy` on Windows); set `LEGALPRIVACY_HOME` to move them.
 
@@ -194,6 +201,14 @@ each site is, revisits and domain endings. A classifier tries to separate them, 
 - which signals give the noise away, the specific values behind them, and the setting that fixes each
 - when you browse versus when the noise runs, hour by hour
 - a score history, an optional daily automatic run, and a quick "would this look like noise?" check
+- **a stronger observer**: it also sees bursts, same-site runs and combinations of signals, is trained on the past and
+  tested on the future, and is judged on how much noise it catches while rarely accusing you (at 1% and 0.1% false
+  alarms), plus how often a flagged event would really be noise if only 1 in 100 events were
+- **Try the demo**: compares the noise your current settings would make with a built-in, made-up typical person, so you
+  can see what the tab shows before you have any history to use. A banner says it is not your history, and a demo score
+  is never added to your score trend.
+
+<p align="center"><img src="docs/screenshots/ml-demo.png" alt="The ML tab after Try the demo: a 95.6% score, the stronger observer's numbers, the ROC curve, which signals give the noise away and when the made-up person browses versus when the noise runs" width="900"></p>
 
 Nothing is sent anywhere; only the scores are kept.
 
@@ -326,6 +341,10 @@ If Tk is missing it says so and opens the web dashboard instead.
   budgets; **how much noise** (the 1-10 level and the steady-to-random slider); the **mix of activity** and the
   **traffic mix** as coloured stacked bars with one slider per part that always add up to 100% (drag one and the others
   make room; 0% turns a part off), the drift/blend/alternate pattern, and the phone share and device.
+- **Nudge the mix** (Dashboard): the same minus and plus buttons as the web dashboard, applied live.
+
+<p align="center"><img src="docs/screenshots/native-nudge.png" alt="The desktop app's Dashboard: the wordmark header with Start, Pause and Stop, and the Nudge the mix card" width="760"></p>
+
 - **Activity:** recent hits, newest first (site names only), with filters and CSV/JSON export. **Live Log:** coloured by
   level, filter, pause scrolling, copy, clear.
 - **Tor:** status and progress, details, Start / Stop / Restart / New identity / Install / Test, the circuits table,
@@ -376,6 +395,10 @@ Each lookup in Activity shows which resolver answered it. **Check now** times ea
 All optional:
 
 - **Active hours:** only make noise between set times
+- **Look sites up like a browser, and follow lookups with a page's burst of lookups:** a browser also asks for IPv6 and
+  HTTPS records, and a real page load asks for its fonts, scripts and other sites a few tens of milliseconds after the
+  site itself. With the second option on (the default), about 85% of DNS noise lookups are followed by such a burst
+  (usually 3 or 4 names), using real names only
 - **Your own activity:** pause while you're using the connection, or run mostly while you're active
 - **Persona:** who the noise mostly looks like (Data scientist by default, Developer, Sports fan, Student, Home
   cook and gardener, Traveller, or neutral), followed mostly but not perfectly (90% by default). Searches are mostly

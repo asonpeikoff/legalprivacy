@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v2.16.0
 
 - ML demo: a "Try the demo" button on the ML tab (web and desktop app) compares the noise your current settings would make with a built-in, made-up typical person (evening and weekend sittings, a few favourite sites visited again and again), so the tab can be tried with no browser history. A banner says it is not your history, and a demo score is never added to your score trend.
 - Page-shaped DNS bursts: about 85% of DNS noise lookups are now followed by the burst of lookups a page load makes (usually 3 or 4 names, up to 14: shared fonts, script and tag hosts, and other popular sites), a few tens of milliseconds apart, instead of one lookup standing alone. Real names only (no invented hosts, so no NXDOMAIN tell). On by default; Settings → Extras → "Follow lookups with a page's burst of lookups" turns it off (web and desktop app).
