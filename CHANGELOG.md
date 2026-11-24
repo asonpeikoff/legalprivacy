@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **The Tor Browser lane no longer opens a window by itself**: "Use the real Tor Browser for onion visits" is now off until you switch it on (existing installs are switched off once).
+- **Tor Browser really starts at Safest**: the profile also had `security_custom` set to true, which made the slider count for nothing and showed Standard; it is now set false at every launch (opened by hand and driven by the lane).
+- **Fingerprints (clearnet browser)**: canvas, WebGL (vendor/renderer and pixel reads), uncommon-font checks, audio, CPU cores and memory come from one random seed that lasts 8-24 hours and then rotates; the window is never maximised and keeps one size for that time. Tor Browser gets no scripts or extensions (that would single it out); only its window size varies, which it rounds to standard steps.
+- Tools tab: two compact columns (web and desktop).
+
 - **Onion visits now use the real Tor Browser** (Tor tab: "Use the real Tor Browser for onion visits", on by default). The Tor lane used to be Python `requests` with Tor Browser's headers: no scrolling, no reading pauses, no JavaScript, and a TLS handshake that was not Tor Browser's. It now drives the verified Tor Browser the app installs (Selenium and geckodriver) through this app's own Tor, at security level Safest, with the same human behaviour as the clearnet lane: scrolling in bursts, reading pauses, back-scrolls, mouse paths and time on page. Sessions, revisits and "stepped away" spells work the same on both lanes. Each start uses a throw-away profile, never your Tor Browser's; a new identity closes it and starts a fresh one. If it cannot start (Selenium missing, Tor Browser not installed yet, running as the administrator), the old lane carries on and the Live Log says why, once. Not covered: multiple tabs (neither lane has them yet).
 
 ## v2.17.0

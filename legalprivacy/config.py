@@ -76,7 +76,7 @@ class TransportConfig:
     manage: bool = True               # True: app runs its own private Tor; False: use existing Tor
     auto_install: bool = True         # download official Tor bundle if none is installed
     onion: bool = True                # run the onion engine on the Tor lane
-    onion_browser: bool = True        # visit onion sites with the real Tor Browser (scrolling, reading, like a person);
+    onion_browser: bool = False       # visit onion sites with the real Tor Browser (scrolling, reading, like a person); opens a window, so off until you switch it on;
                                       # the plain requests lane is the fallback when it can't be started
     onion_seeds: list[str] = field(default_factory=list)   # extra seeds; empty = built-ins
     onion_follow_offsite: bool = True

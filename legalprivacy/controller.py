@@ -49,7 +49,7 @@ def wipe_old_log_files() -> None:
             pass
 
 
-APP_DEFAULTS = {"migrated_ason": False, "migrated_share": False, "observe": True, "update_check": True, "autostart": True, "open_browser": True, "port": 8765, "intensity": "normal",
+APP_DEFAULTS = {"migrated_ason": False, "migrated_share": False, "migrated_tb_lane": False, "observe": True, "update_check": True, "autostart": True, "open_browser": True, "port": 8765, "intensity": "normal",
                 "auto_refresh_sources": False,   # off: use the snapshot shipped with the app (no lookups)
                 "ml_auto": False, "ml_history": [],
                 "clear_logs_on_restart": True}
@@ -121,6 +121,11 @@ class Controller:
                 if tor is not None:
                     tor.share_browser = True               # sharing the app's Tor with Tor Browser is now on by default
                 self.app["migrated_share"] = True
+            if not self.app.get("migrated_tb_lane"):
+                tor = self.profile.transports.get("tor")
+                if tor is not None:
+                    tor.onion_browser = False              # it opens a Tor Browser window: only when you switch it on
+                self.app["migrated_tb_lane"] = True
         except Exception as exc:
             self.log.error("app", f"Could not read config ({exc}); using defaults.")
 

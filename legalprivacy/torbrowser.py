@@ -326,8 +326,10 @@ def customize(tree: Path | None = None) -> None:
         prof.mkdir(parents=True, exist_ok=True)
         uj = prof / "user.js"
         keep = [ln for ln in (uj.read_text(encoding="utf-8").splitlines() if uj.exists() else [])
-                if "browser.security_level.security_slider" not in ln]
-        uj.write_text("\n".join(keep + ['user_pref("browser.security_level.security_slider", 1);']) + "\n", encoding="utf-8")
+                if "browser.security_level.security_slider" not in ln and "browser.security_level.security_custom" not in ln]
+        # security_custom must be false: when it is true the slider is ignored and the browser shows (and acts as) Standard
+        uj.write_text("\n".join(keep + ['user_pref("browser.security_level.security_slider", 1);',
+                                        'user_pref("browser.security_level.security_custom", false);']) + "\n", encoding="utf-8")
         dist = base / "distribution"
         dist.mkdir(parents=True, exist_ok=True)
         pj = dist / "policies.json"

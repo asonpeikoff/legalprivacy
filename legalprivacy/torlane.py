@@ -133,8 +133,15 @@ class TorBrowserTransport:
         if self.headless:
             opts.add_argument("-headless")
         opts.set_preference("browser.security_level.security_slider", 1)          # Safest, like the browser we open for you
+        opts.set_preference("browser.security_level.security_custom", False)      # (true would make the slider count for nothing)
         opts.set_preference("browser.startup.homepage_override.mstone", "ignore")
-        return webdriver.Firefox(options=opts, service=Service(env=env))
+        d = webdriver.Firefox(options=opts, service=Service(env=env))
+        try:                                                                 # never maximised, steady for hours (Tor Browser rounds it)
+            from . import fingerprint
+            d.set_window_size(*fingerprint.window_size(fingerprint.seed_state()["seed"]))
+        except Exception:
+            pass
+        return d
 
     def _ensure(self) -> None:
         if self._driver is not None:

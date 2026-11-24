@@ -30,7 +30,8 @@ def page(tab: Tab, app) -> ttk.Frame:
 
 def add_card(tab: Tab, app, title: str, icon: str | None = None, help: str = "") -> Card:
     c = Card(tab.sf.inner, app, title, icon, help)
-    c.grid(row=tab._r, column=0, sticky="ew", pady=(0, GAP))
+    cols = getattr(tab, "_cols", 1)
+    c.grid(row=tab._r // cols, column=tab._r % cols, sticky="new", pady=(0, GAP), padx=(0, GAP if cols > 1 and tab._r % cols == 0 else 0))
     tab._r += 1
     return c
 
@@ -498,7 +499,8 @@ class ToolsTab(Tab):
 
     def __init__(self, nb, app):
         super().__init__(nb, app)
-        page(self, app)
+        self._cols = 2
+        page(self, app).columnconfigure(1, weight=1)
         self._speed_job = None
         c = add_card(self, app, "Privacy check", "proof")
         c.note("What actually protects you, checked on this computer only. Nothing is sent anywhere.")
