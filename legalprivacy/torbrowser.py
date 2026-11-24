@@ -258,6 +258,41 @@ def shared_env(socks: str, control: str | None, cookie: str | None) -> dict[str,
     return env
 
 
+def clean_env() -> dict[str, str]:
+    """The environment to start Tor Browser with. In the packaged app, PyInstaller points LD_LIBRARY_PATH (macOS:
+    DYLD_LIBRARY_PATH) at its own bundled libraries and keeps the original in <name>_ORIG. Every program we start
+    inherits that, and Tor Browser (and the tor inside it) then loads the wrong copies of shared libraries and cannot
+    connect. Hand it the original values back."""
+    env = dict(os.environ)
+    if getattr(sys, "frozen", False) or getattr(sys, "_MEIPASS", None):
+        for var in ("LD_LIBRARY_PATH", "DYLD_LIBRARY_PATH", "DYLD_FALLBACK_LIBRARY_PATH"):
+            orig = env.pop(var + "_ORIG", None)
+            if orig is not None:
+                env[var] = orig
+            else:
+                env.pop(var, None)
+    return env
+
+
+def socks_answers(host: str, port: int, timeout: float = 3.0) -> str | None:
+    """None when something at host:port speaks SOCKS5 (what Tor Browser needs there), else why not."""
+    import socket
+    try:
+        with socket.create_connection((host, int(port)), timeout=timeout) as s:
+            s.settimeout(timeout)
+            s.sendall(b"\x05\x01\x00")                 # SOCKS5, one method offered: none
+            reply = s.recv(2)
+    except OSError as exc:
+        return f"nothing is listening at {host}:{port} ({exc})"
+    if len(reply) < 2 or reply[0] != 5:
+        return f"{host}:{port} answered, but not like a SOCKS5 proxy"
+    return None
+
+
+def launch_log() -> Path:
+    return app_dir() / "torbrowser.log"
+
+
 def launch(shared: dict[str, str] | None = None) -> None:
     if not supported():
         raise TorBrowserError("On this system, get Tor Browser from " + DOWNLOAD_PAGE)
@@ -268,9 +303,16 @@ def launch(shared: dict[str, str] | None = None) -> None:
     if not start.exists():
         raise TorBrowserError("Tor Browser isn't installed yet")
     verify_install()
-    env = {**os.environ, **shared} if shared else None
+    env = {**clean_env(), **(shared or {})}
+    try:                                    # keep what it prints: when it cannot connect, the reason is usually here
+        log = open(launch_log(), "ab")  # noqa: SIM115 (handed to the child process, which keeps it)
+        log.write(f"\n--- {time.strftime('%Y-%m-%d %H:%M:%S')} start-tor-browser "
+                  f"({'shared Tor' if shared else 'its own Tor'}) ---\n".encode())
+        log.flush()
+    except OSError:
+        log = subprocess.DEVNULL
     subprocess.Popen([str(start), "--detach"], cwd=str(start.parent), stdin=subprocess.DEVNULL, env=env,
-                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+                     stdout=log, stderr=log, start_new_session=True)
 
 
 class TorBrowserManager:

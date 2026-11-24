@@ -589,7 +589,7 @@ class TorTab(Tab):
                        "the Tor Project's signing key (this needs GnuPG, gpg). It is checked for a newer release every few "
                        "hours and updated by itself (never while it is open), the signature is checked again each time, and "
                        "before every launch its programs are compared with what was verified. It is never started as the "
-                       "administrator. SHARING THIS APP'S TOR (off by default): normally Tor Browser runs its own Tor, so "
+                       "administrator. SHARING THIS APP'S TOR (on by default): without it Tor Browser runs its own Tor, so "
                        "your real browsing and the noise reach the Tor network through two separate connections, and the "
                        "real one stands out. Shared, both use the same Tor and the same entry relay, with separate circuits "
                        "so pages and noise never mix. (1) The New identity button here is disabled while sharing; (2) your "
@@ -606,8 +606,8 @@ class TorTab(Tab):
         self.tb_stat = tb.note("", muted=False, pady=(6, 0))
         self.tb_sig = tb.note("", pady=(0, 4))
         self.f_check(tb, "tor_share_browser", "Share this app's Tor with Tor Browser",
-                     "Off by default. Both use the same Tor and entry relay (separate circuits), so your own browsing blends "
-                     "in with the noise. Restart Tor above to apply. Details: the (i) at the top of this card.")
+                     "On by default. Both use the same Tor and entry relay (separate circuits), so your own browsing blends "
+                     "in with the noise. Turning it off restarts Tor. Details: the (i) at the top of this card.")
         self._tb_at = 0.0
         self._tb_snap: dict = {}
 
@@ -790,37 +790,40 @@ class TorTab(Tab):
                                ("bridge", "Bridge", "Not listed publicly; helps people whose network blocks Tor.")):
             self.r_inputs.append(rc.radio(self.r_mode, val, txt, hint, command=self._relay_changed))
         r = rc.row((8, 2))
-        self.r_nick, self.r_bw, self.r_port, self.r_contact = (tk.StringVar() for _ in range(4))
-        rc.lbl(r, "Nickname").pack(side="left")
+        self.r_nick, self.r_bw, self.r_port = (tk.StringVar() for _ in range(3))
+        l1 = rc.lbl(r, "Nickname ⓘ")
+        l1.pack(side="left")
         e1 = ttk.Entry(r, textvariable=self.r_nick, width=16)
         e1.pack(side="left", padx=(6, 14))
-        tip(e1, "1 to 19 letters or digits.")
-        rc.lbl(r, "Speed limit").pack(side="left")
+        tip(l1, 'The name your relay goes by in Tor\'s public relay list (1 to 19 letters or digits). It is not tied to you. It starts as "legalPrivacy" plus four random characters so it cannot clash with another relay; change it if you like.')
+        tip(e1, 'The name your relay goes by in Tor\'s public relay list (1 to 19 letters or digits). It is not tied to you. It starts as "legalPrivacy" plus four random characters so it cannot clash with another relay; change it if you like.')
+        l2 = rc.lbl(r, "Speed limit ⓘ")
+        l2.pack(side="left")
+        tip(l2, 'The most traffic your relay may carry for other people each second, in each direction. 1 MByte per second is about 8 megabits per second. Start low; you can raise it later. Tor needs at least about 0.08 MBytes per second.')
         e2 = ttk.Spinbox(r, from_=0.1, to=1000, increment=0.5, width=7, textvariable=self.r_bw, command=self._relay_changed)
         e2.pack(side="left", padx=6)
-        tip(e2, "The most the relay may send and receive each second, in megabytes.")
+        tip(e2, 'The most traffic your relay may carry for other people each second, in each direction. 1 MByte per second is about 8 megabits per second. Start low; you can raise it later. Tor needs at least about 0.08 MBytes per second.')
         rc.lbl(r, "MBytes per second", True).pack(side="left", padx=(0, 14))
-        rc.lbl(r, "Port (ORPort)").pack(side="left")
+        l3 = rc.lbl(r, "Port (ORPort) ⓘ")
+        l3.pack(side="left")
         e3 = ttk.Spinbox(r, from_=1024, to=65535, width=7, textvariable=self.r_port, command=self._relay_changed)
         e3.pack(side="left", padx=6)
+        tip(l3, 'The port other Tor relays and Tor programs connect to on this computer (OR stands for onion router). 9001 is the usual choice. For a public relay it must be reachable from the internet, so forward it on your router and allow it in your firewall. In practice mode it only listens on this computer.')
+        tip(e3, 'The port other Tor relays and Tor programs connect to on this computer (OR stands for onion router). 9001 is the usual choice. For a public relay it must be reachable from the internet, so forward it on your router and allow it in your firewall. In practice mode it only listens on this computer.')
         self.r_est = rc.note("", pady=(2, 2))
-        r = rc.row()
-        rc.lbl(r, "Contact (optional)").pack(side="left")
-        e4 = ttk.Entry(r, textvariable=self.r_contact, width=36)
-        e4.pack(side="left", padx=6)
-        tip(e4, "Shown publicly in the relay list if you add it, for example an email address.")
-        self.r_inputs += [e1, e2, e3, e4]
-        for v in (self.r_nick, self.r_bw, self.r_port, self.r_contact, self.r_mode):
+        self.r_inputs += [e1, e2, e3]
+        for v in (self.r_nick, self.r_bw, self.r_port, self.r_mode):
             v.trace_add("write", lambda *_a: self._relay_changed())
         self.r_practice = tk.BooleanVar(value=True)
         self.r_inputs.append(rc.check(self.r_practice, "Practice mode (not published)",
                                       "The relay only listens on this computer and never announces itself, so nobody can use "
                                       "it. It still downloads Tor's public relay list like any Tor program. Needs no checklist. "
-                                      "Untick it only when you are ready to join the network.", command=self._relay_changed))
-        rc.heading("Before a public relay", "tick each one")
+                                      "Untick it only when you are ready to join the network.", command=self._relay_changed,
+                                      tooltip='A dry run. The relay starts and you can watch how it behaves, but it only listens on this computer and never announces itself to the Tor network, so nobody can send traffic through it. Untick it when you are ready to become a real, public relay.'))
+        rc.heading("Before a public relay", "all ticked for you; untick any that is not true")
         self.r_checks: dict[str, tk.BooleanVar] = {}
         for key, txt in self.CHECKS:
-            var = tk.BooleanVar(value=False)
+            var = tk.BooleanVar(value=True)            # ticked for you: they only gate a public relay, never practice mode
             self.r_checks[key] = var
             self.r_inputs.append(rc.check(var, txt, command=self._relay_changed))
         rc.note("The settings file for the relay (read-only):", pady=(8, 2))
@@ -873,7 +876,7 @@ class TorTab(Tab):
         except ValueError:
             port = 0
         return {"mode": self.r_mode.get(), "nickname": self.r_nick.get(), "bandwidth_mb": bw, "or_port": port,
-                "contact": self.r_contact.get(), "practice": bool(self.r_practice.get()),
+                "practice": bool(self.r_practice.get()),
                 "checklist": {k: v.get() for k, v in self.r_checks.items()}}
 
     def _relay_changed(self) -> None:
@@ -900,20 +903,21 @@ class TorTab(Tab):
         elif not why and not b["practice"] and not all(b["checklist"].values()):
             why = "Tick every item on the checklist to start a public relay, or keep practice mode on."
         up = self._r_up
-        self.r_start.state(["!disabled"] if not up and not why else ["disabled"])
+        self.r_start.state(["!disabled"] if not why else ["disabled"])
+        self.r_start.configure(text="Restart with these settings" if up else "Start relay")
         self.r_stop.state(["!disabled"] if up else ["disabled"])
-        for w in self.r_inputs:
-            try:
-                w.state(["disabled"] if up else ["!disabled"])
-            except (AttributeError, tk.TclError):
-                pass
-        if not up:
-            self.r_msg.configure(text=why)
+        self.r_msg.configure(text=why or ("Running now. Change anything above, then press Restart to apply it." if up else ""))
 
     def relay_start(self) -> None:
         body = self._relay_body()
+        was_up = self._r_up
         self.r_start.state(["disabled"])
-        self.app.work(lambda: self.app.ctl.relay_start(body), done=lambda _r: self.app.poll_now(),
+
+        def go():
+            if was_up:                                  # a running relay is restarted with the new settings
+                self.app.ctl.relay_stop()
+            return self.app.ctl.relay_start(body)
+        self.app.work(go, done=lambda _r: self.app.poll_now(),
                       error=lambda e: (self.app.error("Relay", e), self._relay_gate()))
 
     def relay_stop(self) -> None:
@@ -938,7 +942,6 @@ class TorTab(Tab):
             self.r_nick.set(s["nickname"])
             self.r_bw.set(f"{s['bandwidth_mb']:g}")
             self.r_port.set(str(s["or_port"]))
-            self.r_contact.set(s["contact"])
             self.r_practice.set(bool(s["practice"]))
             self.r_auto.set(bool(s["autostart"]))
             self._r_filled = True
@@ -955,7 +958,6 @@ class TorTab(Tab):
             f"Relay fingerprint: {status['fingerprint']}" if status["state"] == "running" and status.get("fingerprint") else ""))
         if up:
             self._set_torrc(st["torrc"])
-            self.r_msg.configure(text="")
         sig = (tuple(status["log"][-80:]),)
         if sig != self._r_prev:
             self._r_prev = sig

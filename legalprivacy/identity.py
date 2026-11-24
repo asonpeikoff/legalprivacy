@@ -132,6 +132,85 @@ def make_identity(rng: random.Random, ident_id: int, wordlist: list[str],
     )
 
 
+# What a real Chromium (measured against Chromium 153 on Linux, over HTTP/1.1) sends for a page navigation, in its order.
+# `requests` would otherwise put its own User-Agent, Accept-Encoding, Accept and Connection first and use a shorter Accept.
+CHROMIUM_ACCEPT = ("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,"
+                   "application/signed-exchange;v=b3;q=0.7")
+
+
+def accept_encoding() -> str:
+    """The content encodings this program can really decode, written the way Chrome writes them. A browser of this
+    age says "gzip, deflate, br, zstd"; with the optional brotli and zstandard packages installed (the `parity`
+    extra) so do we, otherwise we only claim what we can read, since a reply we cannot decode is worse than a tell."""
+    try:
+        from urllib3.util.request import ACCEPT_ENCODING
+        have = [e.strip() for e in ACCEPT_ENCODING.split(",") if e.strip()]
+    except Exception:
+        have = ["gzip", "deflate"]
+    return ", ".join(have or ["identity"])
+
+
+def _site_relation(url: str, referer: str) -> str:
+    """Sec-Fetch-Site for a click from `referer` to `url`: same-origin, same-site or cross-site (as Chromium sends it)."""
+    import urllib.parse as up
+    a, b = up.urlsplit(referer), up.urlsplit(url)
+    if (a.scheme, a.hostname, a.port or {"http": 80, "https": 443}.get(a.scheme)) == \
+            (b.scheme, b.hostname, b.port or {"http": 80, "https": 443}.get(b.scheme)):
+        return "same-origin"
+
+    def site(h: str) -> str:
+        parts = (h or "").lower().split(".")
+        if len(parts) >= 3 and len(parts[-1]) == 2 and parts[-2] in ("co", "com", "org", "net", "gov", "ac", "edu"):
+            return ".".join(parts[-3:])
+        return ".".join(parts[-2:])
+    return "same-site" if site(a.hostname) == site(b.hostname) else "cross-site"
+
+
+def referer_value(url: str, referer: str) -> str:
+    """What Chromium puts in Referer by default (strict-origin-when-cross-origin): the whole address to the same site,
+    only the origin to another one, nothing when going from https to http."""
+    import urllib.parse as up
+    a, b = up.urlsplit(referer), up.urlsplit(url)
+    if a.scheme == "https" and b.scheme == "http":
+        return ""
+    if _site_relation(url, referer) == "same-origin":
+        return up.urlunsplit((a.scheme, a.netloc, a.path or "/", a.query, ""))
+    return f"{a.scheme}://{a.netloc}/"
+
+
+def navigation_headers(identity: Identity, url: str = "", referer: str | None = None) -> dict[str, str]:
+    """The request headers of a page visit, in the order and with the values a real browser uses. Chromium identities
+    get the measured Chromium layout (same order, the full Accept string, Sec-Fetch-User, fetch-metadata that follows
+    whether you arrived by click, and Referer where Chromium puts it). Other engines keep the existing header set,
+    with only the encodings fixed, because their layout has not been measured here."""
+    enc = accept_encoding()
+    ref = referer_value(url, referer) if (referer and url) else ""
+    if not (identity.chromium and re.search(r"Chrome/(\d+)", identity.user_agent)):
+        h = headers_for(identity)
+        if ref:
+            h["Referer"] = ref
+        h["Accept-Encoding"] = enc
+        return h
+    ch = _client_hints(identity)
+    out: dict[str, str] = {"Connection": "keep-alive"}
+    out["sec-ch-ua"], out["sec-ch-ua-mobile"], out["sec-ch-ua-platform"] = (
+        ch["Sec-CH-UA"], ch["Sec-CH-UA-Mobile"], ch["Sec-CH-UA-Platform"])
+    out["Upgrade-Insecure-Requests"] = "1"
+    out["User-Agent"] = identity.user_agent
+    out["Accept-Language"] = identity.accept_language
+    out["Accept"] = CHROMIUM_ACCEPT
+    out["Sec-Fetch-Site"] = _site_relation(url, referer) if (referer and url) else "none"
+    out["Sec-Fetch-Mode"] = "navigate"
+    out["Sec-Fetch-User"] = "?1"
+    out["Sec-Fetch-Dest"] = "document"
+    if identity.gpc:
+        out["Sec-GPC"] = "1"
+    if ref:
+        out["Referer"] = ref
+    out["Accept-Encoding"] = enc
+    return out
+
+
 def headers_for(identity: Identity) -> dict[str, str]:
     """Headers pinned to this identity (no per-request rotation — that is the point)."""
     headers = {

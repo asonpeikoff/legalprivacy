@@ -86,7 +86,7 @@ class TransportConfig:
     dns_lan_addr: str = ""            # which of this computer's private addresses, when dns_lan is on
     exclude_nodes: list[str] = field(default_factory=lambda: ["{us}"])   # relays (fingerprints) or countries Tor avoids
     exclude_gov_names: bool = True    # also avoid relays that look governmental by name or .gov/.mil contact
-    share_browser: bool = False       # let Tor Browser (opened from this app) use this app's Tor instead of its own
+    share_browser: bool = True        # Tor Browser (opened from this app) uses this app's Tor, so your own browsing and the noise share one Tor
     exclude_strict: bool = True       # never use them, even if that means Tor can't connect (turn off if Tor won't connect)
 
     def validate(self, name: str) -> None:
@@ -150,7 +150,7 @@ class RelayConfig:
 
     def spec(self):
         from .relay import RelaySpec
-        return RelaySpec(mode=self.mode, nickname=self.nickname, contact=self.contact or None,
+        return RelaySpec(mode=self.mode, nickname=self.nickname, contact=None,      # never published: a contact address is public
                          bandwidth_rate=self.bandwidth_rate, or_port=self.or_port,
                          dir_port=self.dir_port, practice=self.practice, private=self.private)
 

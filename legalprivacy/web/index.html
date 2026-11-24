@@ -525,7 +525,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
   <div class="card" id="tbCard"><h3><svg class="ic" aria-hidden="true"><use href="#i-tor"/></svg>Tor Browser: for your own private browsing <details class="why"><summary>ⓘ</summary><div>Opens the official Tor Browser so you can browse privately yourself. It is completely separate from the noise: its own folder, its own profile and its own Tor. The app downloads it only from torproject.org and installs it only after checking its signature with the Tor Project's signing key (this needs GnuPG, "gpg"). It is checked for a newer release every few hours and updated by itself (never while it is open), the signature is checked again each time, and before every launch its programs are compared with what was verified. It is never started as the administrator.</div></details></h3>
     <div class="row"><button id="tbOpen" class="torb">Open Tor Browser</button><button id="tbCheck">Check for updates</button><span class="small" id="tbStat"></span></div>
     <div class="small mute" id="tbSig"></div>
-    <label class="small"><input type="checkbox" id="tbShare"> Share this app's Tor with Tor Browser <details class="why"><summary>ⓘ</summary><div>Off by default. Normally Tor Browser runs its own Tor, so your real browsing and the noise reach the Tor network through two separate connections, and the real one stands out. Shared, both use the same Tor and the same entry relay, with separate circuits so pages and noise never mix. Things to know: (1) the New Identity button in this app is disabled while sharing, so your open pages aren't cut off; (2) your relay-avoid list and bridges, set here, apply to Tor Browser too; (3) Tor Browser's own connection and bridge screens are replaced by this tab; (4) Tor Browser can send commands to this Tor, so its New Identity button resets noise circuits too. Turning it on restarts this app's Tor.</div></details></label>
+    <label class="small"><input type="checkbox" id="tbShare"> Share this app's Tor with Tor Browser <details class="why"><summary>ⓘ</summary><div>On by default. Without sharing, Tor Browser runs its own Tor, so your real browsing and the noise reach the Tor network through two separate connections, and the real one stands out. Shared, both use the same Tor and the same entry relay, with separate circuits so pages and noise never mix. Things to know: (1) the New Identity button in this app is disabled while sharing, so your open pages aren't cut off; (2) your relay-avoid list and bridges, set here, apply to Tor Browser too; (3) Tor Browser's own connection and bridge screens are replaced by this tab; (4) Tor Browser can send commands to this Tor, so its New Identity button resets noise circuits too. Turning it on restarts this app's Tor.</div></details></label>
   </div>
   <div class="card" id="exclCard"><h3><svg class="ic" aria-hidden="true"><use href="#i-tor"/></svg>Relays to avoid (optional) <details class="why"><summary>ⓘ</summary><div>Tor picks relays you cannot vet. If you know of relays or whole countries you do not trust, list them here and the app's Tor will avoid them for every step it can, including looking up onion addresses. One per line: a relay's 40-letter fingerprint, or a country in braces such as {ru}. Lists published by network researchers can be pasted in. Without "strict", Tor may still use them if it cannot connect otherwise.</div></details></h3>
     <textarea id="tExcl" rows="4" placeholder="{ru}&#10;0123456789ABCDEF0123456789ABCDEF01234567"></textarea>
@@ -538,23 +538,22 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div class="note tor">A relay passes other people's encrypted Tor traffic along, which helps the network. It is <b>not an exit</b>: it never connects to websites for anyone, and legalPrivacy can never make it one. A relay or bridge also does <b>not</b> provide DNS (only exit relays look up names). Relay addresses are <b>public by design</b>: the Tor network publishes them in a list anyone can read. The relay runs as its own separate Tor program; it never starts by itself.</div>
     <div class="row"><label class="opt t" style="flex:1;min-width:210px"><input type="radio" name="rmode" value="middle"> <b>Middle relay</b> <span class="mute">— listed publicly; carries traffic between other relays</span></label>
       <label class="opt t" style="flex:1;min-width:210px"><input type="radio" name="rmode" value="bridge"> <b>Bridge</b> <span class="mute">— not listed publicly; helps people whose network blocks Tor</span></label></div>
-    <div class="row">Nickname <input type="text" id="rNick" size="14" maxlength="19" title="1 to 19 letters or digits">
-      Speed limit <input type="number" id="rBw" min="0.1" max="1000" step="0.1" style="width:90px"> MBytes per second &nbsp;&middot;&nbsp;
-      Port (ORPort) <input type="number" id="rPort" min="1024" max="65535" style="width:90px"></div>
+    <div class="row">Nickname <details class="why"><summary>ⓘ</summary><div>The name your relay goes by in Tor's public relay list (1 to 19 letters or digits). It is not tied to you. It starts as &ldquo;legalPrivacy&rdquo; plus four random characters so it cannot clash with another relay; change it if you like.</div></details> <input type="text" id="rNick" size="14" maxlength="19" title="1 to 19 letters or digits">
+      Speed limit <details class="why"><summary>ⓘ</summary><div>The most traffic your relay may carry for other people each second, in each direction. 1 MByte per second is about 8 megabits per second. Start low; you can raise it later. Tor needs at least about 0.08 MBytes per second.</div></details> <input type="number" id="rBw" min="0.1" max="1000" step="0.1" style="width:90px"> MBytes per second &nbsp;&middot;&nbsp;
+      Port (ORPort) <details class="why"><summary>ⓘ</summary><div>The port other Tor relays and Tor programs connect to on this computer (OR stands for onion router). 9001 is the usual choice. For a public relay it must be reachable from the internet, so forward it on your router and allow it in your firewall. In practice mode it only listens on this computer.</div></details> <input type="number" id="rPort" min="1024" max="65535" style="width:90px"></div>
     <div class="small mute" id="rEst"></div>
-    <div class="row">Contact (optional) <input type="text" id="rContact" size="34" placeholder="you@example.org (shown publicly if you add it)"></div>
     <label class="chk"><input type="checkbox" id="rPrivate"><span><b>Private bridge (only for me)</b> <span class="mute">— for a bridge on a server you own. It is not handed out to anyone else. Once it is running and reachable, copy the line below into <b>Bridges</b> on the computer that should use it, replacing {YOUR-SERVER-IP} with the server's address, and choose "My own bridges".</span></span></label>
     <div class="row" id="rBridgeLineRow" style="display:none"><input type="text" id="rBridgeLine" readonly style="flex:1" aria-label="Bridge line to copy"><button id="rBridgeCopy">Copy</button></div>
-    <label class="chk"><input type="checkbox" id="rPractice"><span><b>Practice mode (not published)</b> — the relay only listens on this computer and never announces itself, so nobody can use it. It still downloads Tor's public relay list like any Tor program. Needs no checklist. Untick it only when you are ready to join the network.</span></label>
-    <div id="rCheck"><div class="small"><b>Before a public relay</b> (tick each one):</div>
-      <label class="chk"><input type="checkbox" data-ck="address"><span>This computer has a public IP address, or my router forwards the ORPort to it.</span></label>
-      <label class="chk"><input type="checkbox" data-ck="always_on"><span>This computer stays on and connected most of the time.</span></label>
-      <label class="chk"><input type="checkbox" data-ck="bandwidth"><span>I am happy with the speed limit above and the traffic it can use each month.</span></label>
-      <label class="chk"><input type="checkbox" data-ck="not_exit"><span>I understand this is not an exit: it never reaches websites for anyone, and it cannot answer DNS.</span></label>
-      <label class="chk"><input type="checkbox" data-ck="public_ip"><span>I understand a relay's IP address is public by design.</span></label></div>
+    <label class="chk"><input type="checkbox" id="rPractice"><span><b>Practice mode (not published)</b> <details class="why"><summary>ⓘ</summary><div>A dry run. The relay starts and you can watch how it behaves, but it only listens on this computer and never announces itself to the Tor network, so nobody can send traffic through it. Untick it when you are ready to become a real, public relay.</div></details> — the relay only listens on this computer and never announces itself, so nobody can use it. It still downloads Tor's public relay list like any Tor program. Needs no checklist. Untick it only when you are ready to join the network.</span></label>
+    <div id="rCheck"><div class="small"><b>Before a public relay</b> (all ticked for you; untick any that is not true) <details class="why"><summary>ⓘ</summary><div>These are the facts that make running a public relay sensible. They are ticked by default; they only gate starting a public relay, and practice mode never needs them.</div></details></div>
+      <label class="chk"><input type="checkbox" data-ck="address" checked><span>This computer has a public IP address, or my router forwards the ORPort to it.</span></label>
+      <label class="chk"><input type="checkbox" data-ck="always_on" checked><span>This computer stays on and connected most of the time.</span></label>
+      <label class="chk"><input type="checkbox" data-ck="bandwidth" checked><span>I am happy with the speed limit above and the traffic it can use each month.</span></label>
+      <label class="chk"><input type="checkbox" data-ck="not_exit" checked><span>I understand this is not an exit: it never reaches websites for anyone, and it cannot answer DNS.</span></label>
+      <label class="chk"><input type="checkbox" data-ck="public_ip" checked><span>I understand a relay's IP address is public by design.</span></label></div>
     <div class="small mute" style="margin-top:6px">Settings file for the relay (read-only):</div>
     <textarea id="rTorrc" rows="9" readonly aria-label="Generated torrc for the relay"></textarea>
-    <div class="row" style="margin-top:8px"><button id="rStart" class="torb"><svg class="ic sm" aria-hidden="true"><use href="#i-play"/></svg>Start relay</button>
+    <div class="row" style="margin-top:8px"><button id="rStart" class="torb"><svg class="ic sm" aria-hidden="true"><use href="#i-play"/></svg><span id="rStartTx">Start relay</span></button>
       <button id="rStop"><svg class="ic sm" aria-hidden="true"><use href="#i-stop"/></svg>Stop relay</button>
       <span class="pill" id="rPill">Stopped</span><span class="small" id="rMsg"></span></div>
     <label class="chk"><input type="checkbox" id="rAuto"><span>Start the relay when this app opens <span class="mute">(on by default; until you complete the checklist this is practice mode: nothing is published)</span></span></label>
@@ -1538,7 +1537,7 @@ let R=null,rFilled=false,rBusy=false,rPrevT=null;
 const rCk=()=>$$('#rCheck [data-ck]');
 function rBody(){const ck={};rCk().forEach(x=>ck[x.dataset.ck]=x.checked);
   return {mode:(document.querySelector('input[name=rmode]:checked')||{}).value||'middle',nickname:$('#rNick').value,bandwidth_mb:parseFloat($('#rBw').value),
-    or_port:parseInt($('#rPort').value,10),contact:$('#rContact').value,practice:$('#rPractice').checked,private:$('#rPrivate').checked,checklist:ck}}
+    or_port:parseInt($('#rPort').value,10),practice:$('#rPractice').checked,private:$('#rPrivate').checked,checklist:ck}}
 function rEstimate(){const mb=parseFloat($('#rBw').value);
   $('#rEst').textContent=mb>0?`At full speed that is up to about ${Math.round(mb*86400*30/1000).toLocaleString()} GB a month each way (${Math.round(mb*86400*30/500).toLocaleString()} GB in total). A relay usually uses much less. Tor needs at least about 0.08 MBytes per second.`:''}
 function rGate(){
@@ -1547,9 +1546,9 @@ function rGate(){
   let why='';
   if(R&&!R.tor_found)why='Tor is not installed yet. Press Start Tor above once (it installs the official bundle), then come back.';
   else if(!b.practice&&!all)why='Tick every item on the checklist to start a public relay, or keep practice mode on.';
-  $('#rStart').disabled=up||!!why||rBusy;$('#rStop').disabled=!up;
-  $('#rMsg').textContent=up?'':why;
-  $$('#relayCard input:not(#rAuto)').forEach(x=>x.disabled=up)}
+  $('#rStart').disabled=!!why||rBusy;$('#rStop').disabled=!up;
+  $('#rStartTx').textContent=up?'Restart with these settings':'Start relay';
+  $('#rMsg').textContent=up&&!why?'Running now. Change anything above, then press Restart to apply it.':why}
 function rPreview(){clearTimeout(rPrevT);rPrevT=setTimeout(async()=>{
   try{const r=await api('/api/relay/preview',rBody());if(r.error){$('#rTorrc').value='';$('#rMsg').textContent=r.error}else $('#rTorrc').value=r.torrc;rGate()}catch(e){}},350)}
 $$('#relayCard input').forEach(x=>{if(x.id==='rAuto')return;const h=()=>{rEstimate();rGate();rPreview()};x.addEventListener('input',h);x.addEventListener('change',h)});
@@ -1558,7 +1557,7 @@ function renderRelay(){
   if(!rFilled||up){
     if(!rFilled||!$('#relayCard').contains(document.activeElement)){
       (document.querySelector(`input[name=rmode][value=${s.mode}]`)||{}).checked=true;$('#rNick').value=s.nickname;$('#rBw').value=s.bandwidth_mb;
-      $('#rPort').value=s.or_port;$('#rContact').value=s.contact;$('#rPractice').checked=s.practice;$('#rPrivate').checked=!!s.private;{const bl=R.bridge_line;$('#rBridgeLineRow').style.display=bl?'':'none';$('#rBridgeLine').value=bl||''}$('#rTorrc').value=R.torrc;rEstimate()}
+      $('#rPort').value=s.or_port;$('#rPractice').checked=s.practice;$('#rPrivate').checked=!!s.private;{const bl=R.bridge_line;$('#rBridgeLineRow').style.display=bl?'':'none';$('#rBridgeLine').value=bl||''}$('#rTorrc').value=R.torrc;rEstimate()}
     $('#rAuto').checked=s.autostart;rFilled=true}
   const pill=$('#rPill');
   const label={stopped:'Stopped',starting:'Starting…',running:st.practice?'Running (practice, not published)':st.reachable?'Running, reachable':'Running',error:'Error'}[st.state]||st.state;
@@ -1602,7 +1601,8 @@ $('#tbCheck').onclick=async()=>{try{await api('/api/torbrowser/check',{})}catch(
 $$('#nav button').forEach(b=>{if(b.dataset.t==='tor')b.addEventListener('click',()=>tbRefresh())});
 $('#rBridgeCopy').onclick=()=>{const e=$('#rBridgeLine');e.select();try{navigator.clipboard.writeText(e.value)}catch(x){document.execCommand('copy')}toast('Copied')};
 $('#rStart').onclick=async()=>{rBusy=true;rGate();
-  try{R=await api('/api/relay/start',rBody());toast('Relay starting…');renderRelay()}catch(e){toast(e.message,1);$('#rMsg').textContent=e.message}
+  try{if(R&&(R.status.state==='starting'||R.status.state==='running'))await api('/api/relay/stop',{});
+    R=await api('/api/relay/start',rBody());toast('Relay starting…');renderRelay()}catch(e){toast(e.message,1);$('#rMsg').textContent=e.message}
   finally{rBusy=false;rGate()}};
 $('#rStop').onclick=async()=>{try{R=await api('/api/relay/stop',{});renderRelay();toast('Relay stopped')}catch(e){toast(e.message,1)}};
 $('#rAuto').onchange=async()=>{try{await api('/api/config',{contribute:{relay:{autostart:$('#rAuto').checked}}});
