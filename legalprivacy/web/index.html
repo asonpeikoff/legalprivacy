@@ -648,7 +648,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div id="xMix"></div>
     <div class="small mute" id="xOnionOff">Onion sites join this mix automatically when Tor is on (🧅 Tor tab).</div>
     <div style="margin-top:8px"><b>Phones</b></div>
-    <div class="row">Share of noise that is a phone <input type="number" id="xMobile" min="0" max="100" style="width:70px">% <span class="small mute">(55% recommended, default — most browsing happens on phones)</span></div>
+    <div class="row">Share of noise that is a phone <input type="number" id="xMobile" min="0" max="100" style="width:70px">% <span class="small mute">(10% recommended, default: phones are emulated on this computer, so a site that checks deeply can tell; a few still suggest more than one device)</span></div>
     <div class="row">Phone to emulate <select id="xDevice">
       <option value="iPhone 13">iPhone 13 (default, recommended)</option>
       <option value="iPhone 15">iPhone 15</option>
@@ -1825,7 +1825,7 @@ function fillSettings(force){
     {key:'browser',label:'Web pages in a real browser',value:tr.browser??100,hint:'(recommended: most of it — runs pages and scrolls like a person)'},
     {key:'plain',label:'Web pages over plain HTTP',value:tr.plain??0,hint:'(0% recommended — no JavaScript or scrolling; used anyway when no browser is installed)'},
     ...(torOn2?[{key:'onion',label:'Tor .onion sites',value:tr.onion??15,hint:'(about 10–15% recommended)'}]:[])]);
-  $('#xMobile').value=Math.round((tr.mobile_share??0.55)*100);$('#xDevice').value=tr.device||'iPhone 13';
+  $('#xMobile').value=Math.round((tr.mobile_share??0.10)*100);$('#xDevice').value=tr.device||'iPhone 13';
   $('#xDevice').onchange=()=>{dirty.set=true;$('#sSaved').textContent='unsaved changes'};
   $('#sBrowser').value=p.transports.clearnet.browser||'auto';$('#sEngine').value=p.transports.clearnet.browser_engine||'mine';$('#sWin').value=p.transports.clearnet.browser_window||'hidden';$('#sCookies').value=String(p.transports.clearnet.cookie_hours??1);$('#sCookieVary').checked=p.transports.clearnet.cookie_vary!==false;
   const q=p.queries||{};$('#qLive').checked=q.live!==false;$('#qData').checked=q.dataset!==false;$('#qBuiltin').checked=q.builtin!==false;$('#qWords').checked=q.words!==false;$('#sAuto').checked=!!S.app.autostart;$('#sUpd').checked=S.app.update_check!==false;$('#sClearLogs').checked=S.app.clear_logs_on_restart!==false;$('#sPath').textContent=S.config_path;dirty.set=false;

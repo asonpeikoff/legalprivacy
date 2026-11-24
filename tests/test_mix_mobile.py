@@ -19,11 +19,11 @@ from legalprivacy.useragents import sample_entry  # noqa: E402
 
 
 # ── phones ──────────────────────────────────────────────────────────────────
-def test_default_phone_is_iphone_13_with_safari_and_just_over_half_of_identities():
+def test_default_phone_is_iphone_13_with_safari_and_about_a_tenth_of_identities():
     rng = random.Random(4)
     es = [sample_entry(rng) for _ in range(3000)]
     phones = [e for e in es if e["mobile"]]
-    assert 0.50 < len(phones) / len(es) < 0.60
+    assert 0.07 < len(phones) / len(es) < 0.13
     assert all(e["device"] == "iPhone 13" and "iPhone" in e["ua"] and not e["chromium"] for e in phones)
     android = [sample_entry(rng, 1.0, "Pixel 7") for _ in range(50)]
     assert all(e["device"] == "Pixel 7" and "Android" in e["ua"] for e in android)

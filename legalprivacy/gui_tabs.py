@@ -170,7 +170,7 @@ class DashboardTab(Tab):
         r = tc.row()
         tc.lbl(r, "Share of noise that is a phone").pack(side="left")
         self.f_spin(r, "mobile_share", 0, 100, 5, 5).pack(side="left", padx=6)
-        tc.lbl(r, "%  (55% recommended: most browsing happens on phones)", True).pack(side="left")
+        tc.lbl(r, "%  (10% recommended: phones are emulated here, so a few is enough)", True).pack(side="left")
         r = tc.row()
         tc.lbl(r, "Phone to emulate").pack(side="left")
         self.f_combo(r, "device", [("iPhone 13", "iPhone 13 (recommended)"), ("iPhone 15", "iPhone 15"),

@@ -183,14 +183,14 @@ def test_old_defaults_move_to_the_new_ones_once():
     p = apply_overrides(Profile(name="old"), {
         "extras": {"persona": "", "persona_share": 0.9, "interest_list": ["Data science", "News"]},
         "transports": {"clearnet": {"browser_engine": "auto"}},
-        "identity": {"ua_mode": "pin", "ua_pin": "own"},
+        "identity": {"ua_mode": "pin", "ua_pin": "own"}, "traffic": {"mobile_share": 0.55},
         "engines": {"search": {"budget_per_day": 120}, "crawl": {"budget_per_day": 40}, "dns": {"budget_per_day": 200}}})
     moved = move_old_defaults(p)
     assert p.extras.persona == "Default mix" and p.extras.persona_share == 0.8
     assert {"Objectivism", "Authors and readers", "Web 2.0"} <= set(p.extras.interest_list)
     assert p.transports["clearnet"].browser_engine == "mine"
     assert p.identity.ua_mode == "mix" and p.identity.ua_own_share == 0.85
-    assert p.engines["dns"].budget_per_day == 480 and len(moved) == 6
+    assert p.engines["dns"].budget_per_day == 480 and p.traffic.mobile_share == 0.10 and len(moved) == 7
     assert apply_overrides(Profile(name="x"), {"extras": {"persona": "Ason"}}).extras.persona == "Default mix"
 
 

@@ -83,6 +83,10 @@ def move_old_defaults(profile) -> list[str]:
     elif ident.ua_mode == "mix" and abs(float(ident.ua_own_share) - 0.7) < 1e-9:
         ident.ua_own_share = 0.85
         moved.append("user agent: 85% your own")
+    tc = getattr(profile, "traffic", None)
+    if tc is not None and abs(float(tc.mobile_share) - 0.55) < 1e-9:
+        tc.mobile_share = 0.10
+        moved.append("phones: 10%")
     eng = profile.engines
     dns = eng.get("dns")
     if dns is not None and dns.enabled:

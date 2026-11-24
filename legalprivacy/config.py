@@ -309,7 +309,7 @@ class TrafficConfig:
     browser: float = 100.0        # clearnet pages in a real browser (relative weight)
     plain: float = 0.0            # clearnet pages over plain HTTP (no JavaScript, no scrolling)
     onion: float = 40.0           # Tor .onion sites (only when Tor is on)
-    mobile_share: float = 0.55    # share of noise identities that are phones (most browsing is on phones)
+    mobile_share: float = 0.10    # share of noise identities that are phones (emulated on this computer, so kept low)
     device: str = "iPhone 13"     # phone to emulate, or "mix"
 
     def validate(self) -> None:
