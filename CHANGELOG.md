@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Tools: a local **password and passphrase generator** (secure random numbers in the page; nothing sent or saved). The hard panic also deletes the browser lane's fingerprint seed.
 - **Logos, sorted**: the header logo now has two sets. Traditional (no character): a "Logo" picker in Settings with 7 more (pop colours, pop shadowed, art deco, painted, rope red/blue, rope blue, terminal). Easter egg (with the character): 15 more plus an animated green one, in order by colour (green, purple, pink, yellow) and pose (on her back, on her front, kneeling, wink, from behind). The egg is now **three quick clicks on the logo** (or the Konami code); the same again turns it off.
 - Dashboard menu is a **side menu**: four collapsible groups (Monitor, Privacy, Learn, App), collapsible to icons; on narrow screens it stays a top bar. Tools cards are two compact columns with a hover lift.
 

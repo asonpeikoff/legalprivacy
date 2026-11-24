@@ -122,3 +122,4 @@ def test_network_tools_report_errors_without_crashing_and_leak_check_has_shape()
     assert res["down_mbps"] is None and res["up_mbps"] is None and len(res["errors"]) == 2
     leak = dns_leak_check(["9.9.9.9"])
     assert {"resolvers", "sample_lookup", "external_test"} <= set(leak)
+

@@ -1281,7 +1281,8 @@ class Controller:
             self.log.clear()
             done.append("log cleared")
             shutil.rmtree(app_dir() / "browser", ignore_errors=True)
-            done.append("noise-browser cookies deleted")
+            (app_dir() / "fingerprint.json").unlink(missing_ok=True)
+            done.append("noise-browser cookies and fingerprint seed deleted")
             self.accounts.forget_all()
             done.append("signed-in account sessions deleted (you will need to sign in again)")
         if level == "hard":
