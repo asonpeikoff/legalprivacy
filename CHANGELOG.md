@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Logos, sorted**: the header logo now has two sets. Traditional (no character): a "Logo" picker in Settings with 7 more (pop colours, pop shadowed, art deco, painted, rope red/blue, rope blue, terminal). Easter egg (with the character): 15 more plus an animated green one, in order by colour (green, purple, pink, yellow) and pose (on her back, on her front, kneeling, wink, from behind). The egg is now **three quick clicks on the logo** (or the Konami code); the same again turns it off.
+- Dashboard menu is a **side menu**: four collapsible groups (Monitor, Privacy, Learn, App), collapsible to icons; on narrow screens it stays a top bar. Tools cards are two compact columns with a hover lift.
+
 - **The Tor Browser lane no longer opens a window by itself**: "Use the real Tor Browser for onion visits" is now off until you switch it on (existing installs are switched off once).
 - **Tor Browser really starts at Safest**: the profile also had `security_custom` set to true, which made the slider count for nothing and showed Standard; it is now set false at every launch (opened by hand and driven by the lane).
 - **Fingerprints (clearnet browser)**: canvas, WebGL (vendor/renderer and pixel reads), uncommon-font checks, audio, CPU cores and memory come from one random seed that lasts 8-24 hours and then rotates; the window is never maximised and keeps one size for that time. Tor Browser gets no scripts or extensions (that would single it out); only its window size varies, which it rounds to standard steps.

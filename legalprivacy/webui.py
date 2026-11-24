@@ -1,6 +1,7 @@
 """Local web dashboard (stdlib only). Binds to 127.0.0.1, token-protected."""
 from __future__ import annotations
 
+import re
 import json
 import os
 import secrets
@@ -182,6 +183,11 @@ class UIServer:
                                        "form-action 'none'"})
                 if not self._auth(q):
                     return self._json({"error": "unauthorized"}, 401)
+                if re.fullmatch(r"/logo/(trad|egg)/[a-z0-9-]+\.(webp|mp4)", u.path):       # the header logos
+                    f = Path(__file__).parent / "web" / "logos" / u.path[len("/logo/"):]
+                    if f.is_file():
+                        return self._send(200, f.read_bytes(), "video/mp4" if f.suffix == ".mp4" else "image/webp")
+                    return self._json({"error": "not found"}, 404)
                 ctl = srv.ctl
                 try:
                     if u.path == "/api/avoid":

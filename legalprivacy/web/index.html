@@ -37,7 +37,7 @@ nav button.on{color:var(--ink);border-bottom-color:var(--acc)}
 nav .badge{background:var(--bad);color:var(--on-bad);border-radius:99px;font-size:11px;padding:0 6px;margin-left:5px}
 main{padding:16px;max-width:1200px;margin:0 auto}
 .tab{display:none}.tab.on{display:block}
-#t-tools.on{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:start}#t-tools .card{margin-bottom:0;padding:10px}#t-tools .card h3{margin-bottom:6px;padding-bottom:4px}@media(max-width:860px){#t-tools.on{grid-template-columns:1fr}}
+#t-tools.on{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:start}#t-tools .card{margin-bottom:0;padding:12px 14px;border-radius:12px;transition:box-shadow .15s,transform .15s}#t-tools .card:hover{box-shadow:var(--sh-2,0 4px 14px rgba(0,0,0,.12));transform:translateY(-1px)}#t-tools .card h3{font-size:12px}#t-tools .card .small.mute{margin:0 0 8px}#t-tools .card h3{margin-bottom:6px;padding-bottom:4px}@media(max-width:860px){#t-tools.on{grid-template-columns:1fr}}
 .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px}
 .card h3{margin:0 0 8px;font-size:13px;color:var(--mute);text-transform:uppercase;letter-spacing:.04em}
@@ -114,8 +114,8 @@ table.dns td{vertical-align:middle}
 .ic.sm{width:16px;height:16px;vertical-align:-3px}
 button .ic{margin-right:6px}
 .logos{position:relative;display:block;flex:none;height:64px;width:calc(64px * 2.241);margin-block:-6px}
-.logos img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:left center;opacity:0;transition:opacity 1.8s ease-in-out;border-radius:6px}
-.logos img.on{opacity:1}
+.logos img,.logos video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:left center;opacity:0;transition:opacity 1.8s ease-in-out;border-radius:6px}
+.logos img.on,.logos video.on{opacity:1}
 .logos{cursor:pointer}.logos:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:6px}
 @media (prefers-reduced-motion:reduce){.logos img{transition:none}}
 header h1{display:flex;align-items:center;gap:var(--s2)}
@@ -350,6 +350,24 @@ body.loading .big,body.loading .kpi b{display:block;width:min(100%,5ch);color:tr
 #quick .row{margin:6px 0}.qlinks button{padding:3px 10px;font-size:12px}
 #pSet{display:inline-block;line-height:1.25;font-size:12px;text-align:left}
 details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border:1.5px solid currentColor;border-radius:50%;font:italic 700 10px/1 Georgia,serif;opacity:.8}
+
+/* side menu: grouped, collapsible; the top bar layout returns on narrow screens */
+@media(min-width:861px){
+#shell{display:grid;grid-template-columns:var(--rail,208px) minmax(0,1fr);align-items:start}
+#shell>nav{position:sticky;top:var(--hdr-h,56px);flex-direction:column;gap:2px;padding:10px 8px;height:calc(100vh - var(--hdr-h,56px));overflow-y:auto;border-bottom:0;border-right:1px solid var(--line);box-shadow:none;scroll-snap-type:none}
+#shell>nav .ng{margin-bottom:6px}
+#shell>nav .gh{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--mute);cursor:pointer;border-radius:6px;user-select:none}
+#shell>nav .gh:hover{background:var(--code);color:var(--ink)}
+#shell>nav .gc{transition:transform .15s}#shell>nav .ng.shut .gc{transform:rotate(-90deg)}#shell>nav .ng.shut .gb{display:none}
+#shell>nav .gb{display:flex;flex-direction:column;gap:1px}
+#shell>nav button{display:flex;align-items:center;justify-content:flex-start;gap:10px;width:100%;text-align:left;min-height:38px;padding:7px 10px;border:0;border-left:3px solid transparent;border-radius:8px}
+#shell>nav button:hover:not(:disabled){background:var(--code);border-radius:8px}
+#shell>nav button.on{background:var(--code);border-left-color:var(--acc);color:var(--ink)}
+#shell>nav .rt{margin-top:auto;justify-content:flex-start;gap:8px;text-transform:none;letter-spacing:0;font-size:12px}
+#shell.slim{--rail:58px}#shell.slim>nav .gh:not(.rt),#shell.slim>nav button .tl,#shell.slim>nav .rt .tl{display:none}#shell.slim>nav .ng.shut .gb{display:flex}#shell.slim>nav button{justify-content:center;padding:8px}
+#shell>main{width:100%;max-width:1200px}
+}
+@media(max-width:860px){#shell>nav .gh{display:none}#shell>nav .ng,#shell>nav .gb{display:contents}}
 </style>
 </head>
 <body class="loading">
@@ -368,19 +386,29 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
   <button id="bStop" class="dng"><svg class="ic sm" aria-hidden="true"><use href="#i-stop"/></svg>Stop</button>
   <button id="bQuit" title="Stop everything and close legalPrivacy"><svg class="ic sm" aria-hidden="true"><use href="#i-power"/></svg>Quit</button>
 </header>
+<div id="shell">
 <nav id="nav">
+<div class="ng" data-g="Monitor"><div class="gh" role="button" tabindex="0" aria-expanded="true">Monitor<span class="gc" aria-hidden="true">▾</span></div><div class="gb">
   <button data-t="dash" class="on" title="Dashboard"><svg class="ic" aria-hidden="true"><use href="#i-dash"/></svg><span class="tl">Dashboard</span></button>
   <button data-t="act" title="Activity"><svg class="ic" aria-hidden="true"><use href="#i-act"/></svg><span class="tl">Activity</span></button>
   <button data-t="log" title="Live Log"><svg class="ic" aria-hidden="true"><use href="#i-log"/></svg><span class="tl">Live Log</span><span id="errBadge" class="badge" style="display:none">0</span></button>
-  <button data-t="tor" title="Tor"><svg class="ic" aria-hidden="true"><use href="#i-tor"/></svg><span class="tl">Tor</span></button>
-  <button data-t="set" title="Settings"><svg class="ic" aria-hidden="true"><use href="#i-set"/></svg><span class="tl">Settings</span></button>
-  <button data-t="health" title="Health"><svg class="ic" aria-hidden="true"><use href="#i-health"/></svg><span class="tl">Health</span></button>
-  <button data-t="help" title="Help"><svg class="ic" aria-hidden="true"><use href="#i-help"/></svg><span class="tl">Help</span></button>
-  <button data-t="mylist" title="My List"><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg><span class="tl">My List</span></button>
-  <button data-t="ml" title="ML"><svg class="ic" aria-hidden="true"><use href="#i-ml"/></svg><span class="tl">ML</span></button>
   <button data-t="proof" title="Proof"><svg class="ic" aria-hidden="true"><use href="#i-proof"/></svg><span class="tl">Proof</span></button>
+</div></div>
+<div class="ng" data-g="Privacy"><div class="gh" role="button" tabindex="0" aria-expanded="true">Privacy<span class="gc" aria-hidden="true">▾</span></div><div class="gb">
+  <button data-t="tor" title="Tor"><svg class="ic" aria-hidden="true"><use href="#i-tor"/></svg><span class="tl">Tor</span></button>
   <button data-t="sec" title="Security"><svg class="ic" aria-hidden="true"><use href="#i-scan"/></svg><span class="tl">Security</span></button>
   <button data-t="tools" title="Tools"><svg class="ic" aria-hidden="true"><use href="#i-tools"/></svg><span class="tl">Tools</span></button>
+  <button data-t="health" title="Health"><svg class="ic" aria-hidden="true"><use href="#i-health"/></svg><span class="tl">Health</span></button>
+</div></div>
+<div class="ng" data-g="Learn"><div class="gh" role="button" tabindex="0" aria-expanded="true">Learn<span class="gc" aria-hidden="true">▾</span></div><div class="gb">
+  <button data-t="mylist" title="My List"><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg><span class="tl">My List</span></button>
+  <button data-t="ml" title="ML"><svg class="ic" aria-hidden="true"><use href="#i-ml"/></svg><span class="tl">ML</span></button>
+</div></div>
+<div class="ng" data-g="App"><div class="gh" role="button" tabindex="0" aria-expanded="true">App<span class="gc" aria-hidden="true">▾</span></div><div class="gb">
+  <button data-t="set" title="Settings"><svg class="ic" aria-hidden="true"><use href="#i-set"/></svg><span class="tl">Settings</span></button>
+  <button data-t="help" title="Help"><svg class="ic" aria-hidden="true"><use href="#i-help"/></svg><span class="tl">Help</span></button>
+</div></div>
+<div class="gh rt" role="button" tabindex="0" id="railToggle" title="Collapse or expand the menu"><span class="gc">⇤</span><span class="tl">Collapse</span></div>
 </nav>
 <main id="main" tabindex="-1">
 <div id="applyBar" class="card" style="display:none;margin-bottom:10px"><span id="applyMsg"></span></div>
@@ -572,6 +600,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
 
 <!-- SETTINGS -->
 <section id="t-set" class="tab">
+  <div class="card"><h3>Logo</h3><div class="row"><label class="small" for="logoPick">Header logo</label><select id="logoPick"><option value="">Default</option><option value="01-pop-type">Pop colours</option><option value="02-pop-shadow">Pop, shadowed</option><option value="03-art-deco">Art deco</option><option value="04-painted">Painted</option><option value="05-rope-two-tone">Rope, red and blue</option><option value="06-rope-blue">Rope, blue</option><option value="07-terminal">Terminal</option></select></div></div>
   <div class="card"><h3>Setup questions</h3>
     <div class="row"><span class="small mute">The questions from first-time setup (how much noise, Tor, start automatically). Your current answers are filled in.</span><span class="sp"></span><button id="sSetup">Review setup questions…</button></div>
   </div>
@@ -985,6 +1014,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
   </div>
 </section>
 </main>
+</div>
 <!-- WIZARD -->
 <div id="wiz"><div class="wcard">
   <div class="steps"><i class="on" id="ws1"></i><i id="ws2"></i><i id="ws3"></i></div>
@@ -2105,9 +2135,19 @@ setTimeout(done,6000);
 /* Accessibility layer (WCAG 2.2 AA): tabs pattern, headings, live regions, labels, keyboard access, validation. */
 (()=>{
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+
+(function(){const sh=$('#shell'),K='lp_nav';let st={};try{st=JSON.parse(localStorage.getItem(K)||'{}')}catch(e){}
+const save=()=>{try{localStorage.setItem(K,JSON.stringify(st))}catch(e){}};
+$$('#nav .ng').forEach(g=>{const n=g.dataset.g,h=g.querySelector('.gh');if(st[n])g.classList.add('shut');
+ const tg=()=>{g.classList.toggle('shut');h.setAttribute('aria-expanded',!g.classList.contains('shut'));st[n]=g.classList.contains('shut');save()};
+ h.onclick=tg;h.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();tg()}}});
+if(st.slim)sh.classList.add('slim');const rt=$('#railToggle'),sl=()=>{sh.classList.toggle('slim');st.slim=sh.classList.contains('slim');save()};
+rt.onclick=sl;rt.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();sl()}};
+$$('#nav button[data-t]').forEach(b=>b.addEventListener('click',()=>{const g=b.closest('.ng');if(g&&g.classList.contains('shut')&&!sh.classList.contains('slim'))g.classList.toggle('shut',false)}));
+})();
 // 1. tabs: tablist / tab / tabpanel with a roving tabindex and arrow-key navigation
 const nav=$('nav'),tabs=$$('#nav button[data-t]');
-nav.setAttribute('role','tablist');nav.setAttribute('aria-label','Sections');nav.setAttribute('aria-orientation','horizontal');
+nav.setAttribute('role','tablist');nav.setAttribute('aria-label','Sections');nav.setAttribute('aria-orientation','vertical');
 tabs.forEach(b=>{const t=b.dataset.t,p=$('#t-'+t);b.id='tab-'+t;b.setAttribute('role','tab');b.setAttribute('aria-controls','t-'+t);b.setAttribute('aria-label',b.title||b.textContent.trim());
   if(p){p.setAttribute('role','tabpanel');p.setAttribute('aria-labelledby',b.id);p.setAttribute('tabindex','0');
     const h=document.createElement('h2');h.className='sr';h.textContent=b.title||b.textContent.trim();p.insertBefore(h,p.firstChild)}});
@@ -2167,20 +2207,28 @@ function fixWhy(){document.querySelectorAll('details.why>summary:not([data-f])')
 // logo) swaps it for the other versions, which then follow the tab you are on (fading) and switch when clicked. The Konami code again undoes it.
 (()=>{const all=[...document.querySelectorAll('.logos img')];if(all.length<3)return;
   const st={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
-  const trad=all[0],egg=all.slice(1),box=document.querySelector('.logos');let on=st.get('lp_egg')==='1',i=0,clicks=[],keys=[];
-  const set=()=>on?egg:[trad];
-  const show=n=>{const s=set();all.forEach(x=>x.classList.remove('on'));i=((n%s.length)+s.length)%s.length;s[i].classList.add('on')};
+  const TRAD=['01-pop-type','02-pop-shadow','03-art-deco','04-painted','05-rope-two-tone','06-rope-blue','07-terminal'];
+  const EGG=['01-green-animated.mp4','02-green-supine-skirt','03-green-supine-pants','04-green-supine-sheer','05-green-prone-skirt','06-green-prone-pants','07-green-kneel','08-green-wink','09-green-back','10-purple-supine','11-purple-prone','12-purple-kneel','13-purple-wink','14-pink-prone','15-pink-back','16-yellow-back'];
+  const box=document.querySelector('.logos'),T=new URLSearchParams(location.search).get('t')||sessionStorage.getItem('legalprivacy_t')||'';
+  const media=(grp,n)=>{const v=n.endsWith('.mp4'),e=document.createElement(v?'video':'img'),u='/logo/'+grp+'/'+(v?n:n+'.webp')+'?t='+encodeURIComponent(T);
+    e.src=u;e.alt='legalPrivacy';if(v){e.muted=true;e.loop=true;e.autoplay=true;e.playsInline=true;e.setAttribute('aria-hidden','true')}box.appendChild(e);return e};
+  let tradBy={},eggMore=null;const tradNow=()=>{const k=st.get('lp_trad');if(!k||!TRAD.includes(k))return all[0];return tradBy[k]||(tradBy[k]=media('trad',k))};
+  const plain=all[0],egg=all.slice(1);let on=st.get('lp_egg')==='1',i=0,clicks=[],keys=[];
+  const set=()=>{if(!on)return[tradNow()];if(!eggMore)eggMore=EGG.map(n=>media('egg',n));return egg.concat(eggMore)};
+  window.lpLogoPick=k=>{st.set('lp_trad',k);if(!on)show(0)};
+  const show=n=>{const s=set();[...box.children].forEach(x=>{x.classList.remove('on');if(x.pause)x.pause()});i=((n%s.length)+s.length)%s.length;s[i].classList.add('on');if(s[i].play){try{s[i].play().catch(()=>{})}catch(e){}}};
   const sync=()=>{box.style.cursor=on?'pointer':'';if(on){box.title='Click to switch the logo';box.setAttribute('role','button');box.tabIndex=0}
     else{box.removeAttribute('title');box.removeAttribute('role');box.removeAttribute('tabindex')}};
   const toggle=()=>{on=!on;st.set('lp_egg',on?'1':'0');sync();show(0)};
   box.addEventListener('click',()=>{if(on){show(i+1);return}
-    const t=Date.now();clicks=clicks.filter(c=>t-c<3000);clicks.push(t);if(clicks.length>=7){clicks=[];toggle()}});
+    const t=Date.now();clicks=clicks.filter(c=>t-c<900);clicks.push(t);if(clicks.length>=3){clicks=[];toggle()}});
   box.addEventListener('keydown',e=>{if(on&&(e.key==='Enter'||e.key===' ')){e.preventDefault();show(i+1)}});
   const code=['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
   document.addEventListener('keydown',e=>{if(/^(INPUT|TEXTAREA|SELECT)$/.test((e.target.tagName||''))||e.target.isContentEditable)return;
     keys.push(e.key.length===1?e.key.toLowerCase():e.key);keys=keys.slice(-code.length);if(keys.join()===code.join()){keys=[];toggle()}});
   document.querySelectorAll('#nav button[data-t]').forEach((b,k)=>b.addEventListener('click',()=>{if(on)show(k)}));
   sync();show(0)})();
+{const lp=$('#logoPick');if(lp){try{lp.value=localStorage.getItem('lp_trad')||''}catch(e){}lp.onchange=()=>window.lpLogoPick(lp.value)}}
 fixWhy();new MutationObserver(fixWhy).observe(document.body,{childList:true,subtree:true});
 </script>
 <!--NETMAP-->
