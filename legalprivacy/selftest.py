@@ -21,6 +21,9 @@ import time
 from collections import Counter, defaultdict
 
 FEATURES = ["hour", "weekday", "gap", "popularity", "revisit", "ending"]
+# What a stronger observer also sees: how bunched the requests are (page-shaped bursts), whether a request stays on
+# the same site as the one before, and combinations of the signals above (habits live in the combinations).
+STRONG_FEATURES = FEATURES + ["burst", "stay", "hour_pop", "gap_burst", "rev_pop"]
 ADVICE = {
     "hour": "Noise runs at hours you don't browse. Turn on Settings → Extras → Active hours, or "
             "“Mostly when I'm active”.",
@@ -49,10 +52,15 @@ def _ending(site: str) -> str:
 
 def featurize(events: list[tuple[float, str, int]], ranks: dict[str, int]) -> list[tuple[dict, int]]:
     """events: (time, site, label) merged and sorted. Returns (features, label)."""
-    out, last_t = [], None
+    out, last_t, last_site = [], None, None
     recent: dict[str, list[float]] = defaultdict(list)
+    window: list[float] = []                      # request times in the last minute, whatever the site
     for t, site, label in events:
         lt = time.localtime(t)
+        window = [x for x in window if t - x < 60.0]
+        n60 = len(window)
+        window.append(t)
+        burst = "0" if n60 == 0 else "1" if n60 == 1 else "2-3" if n60 <= 3 else "4-7" if n60 <= 7 else "8+"
         gap = _gap_bucket(t - last_t) if last_t is not None else 17
         hits = [x for x in recent[site] if t - x < 86400]
         recent[site] = hits + [t]
@@ -61,8 +69,11 @@ def featurize(events: list[tuple[float, str, int]], ranks: dict[str, int]) -> li
               "top10k" if r is not None and r < 10000 else "ranked" if r is not None else "unranked"
         rev = "0" if not hits else "1" if len(hits) == 1 else "2-5" if len(hits) <= 5 else "6+"
         out.append(({"hour": lt.tm_hour, "weekday": lt.tm_wday, "gap": gap, "popularity": pop,
-                     "revisit": rev, "ending": _ending(site)}, label))
-        last_t = t
+                     "revisit": rev, "ending": _ending(site), "burst": burst,
+                     "stay": "1" if site == last_site else "0",
+                     "hour_pop": f"{lt.tm_hour // 3}|{pop}", "gap_burst": f"{gap}|{burst}", "rev_pop": f"{rev}|{pop}"},
+                    label))
+        last_t, last_site = t, site
     return out
 
 
@@ -135,6 +146,63 @@ def roc_points(scores: list[tuple[float, int]], max_points: int = 60) -> list[li
     if out[-1] != pts[-1]:
         out.append(pts[-1])
     return [[round(a, 4), round(b, 4)] for a, b in out]
+
+
+def rates_at_fpr(scores: list[tuple[float, int]], fprs=(0.01, 0.001)) -> dict[float, float]:
+    """True-positive rate (share of noise caught) when the observer allows only this share of false alarms on you."""
+    neg = sorted((s for s, y in scores if y == 0), reverse=True)
+    pos = [s for s, y in scores if y == 1]
+    out = {}
+    for f in fprs:
+        if not neg or not pos:
+            out[f] = 0.0
+            continue
+        k = max(1, int(math.ceil(len(neg) * f)))            # the k-th highest "you" score sets the threshold
+        thr = neg[k - 1]
+        out[f] = sum(1 for s in pos if s > thr) / len(pos)
+    return out
+
+
+def precision_at_prevalence(tpr: float, fpr: float, prevalence: float) -> float:
+    """Of everything flagged as noise, the share that really is, when only `prevalence` of all events are noise
+    (the base-rate view: a small false-alarm rate still buries a rare thing under false alarms)."""
+    flagged = tpr * prevalence + fpr * (1 - prevalence)
+    return tpr * prevalence / flagged if flagged else 0.0
+
+
+def strong_attack(rows: list[tuple[dict, int]], seed: int = 1, folds: int = 5, prevalence: float = 0.01) -> dict:
+    """A tougher observer than the six-signal Naive Bayes: it also sees bursts, same-site runs and combinations of
+    signals, is judged on future events only (trained on the first 70% of the timeline, tested on the last 30%),
+    and on the number that matters in practice: how much noise it catches while falsely accusing you rarely."""
+    rng = random.Random(seed)
+    idx = list(range(len(rows)))
+    rng.shuffle(idx)
+    pooled = []
+    for k in range(folds):
+        test = set(idx[k::folds])
+        model = _train([rows[i] for i in idx if i not in test], STRONG_FEATURES)
+        pooled += [(_score(model, rows[i][0], STRONG_FEATURES), rows[i][1]) for i in test]
+    overall = auc(pooled)
+    flip = overall < 0.5
+    sc = [(-s if flip else s, y) for s, y in pooled]
+    rates = rates_at_fpr(sc)
+    cut = int(len(rows) * 0.7)
+    train, test_rows = rows[:cut], rows[cut:]
+    fwd = None
+    if {y for _, y in train} == {0, 1} and {y for _, y in test_rows} == {0, 1}:
+        m = _train(train, STRONG_FEATURES)
+        fs = [(_score(m, x, STRONG_FEATURES), y) for x, y in test_rows]
+        fwd = max(auc(fs), 1 - auc(fs))
+    neg = sum(1 for _, y in sc if y == 0)
+    out = {"auc": round(max(overall, 1 - overall) * 100, 1),
+           "forward_auc": round(fwd * 100, 1) if fwd is not None else None,
+           "tpr_at_1pct_fpr": round(rates[0.01] * 100, 1), "tpr_at_01pct_fpr": round(rates[0.001] * 100, 1),
+           "precision_at_prevalence": round(precision_at_prevalence(rates[0.01], 0.01, prevalence) * 100, 1),
+           "prevalence": prevalence, "features": len(STRONG_FEATURES)}
+    if neg < 1000:
+        out["note"] = (f"Only {neg} of your visits were compared, so the catch rate at 0.1% false alarms rests on "
+                       f"{max(1, int(math.ceil(neg * 0.001)))} of them: treat it as rough.")
+    return out
 
 
 def evaluate(real: list[tuple[float, str]], noise: list[tuple[float, str]], ranks: dict[str, int],
@@ -213,6 +281,7 @@ def evaluate(real: list[tuple[float, str]], noise: list[tuple[float, str]], rank
             "accuracy": round((tp + tn) / len(pooled) * 100, 1), "precision": round(prec * 100, 1),
             "recall": round(rec * 100, 1), "f1": round(2 * prec * rec / (prec + rec) * 100, 1) if prec + rec else 0.0,
             "log_loss": round(logloss, 3), "giveaways": giveaways[:8], "hours": {"you": hours[0], "noise": hours[1]},
+            "strong": strong_attack(rows, seed=seed, folds=folds),
             "warnings": warnings, "_model": full}
 
 
