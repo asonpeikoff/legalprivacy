@@ -231,6 +231,7 @@ def test_long_session_keeps_returning_to_the_same_page():
     r.run_once(wait=False)
     assert r.hit_log[-1]["url"] == "https://example.org/notes" and r.hit_log[-1]["role"] == "linger"
     now[0] += 4000                                           # the session is over
+    r.profile.extras.long_sessions = False                   # (so the next visit cannot start a new one at random)
     r.run_once(wait=False)
     assert lane.linger is None
 
