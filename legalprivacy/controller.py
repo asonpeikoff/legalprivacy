@@ -840,8 +840,15 @@ class Controller:
                                   ". Restart Tor on the Tor tab, wait for Connected, then try again.")
         return shared_env(f"127.0.0.1:{tm.user_socks_port}", tm.control_addr, tm.cookie_path)
 
+    def _seed_bookmarks(self) -> list[tuple[str, str]]:
+        from .onion import site_label
+        seeds = list(self._tor_cfg().onion_seeds or [])
+        return [(site_label(u), u) for u in seeds]
+
     def torbrowser_open(self) -> dict:
+        from . import torbrowser
         from .torbrowser import TorBrowserError
+        torbrowser.extra_bookmarks_fn = self._seed_bookmarks
         self.torbrowser.shared_fn = self._shared_tor_env
         try:
             return self.torbrowser.open()
@@ -1487,8 +1494,11 @@ class Controller:
         """Self-checks with plain-language results: status ∈ ok | warn | fail | info."""
         checks: list[dict] = []
 
-        def add(name, status, detail):
-            checks.append({"name": name, "status": status, "detail": detail})
+        def add(name, status, detail, fix=None):
+            c = {"name": name, "status": status, "detail": detail}
+            if fix:                                   # a one-click change the Health tab offers: {"label", "config"}
+                c["fix"] = fix
+            checks.append(c)
 
         for lib in ("requests", "yaml", "socks"):
             try:
@@ -1512,7 +1522,9 @@ class Controller:
             add("Internet (clearnet)", "warn", f"cannot reach 1.1.1.1:443 ({exc})")
         cfg = self._tor_cfg()
         if not cfg.enabled:
-            add("Tor", "info", "Tor is turned off (optional). Enable it in Settings or on the Tor tab.")
+            add("Tor", "info", "Tor is turned off. Bridges, Tor DNS, onion sites and Tor Browser sharing all need it, so "
+                               "it is recommended: switch it on here, or on the Tor tab.",
+                {"label": "Turn on the app's private Tor", "config": {"transports": {"tor": {"enabled": True}}}})
         else:
             binp = find_tor_binary()
             add("Tor program", "ok" if binp else "warn",
@@ -1523,9 +1535,36 @@ class Controller:
             seeds_ok, bad = clean_seed_list(cfg.onion_seeds or [u for _, u in BUILTIN_ONION_SEEDS])
             add("Onion seeds", "ok" if not bad else "fail",
                 f"{len(seeds_ok)} valid v3 addresses" + (f"; {len(bad)} invalid" if bad else ""))
+            from . import tordns
+            if cfg.bridge_mode == "off":
+                add("Tor bridges", "warn",
+                    "Not using bridges. Strongly recommended: a bridge hides from your internet provider that you use Tor, "
+                    "and the built-in obfs4 bridges look like ordinary encrypted traffic. (With automatic fallback on, "
+                    "bridges are otherwise used only if Tor cannot connect directly.)",
+                    {"label": "Use the built-in bridges (obfs4)", "config": {"transports": {"tor": {"bridge_mode": "obfs4"}}}})
+            else:
+                add("Tor bridges", "ok", f"in use: {cfg.bridge_mode}" + (" (your own)" if cfg.bridge_mode == "custom" else " (built in)"))
+            if not cfg.dns_port:
+                add("Tor DNS (ordinary sites)", "warn",
+                    "Off. Your own lookups for ordinary, non-onion sites go to your internet provider or router in the clear. "
+                    "Strongly recommended: turn on Tor DNS, then point this computer's DNS at it (Tor tab, DNS) and those "
+                    "lookups leave through Tor instead. Exit relays do the looking up, so it suits sites you would also open "
+                    "over Tor.",
+                    {"label": "Turn on Tor DNS", "config": {"transports": {"tor": {"dns_port": tordns.DEFAULT_PORT}}}})
+            else:
+                add("Tor DNS (ordinary sites)", "ok", f"on (local port {cfg.dns_port}); point your computer's DNS at it to use it")
             if port_open("127.0.0.1", 9150) or port_open("127.0.0.1", 9050):
                 add("Other Tor on this PC", "info",
                     "A system Tor/Tor Browser is running. legalPrivacy's own Tor uses different ports and won't touch it.")
+        if self.profile.dns.mode == "system":
+            add("DNS noise", "warn",
+                "All DNS noise uses your normal resolver, so it cannot show how your lookups look to a second provider. "
+                "Mix (the default) also uses the secure resolvers.",
+                {"label": "Use Mix", "config": {"dns": {"mode": "mix"}}})
+        add("Your own DNS", "info",
+            "legalPrivacy cannot change how this computer looks names up. To keep your own lookups private from your internet "
+            "provider, turn on encrypted DNS (DNS over HTTPS or TLS) in your browser's privacy settings or in your system's "
+            "network settings, or use Tor DNS above.")
         bi = self.browser_info()
         add("Real browser", "ok" if bi["active"] else ("warn" if bi["setting"] != "off" else "info"),
             (f"in use: {bi['detail']}" if bi["active"] else

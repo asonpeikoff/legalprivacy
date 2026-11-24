@@ -678,7 +678,17 @@ class HealthTab(Tab):
                 lb.grid(row=0, column=2, sticky="w")
                 row.columnconfigure(2, weight=1)
                 autowrap(lb, row, 420)
+                fix = ch.get("fix")
+                if fix:
+                    self.app.btn(row, fix["label"], None, "secondary",
+                                 lambda f=fix: self.apply_fix(f), "Make this change now.").grid(row=1, column=2, sticky="w", pady=(4, 0))
         self.app.work(self.app.ctl.doctor, done, lambda e: (self.b_run.state(["!disabled"]), self.app.error("Health", e)))
+
+    def apply_fix(self, fix: dict) -> None:
+        """One-click change from a recommendation, then run the checks again."""
+        self.app.work(lambda: self.app.ctl.apply_config(fix["config"]),
+                      done=lambda _r: (self.app.flash(fix["label"] + ": done. Restart Tor to apply it."), self.run()),
+                      error=lambda e: self.app.error("Health", e))
 
 
 # ── Help ────────────────────────────────────────────────────────────────────

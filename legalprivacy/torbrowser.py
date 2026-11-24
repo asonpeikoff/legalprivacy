@@ -289,6 +289,57 @@ def socks_answers(host: str, port: int, timeout: float = 3.0) -> str | None:
     return None
 
 
+# Hook set by the app: extra (name, address) pairs to bookmark besides the built-in sites (the user's own onion list).
+def _no_extra_bookmarks() -> list[tuple[str, str]]:
+    return []
+
+
+extra_bookmarks_fn: Callable[[], list[tuple[str, str]]] = _no_extra_bookmarks
+
+
+def bookmark_list() -> list[tuple[str, str]]:
+    """Every onion site we know, with its best name: the built-in sites, then the user's own, no repeats."""
+    from .onion import BUILTIN_ONION_SEEDS, site_label
+    out, seen = [], set()
+    for name, url in list(BUILTIN_ONION_SEEDS) + [(site_label(u), u) for _n, u in extra_bookmarks_fn()]:
+        key = url.rstrip("/").lower()
+        if key not in seen:
+            seen.add(key)
+            out.append((name, url))
+    return out
+
+
+def customize(tree: Path | None = None) -> None:
+    """Set Tor Browser up before it opens (written again every launch, since an update replaces the folder):
+
+    - security level Safest: `browser.security_level.security_slider` = 1 in the profile's user.js (it is applied at
+      every start; you can still raise it back to Standard or Safer for a session from the shield button);
+    - every known onion site as a bookmark on the bookmarks toolbar, named, through Firefox's `Bookmarks` policy in
+      distribution/policies.json (other policies already in that file are kept).
+    Nothing here is part of the signed program files, so the signature re-check is unaffected."""
+    base = (tree or tb_dir() / "tor-browser") / "Browser"
+    prof = base / "TorBrowser" / "Data" / "Browser" / "profile.default"
+    try:
+        prof.mkdir(parents=True, exist_ok=True)
+        uj = prof / "user.js"
+        keep = [ln for ln in (uj.read_text(encoding="utf-8").splitlines() if uj.exists() else [])
+                if "browser.security_level.security_slider" not in ln]
+        uj.write_text("\n".join(keep + ['user_pref("browser.security_level.security_slider", 1);']) + "\n", encoding="utf-8")
+        dist = base / "distribution"
+        dist.mkdir(parents=True, exist_ok=True)
+        pj = dist / "policies.json"
+        try:
+            doc = json.loads(pj.read_text(encoding="utf-8")) if pj.exists() else {}
+        except ValueError:
+            doc = {}
+        pol = doc.setdefault("policies", {})
+        pol["Bookmarks"] = [{"Title": n, "URL": u, "Placement": "toolbar"} for n, u in bookmark_list()]
+        pol["DisplayBookmarksToolbar"] = "always"
+        pj.write_text(json.dumps(doc, indent=2), encoding="utf-8")
+    except OSError:
+        pass                                  # a read-only install: Tor Browser still opens, just without these
+
+
 def launch_log() -> Path:
     return app_dir() / "torbrowser.log"
 
@@ -303,6 +354,7 @@ def launch(shared: dict[str, str] | None = None) -> None:
     if not start.exists():
         raise TorBrowserError("Tor Browser isn't installed yet")
     verify_install()
+    customize()
     env = {**clean_env(), **(shared or {})}
     try:                                    # keep what it prints: when it cannot connect, the reason is usually here
         log = open(launch_log(), "ab")  # noqa: SIM115 (handed to the child process, which keeps it)
