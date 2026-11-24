@@ -476,6 +476,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div class="small mute" id="tInstallNote"></div>
     <label class="chk"><input type="checkbox" id="tEnable"><span><b>Use Tor</b> — turn the Tor lane on. Starting noise will automatically start (and if needed, install) Tor.</span></label>
     <label class="chk"><input type="checkbox" id="tOnion"><span><b>🧅 Visit onion sites</b> (darknet noise) — only .onion addresses, never leaves the Tor network.</span></label>
+    <label class="chk"><input type="checkbox" id="tOnionBrowser"><span><b>Use the real Tor Browser for onion visits</b> <span class="mute">(recommended, on) — scrolls, reads and clicks like a person, through this app's Tor, at security level Safest. If it can't start (not installed yet, no display), the plain lane is used and the Live Log says why.</span></span></label>
     <label class="chk"><input type="checkbox" id="tManage"><span><b>Let legalPrivacy manage Tor</b> (recommended, default). Untick to use an existing Tor at the address below instead.</span></label>
     <div class="row" id="tExt" style="display:none">SOCKS <input type="text" id="tSocks" size="16"> Control <input type="text" id="tCtl" size="16"></div>
     <div class="row"><button id="tSave" style="display:none" class="pri">Save Tor settings</button><span class="small mute" id="tSaved"></span></div>
@@ -1494,7 +1495,7 @@ function renderTorStatus(){
 }
 function fillTor(force){
   if(!S||(dirty.tor&&!force))return;const c=S.profile.transports.tor;
-  $('#tEnable').checked=c.enabled;$('#tOnion').checked=c.onion;$('#tManage').checked=c.manage;
+  $('#tEnable').checked=c.enabled;$('#tOnion').checked=c.onion;$('#tOnionBrowser').checked=c.onion_browser!==false;$('#tManage').checked=c.manage;
   $('#tSocks').value=c.socks;$('#tCtl').value=c.control||'';$('#tExt').style.display=c.manage?'none':'flex';
   $('#tSeeds').value=((c.onion_seeds&&c.onion_seeds.length)?c.onion_seeds:S.builtin_onion_seeds.map(b=>b.url)).join('\n');$('#tExcl').value=(c.exclude_nodes||[]).join('\n');$('#tExclStrict').checked=!!c.exclude_strict;$('#tExclGov').checked=c.exclude_gov_names!==false;avoidRefresh();$('#tBridges').value=(c.bridges||[]).join('\n');
   (document.querySelector(`input[name=bmode][value=${c.bridge_mode||'off'}]`)||{}).checked=true;$('#bAuto').checked=c.bridge_auto!==false;
@@ -1504,7 +1505,7 @@ function fillTor(force){
 }
 $$('#t-tor input,#t-tor textarea').forEach(i=>i.oninput=()=>{dirty.tor=true;$('#tExt').style.display=$('#tManage').checked?'none':'flex';$('#tSaved').textContent='unsaved changes'});
 async function saveTor(auto){
-  try{await api('/api/config',{transports:{tor:{enabled:$('#tEnable').checked,onion:$('#tOnion').checked,manage:$('#tManage').checked,socks:$('#tSocks').value,control:$('#tCtl').value||null,onion_seeds:$('#tSeeds').value,bridges:$('#tBridges').value,exclude_nodes:$('#tExcl').value,exclude_strict:$('#tExclStrict').checked,exclude_gov_names:$('#tExclGov').checked,bridge_mode:(document.querySelector('input[name=bmode]:checked')||{}).value||'off',bridge_auto:$('#bAuto').checked,dns_port:$('#dnsOn').checked?((S&&S.profile.transports.tor.dns_port)||19053):0,dns_lan:$('#dnsOn').checked&&$('#dnsLan').checked&&!!$('#dnsAddr').value,dns_lan_addr:$('#dnsAddr').value||''}}});
+  try{await api('/api/config',{transports:{tor:{enabled:$('#tEnable').checked,onion:$('#tOnion').checked,onion_browser:$('#tOnionBrowser').checked,manage:$('#tManage').checked,socks:$('#tSocks').value,control:$('#tCtl').value||null,onion_seeds:$('#tSeeds').value,bridges:$('#tBridges').value,exclude_nodes:$('#tExcl').value,exclude_strict:$('#tExclStrict').checked,exclude_gov_names:$('#tExclGov').checked,bridge_mode:(document.querySelector('input[name=bmode]:checked')||{}).value||'off',bridge_auto:$('#bAuto').checked,dns_port:$('#dnsOn').checked?((S&&S.profile.transports.tor.dns_port)||19053):0,dns_lan:$('#dnsOn').checked&&$('#dnsLan').checked&&!!$('#dnsAddr').value,dns_lan_addr:$('#dnsAddr').value||''}}});
     dirty.tor=false;$('#tSaved').textContent='Saved ✓ '+(S&&S.running?(needApply(),'(going live…)'):'');await poll()}catch(e){$('#tSaved').textContent='Not saved: '+e.message;if(!auto)toast(e.message,1)}
 }
 $('#tSave').onclick=()=>saveTor(false);
