@@ -673,6 +673,11 @@ class Runner:
             budget.record_hit(self.clock())
             if eng_name == "onion":
                 self._onion_seen_alive(target.url)
+                try:                                       # remember what the site calls itself, for Tor Browser's bookmarks
+                    from .onion import learn_title
+                    learn_title(target.url, result.html or "")
+                except Exception:
+                    pass
             lane.hits_by_identity += 1
             lane.hits_total += 1
             lane.consecutive_failures = 0

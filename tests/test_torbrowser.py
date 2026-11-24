@@ -302,3 +302,53 @@ def test_a_dead_door_is_reported_before_tor_browser_is_opened():
     assert tb.socks_answers("127.0.0.1", port) is None                       # a SOCKS5 proxy answers
     srv.close()
     assert "nothing is listening" in tb.socks_answers("127.0.0.1", port, timeout=1.0)
+
+
+def test_tor_browser_is_set_to_safest_and_every_known_onion_site_is_bookmarked(tmp_path):
+    import json
+    from legalprivacy import torbrowser as tb
+    from legalprivacy.onion import BUILTIN_ONION_SEEDS
+    tree = tmp_path / "tor-browser"
+    dist = tree / "Browser" / "distribution"
+    dist.mkdir(parents=True)
+    (dist / "policies.json").write_text(json.dumps({"policies": {"DisableTelemetry": True}}))   # a policy already there stays
+    prof = tree / "Browser" / "TorBrowser" / "Data" / "Browser" / "profile.default"
+    prof.mkdir(parents=True)
+    (prof / "user.js").write_text('user_pref("some.other", 1);\nuser_pref("browser.security_level.security_slider", 4);\n')
+    tb.extra_bookmarks_fn = lambda: [("", "http://" + "a" * 56 + ".onion/")]
+    try:
+        tb.customize(tree)
+        tb.customize(tree)                                                  # again: nothing doubles
+    finally:
+        tb.extra_bookmarks_fn = tb._no_extra_bookmarks
+    uj = (prof / "user.js").read_text()
+    assert uj.count("security_slider") == 1 and 'security_slider", 1)' in uj and "some.other" in uj     # 1 = Safest
+    pol = json.loads((dist / "policies.json").read_text())["policies"]
+    assert pol["DisableTelemetry"] is True and pol["DisplayBookmarksToolbar"] == "always"
+    marks = pol["Bookmarks"]
+    assert len(marks) == len(BUILTIN_ONION_SEEDS) + 1 and all(m["Placement"] == "toolbar" for m in marks)
+    assert marks[0] == {"Title": BUILTIN_ONION_SEEDS[0][0], "URL": BUILTIN_ONION_SEEDS[0][1], "Placement": "toolbar"}
+    assert marks[-1]["Title"].startswith("Onion site aaaaaa") and marks[-1]["URL"].endswith(".onion/")   # no name known yet
+
+
+def test_site_names_are_learned_from_the_pages_the_noise_visits(tmp_path, monkeypatch):
+    from legalprivacy import onion
+    monkeypatch.setenv("HOME", str(tmp_path))
+    url = "http://" + "b" * 56 + ".onion/"
+    assert onion.site_label(url).startswith("Onion site bbbbbb")
+    onion.learn_title(url, "<html><head><title> Example Wiki | Home &amp; more </title></head></html>")
+    assert onion.site_label(url) == "Example Wiki"                           # the part before the separator
+    onion.learn_title(url, "<title>Something else</title>")
+    assert onion.site_label(url) == "Example Wiki"                           # the first name sticks
+    onion.learn_title(onion.BUILTIN_ONION_SEEDS[0][1], "<title>Not this</title>")
+    assert onion.site_label(onion.BUILTIN_ONION_SEEDS[0][1]) == onion.BUILTIN_ONION_SEEDS[0][0]
+
+
+def test_shared_env_never_sets_tor_transproxy_which_switches_tor_browsers_proxy_off(monkeypatch):
+    from legalprivacy import torbrowser as tb
+    env = tb.shared_env("127.0.0.1:19150", "127.0.0.1:19151", "/tmp/cookie")
+    assert "TOR_TRANSPROXY" not in env                                      # even "0" counts: Tor Browser checks existence
+    assert env["TOR_SKIP_LAUNCH"] == "1" and env["TOR_SOCKS_PORT"] == "19150" and env["TOR_CONTROL_PORT"] == "19151"
+    assert env["TOR_CONTROL_COOKIE_AUTH_FILE"] == "/tmp/cookie"
+    monkeypatch.setenv("TOR_TRANSPROXY", "0")
+    assert "TOR_TRANSPROXY" not in tb.clean_env()                           # and one inherited from outside is dropped

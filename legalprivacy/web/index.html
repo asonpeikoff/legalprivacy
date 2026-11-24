@@ -387,6 +387,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
 <!-- DASHBOARD -->
 <section id="t-dash" class="tab on">
   <div id="banner" class="banner"></div>
+  <div id="recBar" class="banner warn" hidden><span class="bi">⚠</span><span id="recTx"></span><small><button id="recGo" class="small">Use the built-in bridges</button></small></div>
   <div id="dashNote"></div>
   <div id="updBar" class="banner warn" hidden><span class="bi">⬆</span><span id="updTx"></span><small><button id="updGo" class="small">Check again</button></small></div>
   <div class="card" id="quick">
@@ -1340,6 +1341,9 @@ $('#nudgeRows').onclick=async e=>{const b=e.target.closest('button[data-n]');if(
 function render(){
   const s=S; if(!s)return;
   renderNudge();
+  {const t=s.profile.transports.tor,rb=$('#recBar');
+    const need=t.enabled&&t.bridge_mode==='off';rb.hidden=!need;
+    if(need)$('#recTx').textContent='Tor bridges are off. Strongly recommended: a bridge hides from your internet provider that you use Tor.'}
   renderAcc(s.accounts);
   if(!s.running&&!applying){clearTimeout(applyTimer);clearApply()}
   const tor=s.tor, torCfg=s.profile.transports.tor;
@@ -2045,7 +2049,11 @@ function renderRealism(){
 // health
 $('#hRun').onclick=async()=>{$('#hBody').innerHTML='<tr><td class="mute">Checking…</td></tr>';
   try{const r=await api('/api/doctor');const ic={ok:'✓',warn:'⚠',fail:'✗',info:'ℹ'},cl={ok:'ok',warn:'warnc',fail:'bad',info:'mute'};
-    $('#hBody').innerHTML=r.checks.map(c=>`<tr><td style="width:30px" class="${cl[c.status]}">${ic[c.status]}</td><td style="width:230px"><b>${esc(c.name)}</b></td><td class="${c.status==='ok'?'':cl[c.status]}">${esc(c.detail)}</td></tr>`).join('')}catch(e){toast(e.message,1)}};
+    window._hFix=r.checks.map(c=>c.fix||null);
+    $('#hBody').innerHTML=r.checks.map((c,i)=>`<tr><td style="width:30px" class="${cl[c.status]}">${ic[c.status]}</td><td style="width:230px"><b>${esc(c.name)}</b></td><td class="${c.status==='ok'?'':cl[c.status]}">${esc(c.detail)}${c.fix?` <button class="small" data-fix="${i}">${esc(c.fix.label)}</button>`:''}</td></tr>`).join('')}catch(e){toast(e.message,1)}};
+$('#recGo').onclick=async()=>{try{await api('/api/config',{transports:{tor:{bridge_mode:'obfs4'}}});toast('Bridges on (obfs4). Restart Tor to apply.');await poll()}catch(e){toast(e.message,1)}};
+$('#hBody').onclick=async e=>{const b=e.target.closest('button[data-fix]');if(!b)return;const f=(window._hFix||[])[+b.dataset.fix];if(!f)return;
+  b.disabled=true;try{await api('/api/config',f.config);toast(f.label+': done'+(S&&S.running?'. Restart the noise or Tor to apply.':''));await poll();$('#hRun').onclick()}catch(err){toast(err.message,1);b.disabled=false}};
 // wizard
 let wizShown=false,wStep=1;
 let wizRerun=false;

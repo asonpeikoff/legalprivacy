@@ -156,3 +156,22 @@ def test_launcher_prints_the_dashboard_link_and_the_start_script_can_install_a_s
     sh = (pathlib.Path(__file__).resolve().parent.parent / "start-legalprivacy.sh").read_text()
     assert "--service" in sh and "--uninstall-service" in sh and "systemctl --user" in sh
     assert "ExecStart=$DIR/.venv/bin/python -m legalprivacy --no-browser" in sh and "NoNewPrivileges=true" in sh
+
+
+def test_health_strongly_recommends_bridges_and_tor_dns_with_one_click_fixes(tmp_path, monkeypatch):
+    from legalprivacy.controller import Controller
+    monkeypatch.setenv("HOME", str(tmp_path))
+    c = Controller(str(tmp_path / "p.yaml"))
+    c.apply_config({"transports": {"tor": {"enabled": True}}})
+    by = {x["name"]: x for x in c.doctor()}
+    br, dn = by["Tor bridges"], by["Tor DNS (ordinary sites)"]
+    assert br["status"] == "warn" and "Strongly recommended" in br["detail"] and br["fix"]["config"]["transports"]["tor"]["bridge_mode"] == "obfs4"
+    assert dn["status"] == "warn" and dn["fix"]["config"]["transports"]["tor"]["dns_port"] > 0
+    assert by["Your own DNS"]["status"] == "info"
+    c.apply_config(br["fix"]["config"])
+    c.apply_config(dn["fix"]["config"])
+    by = {x["name"]: x for x in c.doctor()}
+    assert by["Tor bridges"]["status"] == "ok" and by["Tor DNS (ordinary sites)"]["status"] == "ok"
+    c.apply_config({"transports": {"tor": {"enabled": False}}})
+    off = {x["name"]: x for x in c.doctor()}["Tor"]
+    assert off["fix"]["config"]["transports"]["tor"]["enabled"] is True              # without Tor, the fix is to switch it on
