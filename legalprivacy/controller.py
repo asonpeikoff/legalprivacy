@@ -478,28 +478,33 @@ class Controller:
                 "actions_per_hour": round(actions_h), "hours_per_day": hours,
                 "real_browser": b_share > 0, "low_data": ex.low_data, "cap_mb": ex.daily_data_mb}
 
-    def selftest(self, days: float = 14) -> dict:
-        """How easily the noise could be told apart from your real browsing (local only)."""
+    def selftest(self, days: float = 14, demo: bool = False) -> dict:
+        """How easily the noise could be told apart from your real browsing (local only).
+        demo=True compares it with a built-in typical person instead, so the test can be tried with no history."""
         import random as _r
         from .history import visit_events
-        from .selftest import evaluate, simulate_noise
+        from .selftest import demo_person, evaluate, simulate_noise
         days = max(2.0, min(60.0, float(days)))
         now = time.time()
         since = now - days * 86400
         from .baseline import HOWTO, har_events, human_span
         har = self.har.load()
         real_note, until, from_har = "", now, False
-        if har and har.get("top_hosts") and har["entries"] >= 50 and (har["last"] - har["first"]) >= 2 * 3600:
+        if (not demo and har and har.get("top_hosts") and har["entries"] >= 50
+                and (har["last"] - har["first"]) >= 2 * 3600):
             real = {"events": har_events(har), "errors": []}          # your imported recording comes first
             since, until, from_har = har["first"], har["last"], True  # compare only over the hours it covers
             real_note = ("Your baseline is the browser recording you imported. Site names for each moment were "
                          "re-drawn from its top-sites list, so revisit habits are approximate, and noise was "
                          "compared only over the hours the recording covers.")
+        elif demo:
+            real = {"events": demo_person(since, now, [d for d in self.feeds.items("tranco")[:300]
+                                                      if d.count(".") == 1 and not d.endswith(".gov")] or None), "errors": []}
         else:
             real = visit_events(since, now)
         hits = [h for h in (self.runner.hit_log if self.runner else []) if h["lane"] != "tor"]
         session_span = (hits[-1]["ts"] - hits[0]["ts"]) if len(hits) > 1 else 0
-        if len(hits) >= 200 and session_span >= 86400 and not from_har:
+        if len(hits) >= 200 and session_span >= 86400 and not from_har and not demo:
             import urllib.parse as up
             noise = [(h["ts"], (up.urlparse(h["url"]).hostname if "://" in h["url"] else h["url"]) or "")
                      for h in hits]
@@ -510,10 +515,16 @@ class Controller:
         ranks = {d: i for i, d in enumerate(self.feeds.items("tranco"))}
         res = evaluate(real["events"], [(t, s.removeprefix("www.")) for t, s in noise if s], ranks)
         n_real = len(real["events"])
-        if from_har:
+        if demo and not from_har:
+            res["baseline"] = {"source": "demo", "status": "Demo: a made-up typical person (evening and weekend sittings, a few "
+                                                           "favourite sites visited again and again) against the noise your "
+                                                           "current settings would make. It is not your history, and the noise "
+                                                           "is not tuned to this person: the real test uses your own "
+                                                           "browsing, so the noise can be matched to you."}
+        elif from_har:
             res["baseline"] = {"source": "har", "status": f"Your baseline: {human_span(until - since)} from your HAR file "
                                                           f"(approximate: see the note below)."}
-        elif n_real >= 50:
+        elif n_real >= 50 and not demo:
             res["baseline"] = {"source": "history", "status": f"Your baseline: {n_real:,} visits from your browser "
                                                               f"history over the last {days:g} days."}
         else:
@@ -529,11 +540,13 @@ class Controller:
         model = res.pop("_model", None)
         if model is not None:
             self._ml_model, self._ml_ranks = model, ranks
-            hist = list(self.app.get("ml_history") or [])[-29:] + [[round(time.time()), res["score"]]]
-            self.app["ml_history"] = hist             # scores only: no browsing data is kept
-            self._save()
+            if not demo:                              # a demo score says nothing about you: keep it out of the trend
+                hist = list(self.app.get("ml_history") or [])[-29:] + [[round(time.time()), res["score"]]]
+                self.app["ml_history"] = hist         # scores only: no browsing data is kept
+                self._save()
         self._ml_last = res
-        self.log.info("tools", f"Self-test: {res.get('score', '—')}% ({res.get('verdict', res.get('error', ''))}).")
+        self.log.info("tools", f"Self-test{' (demo)' if demo else ''}: {res.get('score', '—')}% "
+                               f"({res.get('verdict', res.get('error', ''))}).")
         return res
 
     def ml_state(self) -> dict:

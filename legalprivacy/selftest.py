@@ -294,6 +294,42 @@ def predict(model, site: str, hour: int, weekday: int, ranks: dict[str, int]) ->
     return round(_sigmoid(_score(model, x, ["hour", "weekday", "popularity", "ending"])) * 100, 1)
 
 
+# ── a built-in typical person, for the demo ─────────────────────────────────
+DEMO_HABITS = [("www.youtube.com", 10), ("www.reddit.com", 9), ("mail.google.com", 8), ("www.google.com", 8),
+               ("en.wikipedia.org", 6), ("www.amazon.com", 6), ("news.ycombinator.com", 4), ("github.com", 4),
+               ("www.nytimes.com", 3), ("www.weather.com", 3), ("www.imdb.com", 2), ("www.netflix.com", 2),
+               ("stackoverflow.com", 2), ("www.ebay.com", 2), ("maps.google.com", 2), ("www.bbc.com", 2)]
+
+
+def demo_person(since: float, until: float, tail_sites: list[str] | None = None, seed: int = 21) -> list[tuple[float, str]]:
+    """What a typical person's browsing looks like to someone watching their connection: sessions on weekday evenings
+    (and a lunch break) and across weekend days, a few favourite sites visited again and again, runs on one site,
+    and a long tail of other sites. Made up, not recorded from anyone: it exists so the ML tab can be tried without
+    your own history."""
+    rng = random.Random(seed)
+    sites = [h for h, _ in DEMO_HABITS]
+    weights = [w for _, w in DEMO_HABITS]
+    tail = list(tail_sites or [f"site{i}.example.com" for i in range(60)])
+    events: list[tuple[float, str]] = []
+    day = since - (since % 86400)
+    while day < until:
+        wd = time.localtime(day + 43200).tm_wday
+        starts = ([12.2 + rng.uniform(0, 0.8)] if wd < 5 else [9.5 + rng.uniform(0, 2.0), 14.0 + rng.uniform(0, 2.0)]) \
+            + [19.0 + rng.uniform(0, 3.0)] * (1 if rng.random() < 0.9 else 0)
+        for hr in starts:
+            t = day + hr * 3600
+            site = rng.choices(sites, weights=weights)[0]
+            for _ in range(max(3, int(rng.lognormvariate(2.6, 0.6)))):         # one sitting: a run of visits
+                if rng.random() < 0.38 and events:                              # stay on the same site a while
+                    pass
+                else:
+                    site = rng.choices(sites, weights=weights)[0] if rng.random() < 0.78 else rng.choice(tail)
+                events.append((t, site))
+                t += max(2.0, rng.lognormvariate(3.3, 0.9))                      # seconds between requests
+        day += 86400
+    return sorted(e for e in events if since <= e[0] < until)
+
+
 # ── noise: simulate from settings ───────────────────────────────────────────
 def simulate_noise(profile, pool, since: float, until: float, seed: int = 7) -> list[tuple[float, str]]:
     """What the noise would have done over [since, until] with these settings (no network)."""

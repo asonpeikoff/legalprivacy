@@ -804,7 +804,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
 <section id="t-ml" class="tab vz">
   <div class="card"><h3>Can your traffic be told apart from the noise?</h3>
     <p class="small mute">A classifier tries to separate your real browsing (your browsers' history, read on this computer only) from the noise, using only what your ISP or DNS provider could see: the hour, weekday, rhythm, how popular each site is, revisits and domain endings. Its ROC AUC is the score: <b>50%</b> means it can't tell them apart, <b>100%</b> means it's trivial. Nothing is sent anywhere; only the scores are kept.</p>
-    <div class="row">Look at the last <input type="number" id="stDays" value="14" min="2" max="60" style="width:70px"> days <span class="small mute">(14 recommended, default)</span> <button id="stRun" class="pri">Run test</button>
+    <div class="row">Look at the last <input type="number" id="stDays" value="14" min="2" max="60" style="width:70px"> days <span class="small mute">(14 recommended, default)</span> <button id="stRun" class="pri">Run test</button> <button id="stDemo" title="Compare the noise your current settings would make with a made-up typical person, so you can see what this tab shows without using your own history.">Try the demo</button>
       <label class="chk" style="margin:0 0 0 10px"><input type="checkbox" id="mlAuto"><span>Run automatically once a day <span class="mute">(off by default)</span></span></label></div>
     <div id="mlWarn"></div>
     <div id="mlBase" class="small" style="margin:6px 0"></div>
@@ -1982,9 +1982,10 @@ function renderML(d){
 }
 async function loadMLTab(){try{const m=await api('/api/ml');renderMlBase(m.baseline);$('#mlAuto').checked=m.auto;$('#mlTrend').innerHTML=svgTrend(m.history);if(m.last)renderML(m.last)}catch(e){}}
 $('#mlHour').innerHTML=[...Array(24).keys()].map(h=>`<option value="${h}" ${h===21?'selected':''}>${h12(h)}</option>`).join('');
-$('#stRun').onclick=async()=>{$('#mlHead').innerHTML='<div class="small mute">Reading your history and simulating the noise… a few seconds.</div>';$('#stRun').disabled=true;
-  try{renderML(await api('/api/tools/selftest?days='+encodeURIComponent($('#stDays').value||14)));const m=await api('/api/ml');$('#mlTrend').innerHTML=svgTrend(m.history)}
-  catch(e){$('#mlHead').innerHTML=`<div class="note bad small">${esc(e.message)}</div>`}finally{$('#stRun').disabled=false}};
+async function runSelftest(demo){$('#mlHead').innerHTML='<div class="small mute">'+(demo?'Making up a typical person and simulating the noise… a few seconds.':'Reading your history and simulating the noise… a few seconds.')+'</div>';$('#stRun').disabled=$('#stDemo').disabled=true;
+  try{renderML(await api('/api/tools/selftest?days='+encodeURIComponent($('#stDays').value||14)+(demo?'&demo=1':'')));const m=await api('/api/ml');$('#mlTrend').innerHTML=svgTrend(m.history)}
+  catch(e){$('#mlHead').innerHTML=`<div class="note bad small">${esc(e.message)}</div>`}finally{$('#stRun').disabled=$('#stDemo').disabled=false}}
+$('#stRun').onclick=()=>runSelftest(false);$('#stDemo').onclick=()=>runSelftest(true);
 $('#mlAuto').onchange=()=>act('/api/app',{ml_auto:$('#mlAuto').checked});
 $('#mlPred').onclick=async()=>{try{const d=await api('/api/ml/predict?site='+encodeURIComponent($('#mlSite').value)+'&hour='+$('#mlHour').value+'&weekday='+$('#mlDay').value);
   $('#mlPredOut').innerHTML=`<b>${d.noise_probability}%</b> likely to be noise — <code>${esc(d.site)}</code> on ${DAYS[d.weekday]} at ${h12(d.hour)}`}catch(e){$('#mlPredOut').textContent=e.message}};
