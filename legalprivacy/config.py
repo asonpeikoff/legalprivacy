@@ -238,6 +238,7 @@ class ExtrasConfig:
     daily_data_mb: float = 0.0    # stop for the day after this much data; 0 = no cap
     polite: bool = False          # at least a minute between visits to the same site
     browser_dns: bool = True      # look names up like a browser: A, plus AAAA and HTTPS records
+    dns_bursts: bool = True       # a lookup is often followed by the burst of lookups a page load makes (fonts, scripts, other sites)
     interests: bool = False       # interest personas: a few steady themes at a time
     interest_list: list = field(default_factory=list)   # themes allowed ([] = all)
     interest_active: int = 3      # how many themes at once
@@ -544,7 +545,7 @@ def apply_overrides(profile: Profile, raw: dict[str, Any]) -> Profile:
             active_hours=bool(m["active_hours"]), active_from=int(m["active_from"]), active_to=int(m["active_to"]),
             search_engines={str(k): float(v) for k, v in (m.get("search_engines") or {}).items()},
             typos=bool(m["typos"]), low_data=bool(m["low_data"]), daily_data_mb=float(m["daily_data_mb"]),
-            polite=bool(m["polite"]), browser_dns=bool(m["browser_dns"]),
+            polite=bool(m["polite"]), browser_dns=bool(m["browser_dns"]), dns_bursts=bool(m["dns_bursts"]),
             interests=bool(m["interests"]), interest_list=[str(x) for x in (m.get("interest_list") or [])],
             interest_active=int(m["interest_active"]), interest_rotate_days=int(m["interest_rotate_days"]),
             interest_share=float(m["interest_share"]), interest_salt=str(m.get("interest_salt") or ""),

@@ -262,7 +262,12 @@ def build_app_class():
             self.logo_lbl.grid(row=0, column=0, padx=(0, 10))
             self.logo_lbl.bind("<Button-1>", self._logo_click)
             r.bind_all("<Key>", self._logo_key, add="+")
-            ttk.Label(hd, text=TITLE, style="HeaderH1.TLabel").grid(row=0, column=1, padx=(0, 20))
+            if not (getattr(self, "logo_trad", None) or len(getattr(self, "logos", [])) > 1):
+                # no logo image could be loaded: show the name as text. (Every logo version already spells it out,
+                # so with an image the plain-text name beside it would just say the same thing twice.)
+                ttk.Label(hd, text=TITLE, style="HeaderH1.TLabel").grid(row=0, column=1, padx=(0, 20))
+            else:
+                self.logo_lbl.grid_configure(padx=(0, 20))
             self.b_start = self.btn(hd, "Start", "play", "primary", self.do_start, "Start the noise  (F5)")
             self.b_pause = self.btn(hd, "Pause", "pause", "secondary", self.do_pause, "Pause or resume the noise  (F6)")
             self.b_stop = self.btn(hd, "Stop", "stop", "secondary", self.do_stop, "Stop the noise  (F7)")

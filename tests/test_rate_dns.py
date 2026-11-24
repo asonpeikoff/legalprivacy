@@ -390,3 +390,39 @@ def test_default_persona_skips_celebrity_sites_in_the_popular_draw():
     pool = DomainPool(random.Random(1))
     pool.avoid_entertainment = True
     assert not any(is_entertainment_news(d) for d in pool._ranked())
+
+
+def test_a_dns_lookup_is_often_followed_by_the_burst_a_page_load_makes():
+    import random as _r
+    from legalprivacy.domains import DomainPool
+    from legalprivacy.engines import PAGE_ASSET_HOSTS, DnsNoise, burst_hosts
+    from legalprivacy.transports import Target
+    pool = DomainPool(_r.Random(2), None)
+    seen = []
+    for seed in range(200):                                   # the burst: 2-14 names, real, no repeats, never the site
+        b = burst_hosts(_r.Random(seed), pool, "example.com")
+        assert 2 <= len(b) <= 14 and len(set(b)) == len(b) and "example.com" not in b
+        seen.append(len(b))
+    assert 2 <= sorted(seen)[100] <= 6                        # usually a handful
+    assert {h for h, _ in PAGE_ASSET_HOSTS} & {h for s in range(50) for h in burst_hosts(_r.Random(s), None)}
+
+    looked = []
+    orig = DnsNoise.resolve_system
+    DnsNoise.resolve_system = staticmethod(lambda domain, timeout=4.0: looked.append(domain) or True)
+    try:
+        p = Profile(name="t")
+        r = _app_runner(p, lambda: 0.0)
+        r.sleep_fn = lambda s: None
+        sizes = []
+        for _ in range(60):
+            looked.clear()
+            res = r._dns_probe(Target(url="dns://system/example.com", kind="dns"))
+            assert res.status == 200 and looked[0] == "example.com"
+            sizes.append(len(looked))
+        assert 0.6 < sum(1 for n in sizes if n > 1) / 60 < 1.0 and max(sizes) > 3      # most, not all, lookups get a burst
+        r.profile.extras.dns_bursts = False
+        looked.clear()
+        r._dns_probe(Target(url="dns://system/example.com", kind="dns"))
+        assert looked == ["example.com"]                       # off: one lookup, as before
+    finally:
+        DnsNoise.resolve_system = orig

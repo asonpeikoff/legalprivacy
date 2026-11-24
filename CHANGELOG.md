@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Page-shaped DNS bursts: about 85% of DNS noise lookups are now followed by the burst of lookups a page load makes (usually 3 or 4 names, up to 14: shared fonts, script and tag hosts, and other popular sites), a few tens of milliseconds apart, instead of one lookup standing alone. Real names only (no invented hosts, so no NXDOMAIN tell). On by default; Settings → Extras → "Follow lookups with a page's burst of lookups" turns it off (web and desktop app).
+- Self-test v2 (ML tab): a stronger observer that also sees bursts, same-site runs and combinations of signals, is judged on future events only, and reports the share of noise caught at 1% and 0.1% false alarms and the precision if only 1 in 100 events is noise. New research report in `docs/research/traffic-analysis-sota.md`.
+
 ## v2.15.0
 
 - Nudge the mix: a card on the Dashboard (web and desktop app) with minus and plus buttons for web pages in a real browser, web pages over plain HTTP, Tor .onion sites (when Tor is on) and the phone share. Each press moves one part by 10 points, the others give or take the difference so the total stays 100%, and the change is saved and applied live.
