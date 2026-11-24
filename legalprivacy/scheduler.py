@@ -586,6 +586,9 @@ class Runner:
         if lane.linger and lane.linger["mode"] == "work" and lane.linger["engine"] == eng_name \
                 and target.role != "linger" and self.clock() >= lane.linger.get("other_at", 0.0):
             lane.linger["other_at"] = self.clock() + self._other_site_gap()     # a detour: the next one is far off
+        elif lane.linger and lane.linger["mode"] == "away" and target.role != "linger" \
+                and self.clock() >= lane.linger.get("other_at", math.inf):
+            lane.linger["other_at"] = self.clock() + self._away_detour_gap()    # a detour while away, then quiet again
         self.current = {"lane": lane.name, "engine": eng_name, "url": target.url, "started": time.time(),
                         "role": target.role}
         try:
@@ -875,7 +878,12 @@ class Runner:
     # ── long sessions: one page for a long time, or away for hours and back to it ──────────────
     def _lane_away(self, lane: Lane) -> bool:
         lg = lane.linger
-        return bool(lg and lg["mode"] == "away" and self.clock() < lg["until"])
+        now = self.clock()
+        return bool(lg and lg["mode"] == "away" and now < lg["until"] and now < lg.get("other_at", math.inf))
+
+    def _away_detour_gap(self) -> float:
+        """While stepped away, the odd thing still happens (a mail check, a quick lookup), about every 10-40 min."""
+        return self.rng.uniform(600, 2400) * self.profile.realtime_scale
 
     # While a long session is on, the same kind of visit elsewhere is rare: about a 15% chance in any 10 minutes
     # (once an hour or so), so most of the time is spent on the page that matters to "you".
@@ -922,13 +930,14 @@ class Runner:
                 or target.kind != "html" or target.role in ("search", "linger") or eng_name not in ("crawl", "onion")):
             return
         r, now, scale = self.rng.random(), self.clock(), self.profile.realtime_scale
-        if r < 0.025:
-            hours = self.rng.uniform(1.0, 4.0)
+        if r < 0.008:                                  # rare, and shorter than before: mostly continued use
+            hours = self.rng.uniform(0.5, 2.0)
             lane.linger = {"mode": "away", "url": target.url, "engine": eng_name,
-                           "until": now + hours * 3600 * scale, "next_at": 0.0}
+                           "until": now + hours * 3600 * scale, "next_at": 0.0,
+                           "other_at": now + self._away_detour_gap()}
             self._emit("info", lane.name, f"Long session: left a page open and stepped away for about {hours:.1f} h "
-                                          "(this route is quiet until then).")
-        elif r < 0.09:
+                                          "(a little other activity continues meanwhile).")
+        elif r < 0.11:
             minutes = min(180.0, max(15.0, self.rng.lognormvariate(3.7, 0.6)))    # typically ~40 minutes
             lane.linger = {"mode": "work", "url": target.url, "engine": eng_name,
                            "until": now + minutes * 60 * scale, "next_at": now + self.rng.uniform(120, 600) * scale,

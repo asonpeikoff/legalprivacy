@@ -253,6 +253,24 @@ def test_stepping_away_keeps_the_route_quiet_then_resumes_the_same_page():
     assert r.lanes[0].linger["mode"] == "work"                 # and carries on with it for a while
 
 
+def test_stepped_away_still_has_the_odd_detour():
+    p = Profile(name="t")
+    apply_overrides(p, {"rate": {"mode": "steady", "level": 10}})
+    now = [1000.0]
+    r = _app_runner(p, lambda: now[0])
+    r.plan_hour(14)
+    for ln in r.lanes:
+        for b in ln.budgets.values():
+            b.per_day = 1000
+        ln.linger = {"mode": "away", "url": "https://example.org/doc", "engine": "crawl",
+                     "until": now[0] + 7200, "next_at": 0.0, "other_at": now[0] + 900}
+    assert r.run_once(wait=False) is False                     # quiet at first
+    now[0] += 1000
+    assert r.run_once(wait=False) is True                      # then a detour while still away
+    assert r.hit_log[-1]["role"] != "linger"
+    assert any(ln.linger and ln.linger["mode"] == "away" and ln.linger["other_at"] > now[0] for ln in r.lanes)
+
+
 def test_long_sessions_start_now_and_then_and_can_be_turned_off():
     from legalprivacy.transports import Target
     p = Profile(name="t")
@@ -264,7 +282,7 @@ def test_long_sessions_start_now_and_then_and_can_be_turned_off():
         lane.linger = None
         r._maybe_linger(lane, "crawl", Target(url="https://example.org/"))
         started += lane.linger is not None
-    assert 80 < started < 280                                  # about 9% of page visits
+    assert 120 < started < 330                                 # about 11% of page visits, few of them "away"
     r.profile.extras.long_sessions = False
     lane.linger = None
     for _ in range(500):

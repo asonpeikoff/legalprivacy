@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Long sessions: "stepped away" is rarer (about 1 in 125 visits, 0.5-2 h instead of 1-4 h), "keeps working on one page" is more common, and while away the route still does the odd other visit every 10-40 minutes.
 - Header: the Tor status pill now sits right beside the Running/Stopped pill (web dashboard and desktop app), and the settings-applied text moved to the right of them.
 
 - Your own Firefox is now started with `--no-remote`, so it no longer registers on the desktop bus and should stop printing "unable to unregister root object from within onNameLost" when the app stops it.
