@@ -17,7 +17,7 @@ def test_preview_follows_the_unsaved_settings(ctl):
     assert ctl.profile.relay.or_port == 9001                  # nothing was saved
 
 
-@pytest.mark.parametrize("bad", [{"nickname": "a\nExitRelay 1"}, {"contact": "x\ny"}, {"mode": "exit"},
+@pytest.mark.parametrize("bad", [{"nickname": "a\nExitRelay 1"}, {"mode": "exit"},
                                  {"or_port": 80}, {"or_port": "abc"}, {"bandwidth_mb": 0}, {"bandwidth_mb": "1\n2"}])
 def test_preview_explains_invalid_settings(ctl, bad):
     r = ctl.relay_preview(bad)

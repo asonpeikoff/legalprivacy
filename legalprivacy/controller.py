@@ -49,7 +49,7 @@ def wipe_old_log_files() -> None:
             pass
 
 
-APP_DEFAULTS = {"migrated_ason": False, "observe": True, "update_check": True, "autostart": True, "open_browser": True, "port": 8765, "intensity": "normal",
+APP_DEFAULTS = {"migrated_ason": False, "migrated_share": False, "observe": True, "update_check": True, "autostart": True, "open_browser": True, "port": 8765, "intensity": "normal",
                 "auto_refresh_sources": False,   # off: use the snapshot shipped with the app (no lookups)
                 "ml_auto": False, "ml_history": [],
                 "clear_logs_on_restart": True}
@@ -67,6 +67,7 @@ class Controller:
         self._load()
         if self.profile.extras.persona == "Ason" and self.app.get("migrated_ason") and not self.first_run:
             self._save()                          # remember that the one-time switch to the new default happened
+        self._fresh_relay_nickname()
         self.tor: TorManager | None = None
         self.feeds = FeedStore(self.log)
         from .observe import TrafficObserver
@@ -115,8 +116,23 @@ class Controller:
             if self.profile.extras.persona == "Data scientist" and not self.app.get("migrated_ason"):
                 self.profile.extras.persona = "Ason"        # the new default persona replaces the old default once
                 self.app["migrated_ason"] = True
+            if not self.app.get("migrated_share"):
+                tor = self.profile.transports.get("tor")
+                if tor is not None:
+                    tor.share_browser = True               # sharing the app's Tor with Tor Browser is now on by default
+                self.app["migrated_share"] = True
         except Exception as exc:
             self.log.error("app", f"Could not read config ({exc}); using defaults.")
+
+    def _fresh_relay_nickname(self) -> None:
+        """The relay's public nickname starts as the app's name plus four random characters (so two relays never clash),
+        and the old app's name is replaced once. Anything the user chose themselves is left alone."""
+        import secrets
+        r = self.profile.relay
+        if r.nickname.lower() in ("noisycricket", "legalprivacy", ""):
+            r.nickname = "legalPrivacy" + secrets.token_hex(2)
+            if not self.first_run:
+                self._save()
 
     def _save(self) -> None:
         # Settings save themselves, so two saves can arrive together: serialise them, and give
@@ -808,9 +824,20 @@ class Controller:
             return None
         from .torbrowser import TorBrowserError, shared_env
         tm = self.tor_manager()
+        if tm.state != "ready":                      # sharing is on by default: bring the app's Tor up so the click just works
+            self.log.info("app", "Tor Browser is set to share this app's Tor, which isn't connected yet: starting it first.")
+            tm.start()
+            deadline = time.time() + 120
+            while time.time() < deadline and tm.state in ("installing", "starting", "bootstrapping"):
+                time.sleep(1.0)
         if tm.state != "ready" or not tm.user_socks_port:
-            raise TorBrowserError("Sharing is on, but this app's Tor isn't connected yet (or needs a restart "
-                                  "after you turned sharing on). Start Tor on this tab, wait for Connected, then try again.")
+            raise TorBrowserError("Tor Browser is set to share this app's Tor, but it isn't connected (" +
+                                  (tm.error or tm.state) + "). Look at the Tor tab, wait for Connected, then try again.")
+        from .torbrowser import socks_answers
+        why = socks_answers("127.0.0.1", tm.user_socks_port)
+        if why:                                      # better to say so than to open a browser that cannot load anything
+            raise TorBrowserError("Tor Browser's door into this app's Tor isn't answering: " + why +
+                                  ". Restart Tor on the Tor tab, wait for Connected, then try again.")
         return shared_env(f"127.0.0.1:{tm.user_socks_port}", tm.control_addr, tm.cookie_path)
 
     def torbrowser_open(self) -> dict:
@@ -851,7 +878,7 @@ class Controller:
             if not (0.1 <= mb <= 1000):
                 raise ConfigError("bandwidth cap must be between 0.1 and 1000 MBytes per second")
             rc = RelayConfig(mode=str(body.get("mode", cur.mode)), nickname=str(body.get("nickname", cur.nickname)),
-                             contact=str(body.get("contact") or "").strip() or None,
+                             contact=None,
                              bandwidth_rate=f"{mb:g} MBytes", or_port=int(body.get("or_port", cur.or_port)),
                              dir_port=0, practice=body.get("practice", cur.practice) is True,
                              private=body.get("private", cur.private) is True)
@@ -905,7 +932,7 @@ class Controller:
             raise ConfigError("Tick every item on the checklist before starting a public relay, "
                               "or use practice mode.")
         raw = {"mode": str(body.get("mode", cur.mode)), "nickname": str(body.get("nickname", cur.nickname)),
-               "contact": str(body.get("contact") or "").strip() or None,
+               "contact": None,
                "bandwidth_rate": f"{mb:g} MBytes", "or_port": or_port, "dir_port": 0, "practice": practice,
                "private": body.get("private", cur.private) is True,
                "acknowledged": cur.acknowledged or not practice}

@@ -135,8 +135,9 @@ class TorTransport(Transport):
     """
 
     def __init__(self, socks: str = "127.0.0.1:9050", control: str | None = None,
-                 identities_per_circuit: int = 8, control_password: str | None = None):
+                 identities_per_circuit: int = 8, control_password: str | None = None, share_browser: bool = False):
         host, _, port = socks.partition(":")
+        self.share_browser = share_browser       # Tor Browser uses this Tor too: never signal NEWNYM under it
         self.socks_host = host or "127.0.0.1"
         self.socks_port = int(port) if port else 9050
         self.control = control
@@ -173,8 +174,10 @@ class TorTransport(Transport):
             return HitResult(None, error=explain_tor_error(str(exc), f"{self.socks_host}:{self.socks_port}"))
 
     def renew_circuits(self) -> bool:
-        """NEWNYM via the Tor control port, if configured. Best-effort."""
-        if not self.control:
+        """NEWNYM via the Tor control port, if configured. Best-effort. Skipped while Tor Browser shares this Tor:
+        a NEWNYM would turn over the circuits under the pages you have open there; each identity already has its own
+        circuit through its own SOCKS login, so the noise does not need it."""
+        if not self.control or self.share_browser:
             return False
         from .torcontrol import TorControl, TorControlError, split_hostport
         host, port = split_hostport(self.control, 9051)
