@@ -49,7 +49,7 @@ def wipe_old_log_files() -> None:
             pass
 
 
-APP_DEFAULTS = {"migrated_ason": False, "migrated_share": False, "migrated_tb_lane": False, "observe": True, "update_check": True, "autostart": True, "open_browser": True, "port": 8765, "intensity": "normal",
+APP_DEFAULTS = {"migrated_ason": False, "migrated_share": False, "migrated_tb_lane": False, "migrated_cookie_day": False, "observe": True, "update_check": True, "autostart": True, "open_browser": True, "port": 8765, "intensity": "normal",
                 "auto_refresh_sources": False,   # off: use the snapshot shipped with the app (no lookups)
                 "ml_auto": False, "ml_history": [],
                 "clear_logs_on_restart": True}
@@ -121,6 +121,11 @@ class Controller:
                 if tor is not None:
                     tor.share_browser = True               # sharing the app's Tor with Tor Browser is now on by default
                 self.app["migrated_share"] = True
+            if not self.app.get("migrated_cookie_day"):
+                cl = self.profile.transports.get("clearnet")
+                if cl is not None and cl.cookie_hours == 1.0:
+                    cl.cookie_hours = 24.0                 # the old default: a returning visitor keeps its cookies for a day now
+                self.app["migrated_cookie_day"] = True
             if not self.app.get("migrated_tb_lane"):
                 tor = self.profile.transports.get("tor")
                 if tor is not None:

@@ -18,7 +18,7 @@ def _bt(hours, vary=True):
 
 def test_default_keeps_cookies_about_an_hour_and_varies_it():
     c = TransportConfig()
-    assert c.cookie_hours == 1.0 and c.cookie_vary is True
+    assert c.cookie_hours == 24.0 and c.cookie_vary is True
     t = _bt(1.0)
     lives = [t._lifetime() for _ in range(500)]
     assert min(lives) >= 0.6 * 3600 and max(lives) <= 1.4 * 3600 and max(lives) - min(lives) > 1800
