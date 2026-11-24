@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **Busier levels**: searches an hour by level are now 1, 2, 4, 7, 11, 17, 25, 36, 50, 70 (level 9 was 15, now 50); random mode still goes well above that in busy hours. The per-engine limit is 20 searches an hour (was 8); above it searches spread over more engines.
+- **Mix of activity vs background**: DNS lookups and package installs run alongside the activity mix and never took a share of it; the desktop app now shows them as their own amounts (as the web dashboard already did). DNS defaults to **More** (3x searches + link-following); a new **Lots** step.
+- **DNS bursts are visible**: each lookup's page-load burst is listed with it in Activity and the Live Log.
+- **More randomness**: searches, link-following, DNS and installs each wander on their own every hour; the burst, click-through and search-first chances vary a little each time.
+- **Long sessions no longer hold up the rest**: most run alongside everything else; about 1 in 8 (itself varied) takes over the way it used to.
+- **User agent: Mix is the default**, 85% your own browser's user agent. **Browser engine** choices renamed so it is clear which is your own Firefox and which are the app's copies; with your Firefox, the share of the noise that isn't your user agent, and phones, run in the app's own browsers. Your Firefox's window is never maximised.
+- **Persona "Default mix"** (was "Ason"): data science, Objectivism and a regular person's everyday web, followed 80% (the rest is random). The web page could save "Nobody in particular" before its list loaded; fixed.
+- **Old defaults move to the new ones once**: settings still on an older version's default (persona, how closely it's followed, browser engine, user agent, DNS amount) move to the current default, and Objectivism, Authors and readers and Web 2.0 join a saved list of allowed themes. The Live Log says what moved.
+- On start, the Live Log and Activity now only lose entries **older than 7 days** (0 = clear everything, as before).
+- "Speed" is now **Time compression (testing only)**: 2x = waits half as long. It never changed how much noise an hour.
+- **Google sign-in** uses the sign-in you already have in your own Firefox when there is one (no window). The sign-in window no longer reloads every second (it read the whole browser state each second).
+- Header logo fades on its own through the traditional versions (unless one is picked in Settings); the Easter-egg set fades the same way, purple first, then green, pink and yellow, poses in order. "Run checks" is at the top of Proof.
+
+
 - Tools: a local **password and passphrase generator** (secure random numbers in the page; nothing sent or saved). The hard panic also deletes the browser lane's fingerprint seed.
 - **Logos, sorted**: the header logo now has two sets. Traditional (no character): a "Logo" picker in Settings with 7 more (pop colours, pop shadowed, art deco, painted, rope red/blue, rope blue, terminal). Easter egg (with the character): 15 more plus an animated green one, in order by colour (green, purple, pink, yellow) and pose (on her back, on her front, kneeling, wink, from behind). The egg is now **three quick clicks on the logo** (or the Konami code); the same again turns it off.
 - Dashboard menu is a **side menu**: four collapsible groups (Monitor, Privacy, Learn, App), collapsible to icons; on narrow screens it stays a top bar. Tools cards are two compact columns with a hover lift.

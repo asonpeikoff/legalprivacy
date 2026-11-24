@@ -175,3 +175,30 @@ def test_health_strongly_recommends_bridges_and_tor_dns_with_one_click_fixes(tmp
     c.apply_config({"transports": {"tor": {"enabled": False}}})
     off = {x["name"]: x for x in c.doctor()}["Tor"]
     assert off["fix"]["config"]["transports"]["tor"]["enabled"] is True              # without Tor, the fix is to switch it on
+
+
+def test_old_defaults_move_to_the_new_ones_once():
+    from legalprivacy.config import apply_overrides, Profile
+    from legalprivacy.controller import move_old_defaults
+    p = apply_overrides(Profile(name="old"), {
+        "extras": {"persona": "", "persona_share": 0.9, "interest_list": ["Data science", "News"]},
+        "transports": {"clearnet": {"browser_engine": "auto"}},
+        "identity": {"ua_mode": "pin", "ua_pin": "own"},
+        "engines": {"search": {"budget_per_day": 120}, "crawl": {"budget_per_day": 40}, "dns": {"budget_per_day": 200}}})
+    moved = move_old_defaults(p)
+    assert p.extras.persona == "Default mix" and p.extras.persona_share == 0.8
+    assert {"Objectivism", "Authors and readers", "Web 2.0"} <= set(p.extras.interest_list)
+    assert p.transports["clearnet"].browser_engine == "mine"
+    assert p.identity.ua_mode == "mix" and p.identity.ua_own_share == 0.85
+    assert p.engines["dns"].budget_per_day == 480 and len(moved) == 6
+    assert apply_overrides(Profile(name="x"), {"extras": {"persona": "Ason"}}).extras.persona == "Default mix"
+
+
+def test_background_amounts_sit_outside_the_activity_mix():
+    from legalprivacy import gui_fields as F
+    from legalprivacy.config import Profile
+    v = F.profile_values(Profile(name="d"), {})
+    assert "dns" not in v["engines_mix"] and v["dns_amount"] == "3"
+    out = F.build_config_payload({"engines_mix": {"search": 75, "crawl": 25}, "dns_amount": "5", "pkg_amount": "0"})
+    assert out["engines"]["dns"] == {"enabled": True, "budget_per_day": 5000}
+    assert out["engines"]["packages"]["enabled"] is False
