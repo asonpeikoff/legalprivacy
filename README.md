@@ -106,14 +106,16 @@ The dashboard listens only on `127.0.0.1` and needs the token in its link. Setti
 
 | Level | Searches an hour | Over a 15-hour day |
 |---|---|---|
-| 1 | 0.5 | ~8 |
-| 3 | 1.5 | ~23 |
-| 5 (default) | 4 | ~60 |
-| 7 | 8 | ~120 |
-| 10 | 20 | ~300 |
+| 1 | 1 | ~15 |
+| 3 | 4 | ~60 |
+| 5 (default) | 11 | ~165 |
+| 7 | 25 | ~375 |
+| 9 | 50 | ~750 |
+| 10 | 70 | ~1050 |
 
-Even level 10 stays below what gets one address rate-limited: no search engine gets more than
-8 searches an hour from legalPrivacy. Page visits and DNS lookups come on top of searches.
+These are averages: in random mode busy hours go well above them. No search engine gets more than
+20 searches an hour from legalPrivacy; above that the searches spread over more engines. Page visits
+and DNS lookups come on top of searches.
 
 Activity comes in **sittings**: a few requests close together, then a longer gap, the way people
 use a computer. The first action comes within seconds of pressing Start.

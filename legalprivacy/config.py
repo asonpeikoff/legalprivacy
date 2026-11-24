@@ -214,7 +214,7 @@ class IdentityConfig:
     rotate_every: str = "hour"    # hour | day   (rotate mode: how often the choice changes)
     ua_pin: str = "own"           # pin mode: "own" or a library id. "own" with no UA yet = rotate until known
     own_ua: str = ""              # your browser's user agent (stored only on this computer)
-    ua_own_share: float = 0.7     # mix mode: share of identities that use your own browser's user agent (0 to 1);
+    ua_own_share: float = 0.85    # mix mode: share of identities that use your own browser's user agent (0 to 1);
                                   # the rest get a random one from the library
 
     def validate(self) -> None:
@@ -383,7 +383,7 @@ class Profile:
     engines: dict[str, EngineConfig] = field(default_factory=lambda: {
         "search": EngineConfig(budget_per_day=120),
         "crawl": EngineConfig(budget_per_day=40),
-        "dns": EngineConfig(budget_per_day=320),
+        "dns": EngineConfig(budget_per_day=480),     # 3x searches + link-following ("More")
         "onion": EngineConfig(budget_per_day=40, max_depth=3),
         "packages": EngineConfig(budget_per_day=28),
     })

@@ -612,11 +612,11 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div style="margin-top:10px"><b>How random</b> <span class="small mute">— how much each hour varies around that average</span></div>
     <div class="row"><span>Steady</span><input type="range" id="sRand" min="0" max="100" step="10" value="100" style="flex:1"><span>Random</span></div>
     <div class="small" id="sRandInfo"></div>
-    <div class="small mute" style="margin-top:6px">Even the highest level stays below what gets one address rate-limited: no search engine gets more than 8 of our searches in any hour. More noise makes your real activity harder to pick out, though some argue a lot of extra traffic is a pattern of its own. It's a trade-off; the middle levels are a sensible start.</div>
+    <div class="small mute" style="margin-top:6px">These are averages: in random mode busy hours go well above them. No search engine gets more than 20 of our searches in any hour; above that the searches spread over more engines. More noise makes your real activity harder to pick out, though some argue a lot of extra traffic is a pattern of its own. It's a trade-off; the middle levels are a sensible start.</div>
     <div style="margin-top:10px"><b>Mix of activity</b> <span class="small mute">— what you "do" one thing at a time, like a person: searching, following links, .onion sites. Adds up to 100%; drag one and the others make room. 0% turns that part off</span></div>
     <div id="engines"></div>
     <div style="margin-top:10px"><b>Also running in the background</b> <span class="small mute">— these happen at the same time as the activity above and never take a share from it, just like your computer does lookups and installs while you browse.</span></div>
-    <div class="row">DNS lookups <select id="sDnsAmt" title="Name lookups that happen alongside everything else"><option value="0">Off</option><option value="0.5">Fewer</option><option value="1">Normal</option><option value="2">More</option></select>
+    <div class="row">DNS lookups <select id="sDnsAmt" title="Name lookups that happen alongside everything else"><option value="0">Off</option><option value="1">Fewer</option><option value="2">Normal</option><option value="3">More (recommended)</option><option value="5">Lots</option></select>
       Package installs (pip, npm) <select id="sPkgAmt" title="Real pip and npm downloads in a throwaway folder that is deleted straight after. Sometimes one package, sometimes a whole project's requirements."><option value="0">Off</option><option value="0.04">Rare</option><option value="0.075">Normal</option><option value="0.15">Often</option></select></div>
     <div class="small mute">Package installs run automatically for the Ason, Data scientist and Developer personas, one package at a time or a whole requirements file at once, and everything downloaded is deleted straight afterwards.</div>
   </div>
@@ -662,12 +662,13 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div class="small mute">The user agent is the line every browser sends that says what browser and system it is. Noise that claims a different browser than yours can stand out. Pick how the plain-HTTP noise sets it.</div>
     <div class="small" style="margin-top:8px"><b>Advice</b>
       <ul style="margin:4px 0 0 18px">
-        <li><b>Your own browser's user agent</b> means the noise looks like you, same as your real traffic. This is what we recommend.</li>
+        <li><b>Mix</b> (recommended, default) sends your own browser's user agent most of the time and a random one the rest, so the noise looks like you and also like other machines. It keeps working when your browser itself randomises its user agent with an add-on.</li>
+        <li><b>Your own browser's user agent</b> only means the noise always looks like you, same as your real traffic.</li>
         <li><b>Random</b> changes the browser the noise claims to be every hour or day, drawn from the library below. Good if you want noise to look like a mix of visitors; it adds a second browser on your connection.</li>
         <li><b>One library entry</b> is a single fixed browser. Only pick this for a specific reason, since one fixed browser is an easy pattern.</li>
       </ul></div>
-    <label class="opt"><input type="radio" name="uamode" value="own"> <b>Pin to my own browser's user agent</b> <span class="mute">(recommended, default) — until it's known, the noise rotates</span></label>
-    <label class="opt"><input type="radio" name="uamode" value="mix"> <b>Mix: some real, some random</b> <span class="mute">— about <input type="number" id="uShare" min="0" max="100" step="5" value="70" style="width:64px">% of the noise uses your own browser's user agent, the rest a random one</span></label>
+    <label class="opt"><input type="radio" name="uamode" value="mix"> <b>Mix: mostly mine, some random</b> <span class="mute">(recommended, default) — about <input type="number" id="uShare" min="0" max="100" step="5" value="85" style="width:64px">% of the noise uses your own browser's user agent, the rest a random one</span></label>
+    <label class="opt"><input type="radio" name="uamode" value="own"> <b>Pin to my own browser's user agent</b> <span class="mute">— until it's known, the noise rotates</span></label>
     <label class="opt"><input type="radio" name="uamode" value="rotate-hour"> <b>Random, changing every hour</b></label>
     <label class="opt"><input type="radio" name="uamode" value="rotate-day"> <b>Random, changing every day</b></label>
     <label class="opt"><input type="radio" name="uamode" value="lib"> <b>Pin to one library entry</b> <span class="mute">(not recommended; pick one below)</span></label>
@@ -717,7 +718,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <label class="opt"><input type="radio" name="iact" value="follow"> <b>Mostly when I'm active</b> <span class="mute">— not recommended: after 10 idle minutes most noise waits until you're back, which also shows when you are at the computer and when you are not</span></label>
     <details class="small" style="margin-top:8px"><summary>Advanced: monitoring</summary>
       <label class="chk"><input type="checkbox" id="eMetrics"><span><b>Publish numbers for a monitoring dashboard</b> <span class="mute">(off by default; most people never need this) — for people who already run a tool such as Prometheus or Grafana. It adds a page at <code>/metrics?t=&lt;your dashboard token&gt;</code> with counts like hits and failures. Nothing leaves this computer.</span></span></label></details>
-    <div style="margin-top:8px"><b>Search engines</b> <span class="small mute">— always adds up to 100%. Every engine also has a hard limit of 8 searches an hour.</span></div>
+    <div style="margin-top:8px"><b>Search engines</b> <span class="small mute">— always adds up to 100%. Every engine also has a hard limit of 20 searches an hour.</span></div>
     <div id="eEngines"></div>
     <div class="row"><button id="eEngReset">Back to defaults</button> <span class="small mute">(defaults recommended: mostly Google and DuckDuckGo, like real people)</span></div>
   </div>
@@ -736,12 +737,12 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
       <span class="small" id="sBrowserInfo"></span></div>
     <div class="small mute">A real Chrome/Edge/Chromium scrolls, pauses to read, moves the mouse, clicks or taps search results and now and then downloads a file (discarded). Plain HTTP can't do any of that and is easier to spot.</div>
     <div class="row">Browser engine <select id="sEngine">
-      <option value="mine">My own Firefox, with my settings, add-ons and bookmarks (recommended, default)</option>
-      <option value="mix">Mix every browser found (the app's own copies)</option>
-      <option value="auto">Match my own browser only</option>
-      <option value="chromium">Chromium / Chrome</option>
-      <option value="firefox">Firefox</option></select></div>
-    <div class="small mute">Each engine has its own network fingerprint. Mixing uses Chrome-style and Firefox-style browsers together, the way many different people browse (each noise identity keeps one browser). Matching yours only makes the noise look like you. Firefox needs a one-time download (<code>python -m playwright install firefox</code>); without it, Chromium is used. Firefox can't emulate phones, so phone visits run as desktop with it.</div>
+      <option value="mine">Your own Firefox, with your add-ons (recommended, default)</option>
+      <option value="mix">The app's own browsers, Chromium and Firefox mixed</option>
+      <option value="auto">The app's own browser, the same kind as yours (Firefox or Chromium)</option>
+      <option value="chromium">The app's own Chromium only</option>
+      <option value="firefox">The app's own Firefox only</option></select></div>
+    <div class="small mute"><b>Your own Firefox</b> is the Firefox installed on this computer, with the profile it opens by default, run on a private copy: your settings, add-ons (fingerprint blockers and user-agent switchers keep working) and bookmarks, never your logins, cookies or history. Other browsers you have are not used. With User agent set to Mix, the part of the noise that doesn't use your own user agent, and phone visits, run in the app's own browsers, so the noise also looks like other machines. If Firefox can't be used, the app's own browsers take over. <b>The app's own browsers</b> are separate copies with a blank profile; they vary canvas, WebGL, audio, fonts and window size themselves. "The same kind as yours" picks Firefox or Chromium from your browser's user agent. Firefox copies need a one-time download (<code>python -m playwright install firefox</code>); without it, Chromium is used. Window size never shows your real screen: it is never maximised.</div>
     <div class="row">Browser window <select id="sWin">
       <option value="hidden">Hidden (recommended, default)</option>
       <option value="offscreen">Real window, off-screen (Windows, macOS and X11 only)</option>
@@ -1733,11 +1734,11 @@ let mlT=null;function mlChanged(){clearTimeout(mlT);$('#mNote').textContent='Sav
 
 // user agents
 let UA=null;
-function uaRadioValue(){return document.querySelector('input[name=uamode]:checked')?.value||'own'}
+function uaRadioValue(){return document.querySelector('input[name=uamode]:checked')?.value||'mix'}
 function fillUA(){
   if(!UA)return; const m=UA.mode, ev=UA.rotate_every;
   const v= m==='mix'?'mix':m==='pin'?(UA.pin==='own'?'own':'lib'):(ev==='day'?'rotate-day':'rotate-hour');
-  if(!$('#uShare').matches(':focus'))$('#uShare').value=UA.own_share??70;
+  if(!$('#uShare').matches(':focus'))$('#uShare').value=UA.own_share??85;
   (document.querySelector(`input[name=uamode][value=${v}]`)||{}).checked=true;
   if(!$('#uOwn').matches(':focus'))$('#uOwn').value=UA.own_ua||'';
   $('#uApplies').textContent=UA.applies_to;

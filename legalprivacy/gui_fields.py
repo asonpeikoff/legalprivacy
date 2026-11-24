@@ -138,7 +138,10 @@ def profile_values(profile, app: dict) -> dict:
         "level": int(round(float(rate.level))), "rate_mode": "steady" if steady else "random",
         "randomness": 0 if steady else int(round(float(rate.randomness) * 100)),
         "cookie_value": cv, "cookie_unit": cu,
-        "engines_mix": {n: (e.budget_per_day if e.enabled else 0) for n, e in profile.engines.items()},
+        "engines_mix": {n: (e.budget_per_day if e.enabled else 0) for n, e in profile.engines.items()
+                        if n not in BACKGROUND_ENGINES},
+        "dns_amount": background_amount(profile.engines, "dns", DNS_AMOUNTS),
+        "pkg_amount": background_amount(profile.engines, "packages", PKG_AMOUNTS),
         "accounts": {n: {"enabled": bool(a.enabled), "per_hour": a.per_hour, "per_day": a.per_day,
                          "on_challenge": a.on_challenge} for n, a in profile.accounts.items()},
         "ua_choice": ua_choice_from_identity(profile.identity.ua_mode, profile.identity.rotate_every,
@@ -172,7 +175,13 @@ def build_config_payload(v: dict[str, Any], current_rate: dict | None = None) ->
         _put(out, ("transports", "clearnet", "cookie_hours"),
              cookie_to_hours(v["cookie_value"], v.get("cookie_unit", "hours")))
     if "engines_mix" in v:
-        out["engines"] = engines_from_mix(v["engines_mix"])
+        out["engines"] = engines_from_mix({k: x for k, x in v["engines_mix"].items() if k not in BACKGROUND_ENGINES})
+        mv = v["engines_mix"]
+        base = max(1, round((float(mv.get("search", 0) or 0) + float(mv.get("crawl", 0) or 0)) * 10))
+        for key, eng in (("dns_amount", "dns"), ("pkg_amount", "packages")):
+            if key in v:
+                f = float(v[key] or 0)
+                out["engines"][eng] = {"enabled": f > 0, "budget_per_day": max(1, round(f * base))}
     if "accounts" in v:
         out["accounts"] = v["accounts"]
     if "ua_choice" in v:
@@ -186,8 +195,8 @@ def app_flags(v: dict[str, Any]) -> dict:
 
 
 # ── user agent choice ───────────────────────────────────────────────────────
-UA_CHOICES = [("own", "Pin to my own browser's user agent (recommended)"),
-              ("mix", "Mix: some of the noise uses my own browser's, the rest random"),
+UA_CHOICES = [("mix", "Mix: mostly my own browser's, the rest random (recommended)"),
+              ("own", "Pin to my own browser's user agent"),
               ("rotate-hour", "Random, changing every hour"), ("rotate-day", "Random, changing every day"),
               ("lib", "Pin to one library entry (not recommended)")]
 
@@ -244,6 +253,23 @@ def engines_from_mix(values: dict) -> dict:
 
 def visible_engines(engines, tor_on: bool, pkg_on: bool) -> list[str]:
     return [n for n in engines if (n != "onion" or tor_on) and (n != "packages" or pkg_on)]
+
+
+# DNS lookups and package installs run alongside the activity mix (their own threads) and never take a share
+# of it, so they are set as an amount relative to searches + link-following, not as part of the 100% bar.
+BACKGROUND_ENGINES = ("dns", "packages")
+DNS_AMOUNTS = [("0", "Off"), ("1", "Fewer"), ("2", "Normal"), ("3", "More (recommended)"), ("5", "Lots")]
+PKG_AMOUNTS = [("0", "Off"), ("0.04", "Rare"), ("0.075", "Normal"), ("0.15", "Often")]
+
+
+def background_amount(engines, name: str, options: list[tuple]) -> str:
+    """The option closest to this background engine's amount (its budget over searches + link-following)."""
+    e = engines.get(name)
+    if e is None or not e.enabled:
+        return "0"
+    base = max(1, sum(engines[n].budget_per_day for n in ("search", "crawl") if n in engines and engines[n].enabled))
+    ratio = e.budget_per_day / base
+    return min((v for v, _ in options if float(v) > 0), key=lambda v: abs(float(v) - ratio))
 
 
 def packages_on(extras) -> bool:

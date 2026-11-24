@@ -908,7 +908,8 @@ class Runner:
     def _lane_away(self, lane: Lane) -> bool:
         lg = lane.linger
         now = self.clock()
-        return bool(lg and lg["mode"] == "away" and now < lg["until"] and now < lg.get("other_at", math.inf))
+        return bool(lg and lg.get("exclusive", True) and lg["mode"] == "away" and now < lg["until"]
+                    and now < lg.get("other_at", math.inf))
 
     # For the default persona, a share of the long sessions (both kinds) are a chat on duck.ai.
     DUCK_AI_URL = "https://duck.ai/"
@@ -918,9 +919,14 @@ class Runner:
         """While stepped away, the odd thing still happens (a mail check, a quick lookup), about every 10-40 min."""
         return self.rng.uniform(600, 2400) * self.profile.realtime_scale
 
-    # While a long session is on, the same kind of visit elsewhere is rare: about a 15% chance in any 10 minutes
-    # (once an hour or so), so most of the time is spent on the page that matters to "you".
+    # Most long sessions run alongside everything else: the page is revisited on its own schedule while other visits
+    # carry on. Now and then (EXCLUSIVE_CHANCE, itself varied a little) one takes over: then the same kind of visit
+    # elsewhere is rare, about a 15% chance in any 10 minutes, and while stepped away little else happens.
+    EXCLUSIVE_CHANCE = 0.12
     OTHER_SITE_CHANCE_10MIN = 0.15
+
+    def _exclusive(self) -> bool:
+        return self.rng.random() < self.EXCLUSIVE_CHANCE * self.rng.uniform(0.5, 1.5)
 
     def _other_site_gap(self) -> float:
         mean_s = -600.0 / math.log(1.0 - self.OTHER_SITE_CHANCE_10MIN)            # about 61 minutes
@@ -928,7 +934,8 @@ class Runner:
 
     def _staying_on_page(self, lane: Lane, eng_name: str) -> bool:
         lg = lane.linger
-        return bool(lg and lg["mode"] == "work" and lg["engine"] == eng_name and self.clock() < lg.get("other_at", 0.0))
+        return bool(lg and lg.get("exclusive", True) and lg["mode"] == "work" and lg["engine"] == eng_name
+                    and self.clock() < lg.get("other_at", 0.0))
 
     def _linger_due(self, options) -> tuple | None:
         """The page a long session goes back to now, if one is due: (lane, engine, target)."""
@@ -968,18 +975,22 @@ class Runner:
             target = Target(url=self.DUCK_AI_URL, role="linger", note="duck.ai chat")   # the page to come back to
         if r < 0.008:                                  # rare, and shorter than before: mostly continued use
             hours = self.rng.uniform(0.5, 2.0)
-            lane.linger = {"mode": "away", "url": target.url, "engine": eng_name,
+            excl = self._exclusive()
+            lane.linger = {"mode": "away", "url": target.url, "engine": eng_name, "exclusive": excl,
                            "until": now + hours * 3600 * scale, "next_at": 0.0,
                            "other_at": now + self._away_detour_gap()}
-            self._emit("info", lane.name, f"Long session: left a page open and stepped away for about {hours:.1f} h "
-                                          "(a little other activity continues meanwhile).")
+            self._emit("info", lane.name, f"Long session: left a page open for about {hours:.1f} h to come back to "
+                                          + ("(stepped away: a little other activity continues meanwhile)."
+                                             if excl else "(other activity carries on as usual)."))
         elif r < 0.11:
             minutes = min(180.0, max(15.0, self.rng.lognormvariate(3.7, 0.6)))    # typically ~40 minutes
-            lane.linger = {"mode": "work", "url": target.url, "engine": eng_name,
+            excl = self._exclusive()
+            lane.linger = {"mode": "work", "url": target.url, "engine": eng_name, "exclusive": excl,
                            "until": now + minutes * 60 * scale, "next_at": now + self.rng.uniform(120, 600) * scale,
                            "other_at": now + self._other_site_gap()}
             self._emit("info", lane.name, f"Long session: keeps coming back to the same page for about "
-                                          f"{minutes:.0f} minutes.")
+                                          f"{minutes:.0f} minutes" + (", mostly on it alone." if excl else
+                                                                      ", alongside everything else."))
 
     def _side_loop(self, eng_name: str) -> None:
         """One kind of noise on its own schedule, at the same time as everything else."""
