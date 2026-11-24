@@ -110,6 +110,23 @@ def test_identity_is_pinned_then_rotates_on_tor():
     assert seen[0] == seen[1]             # pinned within one lifetime
 
 
+def test_identity_changes_after_a_random_number_of_visits_and_more_often_than_before():
+    runner = make_runner(make_profile(clearnet=False, tor=True), lambda l, i, t: HitResult(200, ""))
+    lane = runner.lanes[0]
+    lane.transport.identities_per_circuit = 10
+    lengths, last, run = [], None, 0
+    for _ in range(400):
+        lane.hits_by_identity += 0
+        ident, _p = runner._identity_pacer_for(lane)
+        if last is not None and ident.id != last:
+            lengths.append(run)
+            run = 0
+        last, run = ident.id, run + 1
+        lane.hits_by_identity += 1
+    assert len(set(lengths)) > 3                          # not every Nth visit exactly
+    assert sum(lengths) / len(lengths) < 8                # clearly more often than the old fixed 10
+
+
 def test_failure_backs_off_and_dims_transport():
     lane = Lane(name="clearnet", transport=ClearnetTransport(),
                 engines=["search"], budgets={"search": Budget(per_day=5)})
