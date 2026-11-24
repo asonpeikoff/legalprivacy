@@ -300,6 +300,7 @@ def test_a_login_wall_is_not_a_failure_and_the_site_rests():
     wall = '<html><title>Log in</title><form><input type="password"></form></html>'
     r = _runner({}, lambda lane, ident, target: (seen.append(target.url),
                 HitResult(200, wall if "walled" in target.url else "<p>" + "ok " * 900 + "</p>"))[1])
+    r.profile.extras.long_sessions = False                       # a random long session would revisit the first page
     r.plan_hour(12)
     queue = [Target(url="https://walled.example.com/a"), Target(url="https://walled.example.com/b"),
              Target(url="https://open.example.org/c")]
