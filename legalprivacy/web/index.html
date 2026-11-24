@@ -1958,6 +1958,13 @@ function svgTrend(h){if(!h.length)return 'No runs yet.';const W=300,H=90,P=24,xs
   return `<svg viewBox="0 0 ${W} ${H}" style="max-width:420px" role="img" aria-label="Score over time"><line class="ax" x1="${P}" y1="${y(50)}" x2="${W-8}" y2="${y(50)}"/><text x="${P-4}" y="${y(50)+3}" text-anchor="end">50</text><text x="${P-4}" y="${y(100)+3}" text-anchor="end">100</text>
     <path d="${d}" fill="none" stroke="var(--noi)" stroke-width="2"/>${h.map((r,i)=>`<circle cx="${xs[i]}" cy="${y(r[1])}" r="4" fill="var(--noi)" stroke="var(--panel)" stroke-width="2"><title>${new Date(r[0]*1000).toLocaleString()}: ${r[1]}%</title></circle>`).join('')}</svg>
     <div class="small mute">Last: ${h[h.length-1][1]}% · lower is better</div>`}
+function mlStrong(g){
+  if(!g)return '';
+  const k=[['Stronger observer (AUC)',g.auc+'%'],['…judged on future events',g.forward_auc==null?'—':g.forward_auc+'%'],
+    ['Noise caught at 1% false alarms',g.tpr_at_1pct_fpr+'%'],['Noise caught at 0.1% false alarms',g.tpr_at_01pct_fpr+'%'],
+    ['Flagged and really noise, if 1 in 100 is',g.precision_at_prevalence+'%']];
+  return `<div style="margin-top:10px"><b>A stronger observer</b> <span class="small mute">— also sees bursts, same-site runs and combinations of signals, is trained on the past and tested on the future, and is judged on catching noise while rarely accusing you</span></div>
+    <div class="kpis">${k.map(([a,b])=>`<div class="kpi"><b>${esc(String(b))}</b><span>${a}</span></div>`).join('')}</div>${g.note?`<div class="small mute">${esc(g.note)}</div>`:''}`}
 function renderML(d){
   renderMlBase(d.baseline);
   const warn=[...(d.warnings||[]),...(d.errors||[]).map(e=>'Could not read: '+e)];
@@ -1965,7 +1972,7 @@ function renderML(d){
   if(d.error){$('#mlHead').innerHTML=`<div class="note bad small">${esc(d.error)} (${d.real_visits??0} of your visits found)</div>`;$('#mlBody').style.display='none';return}
   const col=d.score<60?'var(--acc)':d.score<75?'var(--warn)':'var(--bad)';
   $('#mlHead').innerHTML=`<div class="row" style="align-items:baseline;gap:12px"><div style="font-size:40px;font-weight:700;color:${col}">${d.auc}%</div><div><b>${esc(d.verdict)}</b><div class="small mute">ROC AUC · 95% interval ${d.ci95[0]}–${d.ci95[1]}% · ${d.compared} of your visits vs ${d.compared} noise events (${esc(d.noise_source)}) · last ${d.days} days · run ${new Date(d.ran_at*1000).toLocaleString()}</div></div></div>
-    <div class="kpis">${[['Accuracy',d.accuracy+'%'],['Precision',d.precision+'%'],['Recall',d.recall+'%'],['F1',d.f1+'%'],['Log loss',d.log_loss],['Fold AUCs',d.folds.join(' · ')]].map(([k,v])=>`<div class="kpi"><b>${esc(String(v))}</b><span>${k}</span></div>`).join('')}</div>`;
+    <div class="kpis">${[['Accuracy',d.accuracy+'%'],['Precision',d.precision+'%'],['Recall',d.recall+'%'],['F1',d.f1+'%'],['Log loss',d.log_loss],['Fold AUCs',d.folds.join(' · ')]].map(([k,v])=>`<div class="kpi"><b>${esc(String(v))}</b><span>${k}</span></div>`).join('')}</div>${mlStrong(d.strong)}`;
   $('#mlBody').style.display='';
   $('#mlRoc').innerHTML=svgRoc(d.roc);$('#mlFeat').innerHTML=barsFeat(d.per_feature);$('#mlHours').innerHTML=svgHours(d.hours.you,d.hours.noise);
   const c=d.confusion;$('#mlCm').innerHTML=`<table class="cm"><tr><th></th><th>predicted you</th><th>predicted noise</th></tr><tr><th>really you</th><td>${c.tn}</td><td>${c.fp}</td></tr><tr><th>really noise</th><td>${c.fn}</td><td>${c.tp}</td></tr></table>`;

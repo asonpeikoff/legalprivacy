@@ -427,8 +427,15 @@ class MLTab(Tab):
         self.verdict.configure(text=f"{d['verdict']}\nROC AUC · 95% interval {d['ci95'][0]}-{d['ci95'][1]}% · {d['compared']} of your visits "
                                     f"vs {d['compared']} noise events ({d['noise_source']}) · last {d['days']:g} days")
         self.verdict.pack(side="left", padx=14)
+        g = d.get("strong") or {}
+        strong = ([("Stronger observer (AUC)", f"{g['auc']}%"),
+                   ("Future events only", "—" if g.get("forward_auc") is None else f"{g['forward_auc']}%"),
+                   ("Caught at 1% false alarms", f"{g['tpr_at_1pct_fpr']}%"),
+                   ("Caught at 0.1% false alarms", f"{g['tpr_at_01pct_fpr']}%"),
+                   ("Right if 1 in 100 is noise", f"{g['precision_at_prevalence']}%")] if g else [])
         for k, v in (("Accuracy", f"{d['accuracy']}%"), ("Precision", f"{d['precision']}%"), ("Recall", f"{d['recall']}%"),
-                     ("F1", f"{d['f1']}%"), ("Log loss", d["log_loss"]), ("Fold AUCs", " · ".join(str(x) for x in d["folds"]))):
+                     ("F1", f"{d['f1']}%"), ("Log loss", d["log_loss"]), ("Fold AUCs", " · ".join(str(x) for x in d["folds"])),
+                     *strong):
             box = ttk.Frame(self.kpis, style="Card.TFrame", padding=(10, 6))
             box.pack(side="left", padx=(0, 8))
             ttk.Label(box, text=str(v), style="Card.TLabel", font=self.app.fonts["bold"]).pack()
