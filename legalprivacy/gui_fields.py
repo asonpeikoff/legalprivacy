@@ -25,6 +25,7 @@ FIELDS: dict[str, tuple[tuple, str]] = {
     "tor_manage": (("transports", "tor", "manage"), "bool"), "tor_socks": (("transports", "tor", "socks"), "str"),
     "tor_control": (("transports", "tor", "control"), "optstr"),
     "tor_seeds": (("transports", "tor", "onion_seeds"), "lines"),
+    "tor_share_browser": (("transports", "tor", "share_browser"), "bool"),
     "tor_bridges": (("transports", "tor", "bridges"), "lines"),
     "bridge_mode": (("transports", "tor", "bridge_mode"), "str"),
     "bridge_auto": (("transports", "tor", "bridge_auto"), "bool"),

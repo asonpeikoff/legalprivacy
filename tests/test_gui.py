@@ -444,3 +444,28 @@ def test_nudge_buttons_move_the_mix_and_save_it(tk_app):
     assert app.ctl.profile.traffic.plain == 10.0 and not tab.nudge_busy
     tab.nudge("phones", 1)
     assert tab.nudge_rows["phones"][1].cget("text") == "65%"
+
+
+def test_tor_tab_has_the_tor_browser_card_like_the_web_dashboard(tk_app, monkeypatch):
+    app = tk_app
+    tab = next(t for t in app.tabs if type(t).__name__ == "TorTab")
+    tab._tb_show({"supported": True, "installed": None, "latest": "15.0.1", "state": "idle", "progress": 0,
+                  "update_available": False, "signature": None})
+    assert tab.b_tb_open.cget("text") == "Install and open Tor Browser"
+    assert "Not installed yet" in tab.tb_stat.cget("text") and "15.0.1" in tab.tb_stat.cget("text")
+    tab._tb_show({"supported": True, "installed": "14.5.8", "latest": "15.0.1", "update_available": True, "state": "idle",
+                  "signature": {"ok": True, "fingerprint": "ABCDEF0123456789ABCDEF0123456789ABCDEF01", "at": 1_800_000_000}})
+    assert tab.b_tb_open.cget("text") == "Open Tor Browser" and "update will be installed" in tab.tb_stat.cget("text")
+    assert "Signature verified" in tab.tb_sig.cget("text") and "23456789ABCDEF01" in tab.tb_sig.cget("text")
+    tab._tb_show({"supported": True, "installed": None, "state": "installing", "progress": 0.42})
+    assert "42%" in tab.tb_stat.cget("text")
+    opened = []
+    import webbrowser
+    monkeypatch.setattr(webbrowser, "open", lambda u, *a, **k: opened.append(u))
+    tab._tb_show({"supported": False, "download_page": "https://example.invalid/tb"})
+    assert tab.b_tb_open.cget("text").startswith("Get Tor Browser")
+    tab.tb_open()
+    assert opened == ["https://example.invalid/tb"]                      # nothing to install here: the download page
+    # sharing the app's Tor is a saved setting, like the web dashboard's tickbox
+    from legalprivacy import gui_fields as F
+    assert F.FIELDS["tor_share_browser"][0] == ("transports", "tor", "share_browser")

@@ -581,8 +581,38 @@ class TorTab(Tab):
         cc.lbl(r, "Control").pack(side="left")
         self.f_entry(r, "tor_control", 20).pack(side="left", padx=6)
 
+        # Tor Browser: the official one, for your own private browsing (same as the web dashboard's card)
+        tb = Card(f, app, "Tor Browser: for your own private browsing", "tor",
+                  help="Opens the official Tor Browser so you can browse privately yourself. It is completely separate from "
+                       "the noise: its own folder, its own profile and its own Tor, unless you share this app's Tor below. "
+                       "The app downloads it only from torproject.org and installs it only after checking its signature with "
+                       "the Tor Project's signing key (this needs GnuPG, gpg). It is checked for a newer release every few "
+                       "hours and updated by itself (never while it is open), the signature is checked again each time, and "
+                       "before every launch its programs are compared with what was verified. It is never started as the "
+                       "administrator. SHARING THIS APP'S TOR (off by default): normally Tor Browser runs its own Tor, so "
+                       "your real browsing and the noise reach the Tor network through two separate connections, and the "
+                       "real one stands out. Shared, both use the same Tor and the same entry relay, with separate circuits "
+                       "so pages and noise never mix. (1) The New identity button here is disabled while sharing; (2) your "
+                       "relay-avoid list and bridges apply to Tor Browser too; (3) Tor Browser's own connection screens are "
+                       "replaced by this tab; (4) Tor Browser's own New Identity resets the noise circuits too. Turning it "
+                       "on restarts this app's Tor.")
+        tb.grid(row=3, column=0, sticky="ew", pady=(0, GAP))
+        r = tb.row()
+        self.b_tb_open = app.btn(r, "Open Tor Browser", "play", "tor", self.tb_open,
+                                 "Opens the official Tor Browser (installing it first if needed).")
+        self.b_tb_check = app.btn(r, "Check for updates", None, "secondary", self.tb_check)
+        self.b_tb_open.pack(side="left", padx=(0, 6))
+        self.b_tb_check.pack(side="left")
+        self.tb_stat = tb.note("", muted=False, pady=(6, 0))
+        self.tb_sig = tb.note("", pady=(0, 4))
+        self.f_check(tb, "tor_share_browser", "Share this app's Tor with Tor Browser",
+                     "Off by default. Both use the same Tor and entry relay (separate circuits), so your own browsing blends "
+                     "in with the noise. Restart Tor above to apply. Details: the (i) at the top of this card.")
+        self._tb_at = 0.0
+        self._tb_snap: dict = {}
+
         ci = Card(f, app, "Circuits")
-        ci.grid(row=3, column=0, sticky="ew", pady=(0, GAP))
+        ci.grid(row=8, column=0, sticky="ew", pady=(0, GAP))
         self.circ_head = ci.note("", pady=(0, 4))
         self.circ = ttk.Treeview(ci.body, columns=("id", "status", "purpose", "path"), show="headings", height=4,
                                  selectmode="none")
@@ -949,6 +979,56 @@ class TorTab(Tab):
         self.app.work(lambda: self.app.ctl.tor_action(action), done=lambda _r: self.app.poll_now(),
                       error=lambda e: self.app.error("Tor", e))
 
+    # ── Tor Browser ──
+    def tb_open(self) -> None:
+        snap = self._tb_snap or self.app.ctl.torbrowser_state()
+        if not snap.get("supported"):                       # nothing to install on this system: send them to the download page
+            import webbrowser
+            webbrowser.open(snap.get("download_page") or "https://www.torproject.org/download/")
+            return
+        self.b_tb_open.state(["disabled"])
+
+        def done(_r):
+            self.b_tb_open.state(["!disabled"])
+            self.app.flash("Opening Tor Browser…")
+            self._tb_at = 0.0
+
+        def fail(e):
+            self.b_tb_open.state(["!disabled"])
+            self.app.error("Tor Browser", e)
+        self.app.work(self.app.ctl.torbrowser_open, done, fail)
+
+    def tb_check(self) -> None:
+        self.app.work(self.app.ctl.torbrowser_check, done=lambda s: self._tb_show(s),
+                      error=lambda e: self.app.error("Tor Browser", e))
+
+    def _tb_show(self, s: dict) -> None:
+        self._tb_snap = s
+        self.b_tb_open.configure(text=("Open Tor Browser" if s.get("installed") else "Install and open Tor Browser")
+                                 if s.get("supported") else "Get Tor Browser (torproject.org)")
+        t = f"Installed: {s['installed']}" if s.get("installed") else "Not installed yet"
+        if s.get("latest"):
+            t += f" · newest: {s['latest']}"
+        if s.get("update_available"):
+            t += " · an update will be installed when you open it"
+        if s.get("state") == "installing":
+            t = f"Downloading and checking… {round((s.get('progress') or 0) * 100)}%"
+        if s.get("state") == "error":
+            t = f"Problem: {s.get('error')}"
+        self.tb_stat.configure(text=t)
+        sig = s.get("signature")
+        self.tb_sig.configure(text=(f"Signature verified against the Tor Browser Developers key {sig['fingerprint'][-16:]} on "
+                                    f"{L.clock12(sig['at'])}; files re-checked at each launch.") if sig else "")
+
+    def _tb_refresh(self) -> None:
+        """Re-read the Tor Browser state now and then (every second while it installs, otherwise every few seconds)."""
+        now = time.time()
+        busy = (self._tb_snap or {}).get("state") == "installing"
+        if now - self._tb_at < (1.0 if busy else 5.0):
+            return
+        self._tb_at = now
+        self._tb_show(self.app.ctl.torbrowser_state())
+
     def selftest(self) -> None:
         self.test_note.configure(text="Testing Tor… this takes up to a minute.")
         self.app.work(self.app.ctl.tor_selftest, done=lambda _r: self.app.poll_now(), error=lambda e: self.app.error("Tor test", e))
@@ -979,6 +1059,7 @@ class TorTab(Tab):
 
     # -- state
     def update_state(self, st: dict) -> None:
+        self._tb_refresh()
         self.builtin_seeds = [b["url"] for b in st.get("builtin_onion_seeds") or []]
         t = st.get("tor") or {}
         state = t.get("state") or "stopped"

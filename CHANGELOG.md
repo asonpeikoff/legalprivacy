@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Desktop app: the Tor tab now has the Tor Browser card the web dashboard already had: Open (or install and open) Tor Browser, Check for updates, the signature line, and "Share this app's Tor with Tor Browser" so your own browsing and the noise use the same Tor. The plain-text name beside the header logo is gone.
+
 ## v2.16.0
 
 - ML demo: a "Try the demo" button on the ML tab (web and desktop app) compares the noise your current settings would make with a built-in, made-up typical person (evening and weekend sittings, a few favourite sites visited again and again), so the tab can be tried with no browser history. A banner says it is not your history, and a demo score is never added to your score trend.
