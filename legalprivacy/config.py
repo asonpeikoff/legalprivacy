@@ -66,7 +66,7 @@ class TransportConfig:
     browser_visible: bool = False     # derived from browser_window (kept for older settings files)
     browser_offscreen: bool = False   # derived from browser_window
     browser_engine: str = "mine"      # clearnet: mine (default: your own Firefox, on a copy of your profile; else mix) | mix | auto | chromium | firefox
-    cookie_hours: float = 1.0         # clearnet: keep browser cookies this long, then start fresh (0 = never keep)
+    cookie_hours: float = 24.0        # clearnet: keep browser cookies this long (a day: consent choices and 'returning visitor' state, like a real user), then start fresh (0 = never keep)
     cookie_vary: bool = True          # clearnet: each jar lives 60-140% of cookie_hours, so wipes aren't on a fixed beat
     # --- tor lane only ---
     socks: str = DEFAULT_TOR_SOCKS

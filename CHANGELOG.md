@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Returning-visitor state**: the noise browser now keeps its cookies for a day by default (was an hour; saved settings that still had the old default move over once), so consent choices and "returning visitor" state persist like a real user's. Each jar still lives 60-140% of that, so wipes are not on a fixed beat. Not done: a warm HTTP cache across sessions.
 - **Identity changes are random and more frequent**: a new identity (and, on Tor, a new circuit and fresh browser) now comes after a random number of visits drawn each time (usually a handful, sometimes more; about 40% of the old fixed 8 or 10 at the median) instead of every Nth visit exactly.
 - **Identity consistency auditor** (`fingerprint_audit.py`): checks that user agent, platform, mobile flag, client hints, language order and window shape agree, the contradictions bot detection looks for. Health shows the result for 300 sample identities (none found).
 - Tools: a local **password and passphrase generator** (secure random numbers in the page; nothing sent or saved). The hard panic also deletes the browser lane's fingerprint seed.
