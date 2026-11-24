@@ -150,6 +150,11 @@ def build_app_class():
             self.logo_small = (load_logo(tk, "logo.png", 1 if self.scale >= 2 else 2)
                                or make_logo(tk, 28 * self.scale, "#1d2733", "#4cc07d"))
             self.logo_alt = load_logo(tk, "logo_alt.png", 1 if self.scale >= 2 else 2)     # shown on every other tab
+            # the main and alternate logos, then the other versions: the header shows the next one on each tab
+            sub = 1 if self.scale >= 2 else 2
+            self.logos = [lg for lg in [self.logo_small, self.logo_alt]
+                          + [load_logo(tk, f"logo_v{k}.png", sub) for k in range(1, 7)] if lg]
+            self._logo_i = 0
             self._logo_now = self.logo_small
             try:
                 root.iconphoto(True, self.logo_big)
@@ -242,6 +247,8 @@ def build_app_class():
             hd.columnconfigure(6, weight=1)
             self.logo_lbl = ttk.Label(hd, image=self.logo_small, style="Header.TLabel")
             self.logo_lbl.grid(row=0, column=0, padx=(0, 10))
+            self.logo_lbl.bind("<Button-1>", lambda _e: self._show_logo(self._logo_i + 1))     # click: next version
+            T.tip(self.logo_lbl, "Click to switch the logo")
             ttk.Label(hd, text=TITLE, style="HeaderH1.TLabel").grid(row=0, column=1, padx=(0, 20))
             self.b_start = self.btn(hd, "Start", "play", "primary", self.do_start, "Start the noise  (F5)")
             self.b_pause = self.btn(hd, "Pause", "pause", "secondary", self.do_pause, "Pause or resume the noise  (F6)")
@@ -332,13 +339,19 @@ def build_app_class():
             except tk.TclError:
                 pass
 
+        def _show_logo(self, i: int) -> None:
+            logos = getattr(self, "logos", None)
+            if not logos:
+                return
+            self._logo_i = i % len(logos)
+            self._logo_now = logos[self._logo_i]
+            self.logo_lbl.configure(image=self._logo_now)
+
         def _tab_changed(self) -> None:
             if getattr(self, "_compact_tabs", False):
                 self._fit_tabs()
-            try:                                           # the header logo follows the tab: main, alternate, main, …
-                self._logo_now = self.logo_alt if (self.logo_alt and self.nb.index(self.nb.select()) % 2) \
-                    else self.logo_small
-                self.logo_lbl.configure(image=self._logo_now)
+            try:                                           # the header logo follows the tab: each tab shows the next version
+                self._show_logo(self.nb.index(self.nb.select()))
             except (tk.TclError, AttributeError):
                 pass
             try:
