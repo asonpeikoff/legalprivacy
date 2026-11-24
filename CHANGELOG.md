@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Nudge the mix: a card on the Dashboard (web and desktop app) with minus and plus buttons for web pages in a real browser, web pages over plain HTTP, Tor .onion sites (when Tor is on) and the phone share. Each press moves one part by 10 points, the others give or take the difference so the total stays 100%, and the change is saved and applied live.
 - Header logo: a plain wordmark by default. An Easter egg (the Konami code, or seven quick clicks on the logo) swaps it for the eight character versions, which follow the tab (fading on the web) and switch on click; the Konami code undoes it. Full-size originals are in `docs/logo/`.
 - Default (Ason) persona: about 1 in 5 long sessions, of both kinds (long interactive and stepped away), is a duck.ai chat on clearnet. duck.ai also joins the AI-tools sites. Celebrity and gossip sites (people.com, tmz.com and similar) are skipped in the generic popular-sites draw.
 - Long sessions: "stepped away" is rarer (about 1 in 125 visits, 0.5-2 h instead of 1-4 h), "keeps working on one page" is more common, and while away the route still does the odd other visit every 10-40 minutes.

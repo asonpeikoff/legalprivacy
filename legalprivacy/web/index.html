@@ -409,6 +409,11 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
       <button data-go="help" title="Plain-language help">Help</button>
     </div>
   </div>
+  <div class="card" id="nudge">
+    <h3><svg class="ic" aria-hidden="true"><use href="#i-wave"/></svg>Nudge the mix</h3>
+    <div class="small mute">Steer what kind of noise runs, right now. Each press moves one part up or down by 10 points and the rest give or take the difference, so the total stays 100%. It applies live and is saved. Fine control is in Settings → Traffic mix.</div>
+    <div id="nudgeRows" role="group" aria-label="Traffic mix"></div>
+  </div>
   <div class="grid compact">
     <div class="card" title="Requests sent today that worked."><h3>Hits today</h3><div class="big" id="kHits">0</div><div class="small mute" id="kHitsSub"></div></div>
     <div class="card" title="Requests that were blocked or timed out. A few are normal."><h3>Failures</h3><div class="big" id="kFail">0</div><div class="small mute">blocked or timed out (a few are normal)</div></div>
@@ -1314,8 +1319,27 @@ $('#harForget').onclick=async()=>{try{await api('/api/har/forget',{});$('#harMsg
 $('#harHosts').onclick=async()=>{try{await api('/api/har/forget',{what:'hosts'});$('#harMsg').textContent='Site list deleted (counts per minute kept).';pollActivity()}catch(e){$('#harMsg').textContent=e.message}};
 
 // ---------- render
+// Nudge the mix: a few buttons that move one part of the traffic mix up or down a step, live.
+const NUDGE=[['browser','Web pages in a real browser'],['plain','Web pages over plain HTTP'],['onion','Tor .onion sites'],['phones','Share that is a phone']];
+let nudging=false;
+function renderNudge(){
+  const m=S&&S.mix,box=$('#nudgeRows');if(!m||!box)return;
+  box.innerHTML=NUDGE.filter(([k])=>k!=='onion'||m.tor).map(([k,label])=>{
+    const v=k==='phones'?m.phones:m.shares[k]||0;
+    return `<div class="row" style="align-items:center;gap:8px;margin-top:6px"><span style="flex:1;min-width:170px">${label}</span>`
+      +`<button class="small" data-n="${k}" data-d="-1" aria-label="Less: ${label}" title="Less of this"${v<=0||nudging?' disabled':''}>−</button>`
+      +`<span class="bar${k==='onion'?' tor':''}" style="flex:1;min-width:90px;max-width:220px" aria-hidden="true"><i style="width:${v}%"></i></span>`
+      +`<b style="min-width:3.6em;text-align:center">${Math.round(v*10)/10}%</b>`
+      +`<button class="small" data-n="${k}" data-d="1" aria-label="More: ${label}" title="More of this"${v>=100||nudging?' disabled':''}>+</button></div>`}).join('');
+}
+$('#nudgeRows').onclick=async e=>{const b=e.target.closest('button[data-n]');if(!b||nudging)return;
+  nudging=true;renderNudge();
+  try{S.mix=await api('/api/nudge',{what:b.dataset.n,direction:parseInt(b.dataset.d)});toast('Mix nudged'+(S.running?' and applied':''));await poll();fillSettings(true)}
+  catch(err){toast(err.message||'Could not nudge the mix',true)}
+  finally{nudging=false;renderNudge()}};
 function render(){
   const s=S; if(!s)return;
+  renderNudge();
   renderAcc(s.accounts);
   if(!s.running&&!applying){clearTimeout(applyTimer);clearApply()}
   const tor=s.tor, torCfg=s.profile.transports.tor;

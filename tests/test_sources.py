@@ -133,3 +133,33 @@ def test_the_header_logo_is_a_plain_wordmark_with_hidden_alternates():
     assert len(imgs) == 9 and 'class="on"' in imgs[0] and all("on" not in i.split("src=")[0] for i in imgs[1:])
     assert all((web / f"logo_v{k}.png").exists() for k in range(1, 7)) and (web / "logo_trad.png").exists()
     assert "'ArrowUp','ArrowUp','ArrowDown'" in html and "clicks.length>=7" in html
+
+
+def test_nudges_keep_the_mix_at_100_and_never_go_negative():
+    from legalprivacy.mixnudge import nudge_phones, nudge_shares
+    w = {"browser": 100.0, "plain": 0.0, "onion": 40.0}
+    up = nudge_shares(w, "onion", 1)
+    assert abs(sum(up.values()) - 100) < 0.11 and up["onion"] > 28.6 and up["browser"] < 71.4
+    s = {"browser": 100.0, "plain": 0.0, "onion": 0.0}
+    for _ in range(12):
+        s = nudge_shares(s, "browser", -1)
+        assert all(v >= 0 for v in s.values()) and abs(sum(s.values()) - 100) < 0.11
+    assert s["browser"] == 0.0
+    for _ in range(12):
+        s = nudge_shares(s, "plain", 1)
+    assert s["plain"] == 100.0
+    assert nudge_phones(0.95, 1) == 1.0 and nudge_phones(0.05, -1) == 0.0
+
+
+def test_nudge_mix_saves_and_refuses_onion_without_tor(tmp_path, monkeypatch):
+    import pytest
+    from legalprivacy.config import ConfigError
+    from legalprivacy.controller import Controller
+    monkeypatch.setenv("HOME", str(tmp_path))
+    c = Controller(str(tmp_path / "p.yaml"))
+    m = c.nudge_mix("browser", -1)
+    assert m["shares"]["browser"] == 90.0 and c.profile.traffic.plain == 10.0
+    with pytest.raises(ConfigError):
+        c.nudge_mix("onion", 1)
+    with pytest.raises(ConfigError):
+        c.nudge_mix("bogus", 1)

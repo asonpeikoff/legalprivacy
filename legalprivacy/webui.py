@@ -345,6 +345,8 @@ class UIServer:
                         return self._json(ctl.tor_action(path.rsplit("/", 1)[1]))
                     elif path == "/api/config":
                         return self._json(ctl.apply_config(body))
+                    elif path == "/api/nudge":
+                        return self._json(ctl.nudge_mix(str(body.get("what", "")), int(body.get("direction", 0))))
                     elif path == "/api/torbrowser/open":
                         return self._json(ctl.torbrowser_open())
                     elif path == "/api/update/check":

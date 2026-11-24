@@ -1354,6 +1354,46 @@ class Controller:
                 r.close()
         threading.Thread(target=_go, daemon=True, name="legalprivacy-once").start()
 
+    # ── nudging the traffic mix ─────────────────────────────────────────────
+    def mix_status(self) -> dict:
+        """The traffic mix as percentages, for the nudge buttons. Onion only counts while Tor is on."""
+        from .mixnudge import KINDS, shares
+        tor = self.profile.transports.get("tor")
+        tor_on = bool(tor and tor.enabled)
+        tc = self.profile.traffic
+        kinds = KINDS if tor_on else ("browser", "plain")
+        sh = shares({"browser": tc.browser, "plain": tc.plain, "onion": tc.onion}, kinds)
+        sh.setdefault("onion", 0.0)
+        return {"shares": {k: round(v, 1) for k, v in sh.items()}, "phones": round(tc.mobile_share * 100, 1),
+                "tor": tor_on}
+
+    def nudge_mix(self, what: str, direction: int) -> dict:
+        """One button press: move browser / plain / onion / phones up or down a step, save it, and apply it live."""
+        from .mixnudge import KINDS, nudge_phones, nudge_shares
+        d = 1 if int(direction) > 0 else -1
+        tc = self.profile.traffic
+        mix = self.mix_status()
+        if what == "phones":
+            raw = {"traffic": {"mobile_share": nudge_phones(tc.mobile_share, d)}}
+        elif what in KINDS:
+            if what == "onion" and not mix["tor"]:
+                raise ConfigError("Tor is off, so there are no .onion sites to nudge. Turn Tor on first.")
+            kinds = KINDS if mix["tor"] else ("browser", "plain")
+            new = nudge_shares({"browser": tc.browser, "plain": tc.plain, "onion": tc.onion}, what, d, kinds)
+            raw = {"traffic": new}
+        else:
+            raise ConfigError(f"traffic mix: unknown part '{what}'")
+        self.apply_config(raw)
+        if self.running:
+            self.reapply()
+        after = self.mix_status()
+        label = {"browser": "web pages in a real browser", "plain": "web pages over plain HTTP",
+                 "onion": ".onion sites", "phones": "phones"}[what]
+        self.log.info("app", f"Traffic mix nudged {'up' if d > 0 else 'down'}: {label}. Now "
+                             + ", ".join(f"{k} {v:g}%" for k, v in after["shares"].items() if v or k == "browser")
+                             + f"; phones {after['phones']:g}%.")
+        return after
+
     # ── state / diagnostics ─────────────────────────────────────────────────
     def state(self) -> dict:
         r = self.runner
@@ -1381,6 +1421,7 @@ class Controller:
             "dns": self.dns_report(),
             "settings": self.settings_status(),
             "accounts": self.accounts.status(),
+            "mix": self.mix_status(),
         }
 
     def _search_share(self) -> float:

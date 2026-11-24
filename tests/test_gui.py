@@ -429,3 +429,18 @@ def test_logo_easter_egg_needs_something_a_normal_user_would_not_do(tk_app, tmp_
 
     app._logo_key(Ev)                                           # the Konami code undoes it
     assert not app._egg and not f.exists() and app._logo_now is app.logo_trad
+
+
+def test_nudge_buttons_move_the_mix_and_save_it(tk_app):
+    app = tk_app
+    tab = next(t for t in app.tabs if type(t).__name__ == "DashboardTab")
+    app.ctl.apply_config({"traffic": {"browser": 100, "plain": 0}})
+    tab._show_nudge(app.ctl.mix_status())
+    assert tab.nudge_rows["browser"][1].cget("text") == "100%" and str(tab.nudge_rows["browser"][3].cget("state")) == "disabled"
+    app.work = lambda fn, done=None, error=None: done and done(fn())          # run inline for the test
+    app.flash = lambda *_a, **_k: None
+    tab.nudge("browser", -1)
+    assert tab.nudge_rows["browser"][1].cget("text") == "90%" and tab.nudge_rows["plain"][1].cget("text") == "10%"
+    assert app.ctl.profile.traffic.plain == 10.0 and not tab.nudge_busy
+    tab.nudge("phones", 1)
+    assert tab.nudge_rows["phones"][1].cget("text") == "65%"
