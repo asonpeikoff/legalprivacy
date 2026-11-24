@@ -254,10 +254,9 @@ def build_app_class():
             self.light.pack(side="left")
             self.status_var = tk.StringVar(value="Stopped")
             ttk.Label(lf, textvariable=self.status_var, style="Header.TLabel", font=self.fonts["bold"]).pack(side="left", padx=(6, 0))
-            chips = ttk.Frame(hd, style="Header.TFrame")
-            chips.grid(row=0, column=7, sticky="e")
-            self.tor_chip = ttk.Label(chips, text="Tor: off", style="Pilloff.TLabel")
-            self.tor_chip.pack(side="left", padx=(0, 6))
+            # the two status pills sit side by side: what the noise is doing, and what Tor is doing
+            self.tor_chip = ttk.Label(lf, text="Tor: off", style="Pilloff.TLabel")
+            self.tor_chip.pack(side="left", padx=(14, 0))
             T.tip(self.tor_chip, "Whether Tor (used only for .onion noise) is connected")
             ttk.Separator(r, orient="horizontal").grid(row=0, column=0, sticky="sew")
 

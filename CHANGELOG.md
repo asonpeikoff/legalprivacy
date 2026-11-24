@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Header: the Tor status pill now sits right beside the Running/Stopped pill (web dashboard and desktop app), and the settings-applied text moved to the right of them.
+
 - Your own Firefox is now started with `--no-remote`, so it no longer registers on the desktop bus and should stop printing "unable to unregister root object from within onNameLost" when the app stops it.
 
 - New "Authors and readers" interest (BookBub, Reedsy, Royal Road, Goodreads, Draft2Digital, BookFunnel, StoryOrigin, Booksprout, Kobo, IngramSpark and more) in the Ason mix.
