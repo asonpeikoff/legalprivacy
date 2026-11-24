@@ -132,7 +132,7 @@ def test_the_header_logo_is_a_plain_wordmark_with_hidden_alternates():
     imgs = re.findall(r"<img[^>]*>", box)
     assert len(imgs) == 9 and 'class="on"' in imgs[0] and all("on" not in i.split("src=")[0] for i in imgs[1:])
     assert all((web / f"logo_v{k}.png").exists() for k in range(1, 7)) and (web / "logo_trad.png").exists()
-    assert "'ArrowUp','ArrowUp','ArrowDown'" in html and "clicks.length>=7" in html
+    assert "'ArrowUp','ArrowUp','ArrowDown'" in html and "clicks.length>=3" in html
 
 
 def test_nudges_keep_the_mix_at_100_and_never_go_negative():
