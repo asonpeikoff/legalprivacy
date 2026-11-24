@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- HTTP parity (plain-HTTP lane): its requests now carry the headers of a real Chromium page visit in Chromium's own order, measured against Chromium 153 over HTTP/1.1 (before, `requests` put its own User-Agent, Accept-Encoding, Accept and Connection first, used a shorter Accept and left out Sec-Fetch-User). Visits reached by a click send Sec-Fetch-Site as same-origin, same-site or cross-site and a Referer as Chromium would (whole address within a site, only the origin to another, none from https to http). Accept-Encoding lists only what can be decoded; install the optional `parity` extra (`pip install legalprivacy[parity]`, brotli and zstandard) to say "gzip, deflate, br, zstd" like a current browser. Not covered: the TLS fingerprint and HTTP/2, which need a different HTTP client (the plain lane is off by default).
 - Desktop app: the Tor tab now has the Tor Browser card the web dashboard already had: Open (or install and open) Tor Browser, Check for updates, the signature line, and "Share this app's Tor with Tor Browser" so your own browsing and the noise use the same Tor. The plain-text name beside the header logo is gone.
 
 ## v2.16.0

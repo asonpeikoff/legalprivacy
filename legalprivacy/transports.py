@@ -103,19 +103,21 @@ class ClearnetTransport(Transport):
         return healthy
 
     def hit(self, identity: Identity, target: Target) -> HitResult:
+        from .identity import navigation_headers
         proxies = {"http": self.proxy, "https": self.proxy} if self.proxy else None
-        headers = _identity_headers(identity)
-        if target.referer:
-            headers["Referer"] = target.referer
+        headers = navigation_headers(identity, target.url, target.referer)
         try:
-            resp = requests.get(
-                target.url,
-                timeout=target.timeout,
-                allow_redirects=True,
-                proxies=proxies,
-                # Identity headers injected here; requests also sets Host/Content-Length.
-                headers=headers,
-            )
+            # A fresh session with none of requests' own default headers, so the request carries exactly the
+            # browser-ordered set above (and no cookies from an earlier visit) instead of requests' signature order.
+            with requests.Session() as sess:
+                sess.headers.clear()
+                resp = sess.get(
+                    target.url,
+                    timeout=target.timeout,
+                    allow_redirects=True,
+                    proxies=proxies,
+                    headers=headers,
+                )
             status = resp.status_code
             if status == 202 and "duckduckgo.com" in target.url:
                 status = 429                       # DuckDuckGo's bot check: back off, don't count a visit
