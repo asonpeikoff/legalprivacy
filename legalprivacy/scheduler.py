@@ -160,6 +160,8 @@ class Runner:
         self._mobile_now = tc.mobile_share if tc else 0.35
         self._lane_factor: dict[str, float] = {}
         self._lane_wobble: dict[str, float] = {}
+        self._engine_factor: dict[str, float] = {}
+        self._engine_wobble: dict[str, float] = {}
         self._mobile_wobble = 0.0
         self._alt_lane, self._alt_left = None, 0
         self.bytes_today = 0
@@ -215,6 +217,11 @@ class Runner:
         """Once an hour: move the lane shares and the phone share according to the pattern."""
         tc = self.profile.traffic
         base = self._lane_base()
+        # every kind of activity (searches, link-following, DNS, installs) also wanders on its own, a little, whatever
+        # the pattern: no two kinds keep a fixed ratio hour after hour
+        for e in {e for lane in self.lanes for e in lane.engines}:
+            self._engine_wobble[e] = 0.6 * self._engine_wobble.get(e, 0.0) + self.rng.gauss(0, 0.25)
+            self._engine_factor[e] = math.exp(self._engine_wobble[e])
         if tc.pattern == "drift":                         # wander slowly; each hour keeps most of the last
             for n in base:
                 self._lane_wobble[n] = 0.7 * self._lane_wobble.get(n, 0.0) + self.rng.gauss(0, 0.35)
@@ -247,7 +254,8 @@ class Runner:
             tot_l = sum(lane_w.values()) or 1.0
             out = {}
             for lane in self.lanes:
-                ew = {e: max(0.0, float(self.profile.engines[e].budget_per_day)) for e in lane.engines}
+                ew = {e: max(0.0, float(self.profile.engines[e].budget_per_day)) * self._engine_factor.get(e, 1.0)
+                      for e in lane.engines}
                 tot_e = sum(ew.values()) or 1.0
                 for e, v in ew.items():
                     out[(lane.name, e)] = lane_w[lane.name] / tot_l * v / tot_e
@@ -480,7 +488,8 @@ class Runner:
         if server == "system":
             if DnsNoise.resolve_system(domain, timeout=target.timeout):
                 res = HitResult(200, "")
-                res.bytes = 100 * (1 + self._dns_burst(server, domain, None))
+                burst = self._dns_burst(server, domain, None)
+                res.bytes, res.detail = 100 * (1 + len(burst)), self._burst_text(burst)
                 return res
             return HitResult(None, error="lookup via your normal DNS failed")
         noise = DnsNoise(self.rng, self.wordlist, self.domains)
@@ -489,29 +498,42 @@ class Runner:
                 for qtype in ("AAAA", "HTTPS"):
                     noise.fire(build_dns_query(domain, self.rng.randint(0, 0xFFFF), qtype), server, timeout=1.5)
             res = HitResult(200, "")
-            res.bytes = (300 if ex is not None and ex.browser_dns else 100) * (1 + self._dns_burst(server, domain, noise))
+            burst = self._dns_burst(server, domain, noise)
+            res.bytes = (300 if ex is not None and ex.browser_dns else 100) * (1 + len(burst))
+            res.detail = self._burst_text(burst)
             return res
         return HitResult(None, error=f"dns query to {server} failed")
 
     DNS_BURST_CHANCE = 0.85          # most lookups in real traffic come from a page load, so most are followed by a burst
 
-    def _dns_burst(self, server: str, domain: str, noise) -> int:
+    @staticmethod
+    def _burst_text(hosts: list[str]) -> str | None:
+        """Shown with the lookup in Activity and the Live Log, so the burst is visible."""
+        if not hosts:
+            return None
+        more = f" and {len(hosts) - 4} more" if len(hosts) > 4 else ""
+        return f"+ page-load burst of {len(hosts)} lookups: {', '.join(hosts[:4])}{more}"
+
+    def _dns_burst(self, server: str, domain: str, noise) -> list[str]:
         """The lookups a page load makes right after the site's own (fonts, scripts, other sites), a few tens of
-        milliseconds apart. Returns how many were made. They are part of the one DNS hit, not extra hits."""
+        milliseconds apart. Returns the names that answered. They are part of the one DNS hit, not extra hits."""
         ex = getattr(self.profile, "extras", None)
-        if ex is None or not getattr(ex, "dns_bursts", False) or self.rng.random() >= self.DNS_BURST_CHANCE:
-            return 0
+        if ex is None or not getattr(ex, "dns_bursts", False) \
+                or self.rng.random() >= self.DNS_BURST_CHANCE * self.rng.uniform(0.85, 1.1):
+            return []
         from .engines import DnsNoise, build_dns_query, burst_hosts
-        n = 0
+        done: list[str] = []
         for host in burst_hosts(self.rng, self.domains, domain):
             if self._stopped():
                 break
             self.sleep_fn(self.rng.uniform(0.02, 0.35))
             if server == "system":
-                n += bool(DnsNoise.resolve_system(host, timeout=2.0))
+                ok = bool(DnsNoise.resolve_system(host, timeout=2.0))
             else:
-                n += bool(noise.fire(build_dns_query(host, self.rng.randint(0, 0xFFFF)), server, timeout=1.5))
-        return n
+                ok = bool(noise.fire(build_dns_query(host, self.rng.randint(0, 0xFFFF)), server, timeout=1.5))
+            if ok:
+                done.append(host)
+        return done
 
     def _packages(self, lane: Lane):
         pk = self.__dict__.get("_pkg")
@@ -754,6 +776,8 @@ class Runner:
         if rec.get("site"):
             short = f"{rec['site']} · {short}"
         tag = f" [{target.note}]" if target.note else (" [click]" if target.role == "result" else "")
+        if target.kind == "dns" and rec["detail"]:
+            tag += f" {rec['detail']}"
         self._emit("info" if result.ok or getattr(result, "offline", False) else "warn", lane.name,
                    f"{eng_name:6s} {short}{tag} → {status}"
                    + (f" ({rec['latency_ms']:.0f} ms)" if rec["latency_ms"] else ""), **{"hit": rec["seq"]})
@@ -787,7 +811,7 @@ class Runner:
                         pick = Target(url=pv.url, referer=target.url, role="result")   # the site we were after
                     pick.note = "found by searching"
                     lane.follow_next = pick
-                elif target.role == "search" and self.rng.random() < self.click_prob \
+                elif target.role == "search" and self.rng.random() < self.click_prob * self.rng.uniform(0.88, 1.1) \
                         and lane.search_factory is not None:
                     lane.follow_next = lane.search_factory.result_target(result.html, target.url)
                 elif target.role == "result" and self.rng.random() < 0.25:
@@ -880,7 +904,7 @@ class Runner:
     def _search_led(self, lane: Lane, visit: Target) -> Target | None:
         """Most visits to a site from the persona begin with a search that would lead there."""
         if self.rate is None or "search" not in lane.engines or lane.budgets["search"].exhausted \
-                or self.rng.random() > 0.65:
+                or self.rng.random() > 0.65 * self.rng.uniform(0.8, 1.15):
             return None
         from .interests import query_for_site
         host = urllib.parse.urlparse(visit.url).netloc + urllib.parse.urlparse(visit.url).path
@@ -970,7 +994,7 @@ class Runner:
                 or target.kind != "html" or target.role in ("search", "linger") or eng_name not in ("crawl", "onion")):
             return
         r, now, scale = self.rng.random(), self.clock(), self.profile.realtime_scale
-        if r < 0.11 and eng_name == "crawl" and getattr(ex, "persona", "") == "Ason" \
+        if r < 0.11 and eng_name == "crawl" and getattr(ex, "persona", "") == "Default mix" \
                 and self.rng.random() < self.DUCK_AI_CHANCE:
             target = Target(url=self.DUCK_AI_URL, role="linger", note="duck.ai chat")   # the page to come back to
         if r < 0.008:                                  # rare, and shorter than before: mostly continued use

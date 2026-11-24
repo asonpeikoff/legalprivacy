@@ -43,7 +43,7 @@ WEB = ["flask", "fastapi", "uvicorn", "jinja2", "requests", "httpx", "sqlalchemy
 STACKS = {"data": DATA_SCIENCE, "web": WEB, "tools": GENERAL}
 NPM = ["lodash", "chalk", "axios", "express", "react", "react-dom", "typescript", "dayjs", "uuid", "commander",
        "dotenv", "zod", "prettier", "vite"]
-TECHY_PERSONAS = ("Ason", "Data scientist", "Developer")
+TECHY_PERSONAS = ("Default mix", "Data scientist", "Developer")
 NEVER_REMOVE = {"pip", "setuptools", "wheel"}
 
 

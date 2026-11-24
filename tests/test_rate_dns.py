@@ -366,7 +366,7 @@ def test_during_a_long_session_visits_to_other_sites_of_that_kind_are_rare():
 def test_ason_long_sessions_sometimes_are_a_duck_ai_chat():
     from legalprivacy.transports import Target
     p = Profile(name="t")
-    assert p.extras.persona == "Ason"
+    assert p.extras.persona == "Default mix"
     r = _app_runner(p, lambda: 0.0)
     lane = r.lanes[0]
     modes = set()

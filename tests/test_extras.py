@@ -322,9 +322,15 @@ def test_logs_clear_on_each_start_by_default_and_can_be_kept():
     os.environ["LEGALPRIVACY_HOME"] = tempfile.mkdtemp()
     from legalprivacy.controller import Controller
     c = Controller()
-    assert c.app["clear_logs_on_restart"] is True
+    assert c.app["clear_logs_on_restart"] is True and c.app["log_keep_days"] == 7
     c.apply_config({"transports": {"clearnet": {"browser": "off"}}})
     c.log.info("app", "from before")
+    old = c.log.info("app", "from last month")
+    old.ts -= 30 * 86400
+    c.start(); c.stop()
+    msgs = [e["message"] for e in c.log.since(0)]
+    assert "from before" in msgs and "from last month" not in msgs      # by default only old entries go
+    c.update_app({"log_keep_days": 0})                                   # 0 = clear everything
     c.start(); c.stop()
     assert not any(e["message"] == "from before" for e in c.log.since(0)) and c.state()["log_epoch"] == 1
     c.runner._hit_seq = 41                                     # pretend the last run made 41 requests
@@ -342,7 +348,8 @@ def test_data_scientist_persona_is_followed_mostly_not_perfectly():
     from legalprivacy.controller import Controller
     c = Controller()
     c.apply_config({"extras": {"persona": "Data scientist"}})
-    assert c.profile.extras.persona_share == 0.9
+    assert c.profile.extras.persona_share == 0.8
+    c.apply_config({"extras": {"persona_share": 0.9}})
     pool = c._domain_pool(random)
     themed = {s.split("/")[0] for t in PERSONAS["Data scientist"] for s in CATEGORIES[t]["sites"]}
     picks = [pool.pick(browsable=True) for _ in range(3000)]

@@ -51,7 +51,7 @@ FIELDS: dict[str, tuple[tuple, str]] = {
     "traffic_pattern": (("traffic", "pattern"), "str"), "mix_browser": (("traffic", "browser"), "float"),
     "mix_plain": (("traffic", "plain"), "float"), "mix_onion": (("traffic", "onion"), "float"),
     "mobile_share": (("traffic", "mobile_share"), "pct"), "device": (("traffic", "device"), "str"),
-    "speed": (("realtime_scale",), "float"), "max_failures": (("daily_max_failures",), "int"),
+    "speed": (("realtime_scale",), "inv"), "max_failures": (("daily_max_failures",), "int"),
     "ua_mode": (("identity", "ua_mode"), "str"), "rotate_every": (("identity", "rotate_every"), "str"),
     "ua_pin": (("identity", "ua_pin"), "str"), "own_ua": (("identity", "own_ua"), "str"),
     "ua_own_share": (("identity", "ua_own_share"), "pct"),
@@ -91,6 +91,8 @@ def read_fields(profile) -> dict:
             v = v or ""
         elif kind == "dnson":
             v = bool(v)
+        elif kind == "inv":                       # time compression: 1 / realtime_scale
+            v = round(1.0 / float(v), 2) if v else 1.0
         elif kind == "csv":
             v = ", ".join(v or [])
         elif kind == "lines":
@@ -124,6 +126,8 @@ def fields_payload(v: dict) -> dict:
             x = int(x)
         elif kind == "float":
             x = float(x)
+        elif kind == "inv":
+            x = 1.0 / max(0.01, float(x))
         _put(out, path, x)
     return out
 
@@ -148,6 +152,7 @@ def profile_values(profile, app: dict) -> dict:
                                              profile.identity.ua_pin),
         "autostart": bool(app.get("autostart")),
         "clear_logs_on_restart": bool(app.get("clear_logs_on_restart", True)),
+        "log_keep_days": int(app.get("log_keep_days", 7)),
         "observe": bool(app.get("observe", True)), "auto_refresh_sources": bool(app.get("auto_refresh_sources")),
         "ml_auto": bool(app.get("ml_auto"))})
     return out
@@ -191,7 +196,10 @@ def build_config_payload(v: dict[str, Any], current_rate: dict | None = None) ->
 
 def app_flags(v: dict[str, Any]) -> dict:
     """The on/off settings that live in the app section (saved with Controller.update_app)."""
-    return {k: bool(v[k]) for k in APP_KEYS if k in v}
+    out = {k: bool(v[k]) for k in APP_KEYS if k in v}
+    if "log_keep_days" in v:
+        out["log_keep_days"] = int(v["log_keep_days"])
+    return out
 
 
 # ── user agent choice ───────────────────────────────────────────────────────
@@ -272,8 +280,11 @@ def background_amount(engines, name: str, options: list[tuple]) -> str:
     return min((v for v, _ in options if float(v) > 0), key=lambda v: abs(float(v) - ratio))
 
 
+from .packages import TECHY_PERSONAS as TECHY  # noqa: E402
+
+
 def packages_on(extras) -> bool:
-    return extras.packages == "on" or (extras.packages != "off" and extras.persona in ("Ason", "Data scientist", "Developer"))
+    return extras.packages == "on" or (extras.packages != "off" and extras.persona in TECHY)
 
 
 def traffic_items(traffic: dict, tor_on: bool) -> list[dict]:

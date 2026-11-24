@@ -118,15 +118,15 @@ def test_ason_persona_is_the_default_and_spreads_over_many_sites():
     from collections import Counter
     from legalprivacy.config import Profile
     from legalprivacy.interests import CATEGORIES, PERSONAS, Persona
-    assert Profile(name="d").extras.persona == "Ason" and abs(sum(PERSONAS["Ason"].values()) - 1) < 1e-9
-    assert set(PERSONAS["Ason"]) <= set(CATEGORIES)
-    p = Persona(_r.Random(3), "Ason")
+    assert Profile(name="d").extras.persona == "Default mix" and abs(sum(PERSONAS["Default mix"].values()) - 1) < 1e-9
+    assert set(PERSONAS["Default mix"]) <= set(CATEGORIES)
+    p = Persona(_r.Random(3), "Default mix")
     c = Counter(p.site() for _ in range(4000))
     assert len(c) > 300                                           # many different sites ...
     assert c.most_common(1)[0][1] < 0.03 * 4000                   # ... and no single one dominates
     objectivist = set(CATEGORIES["Objectivism"]["sites"])
     share = sum(n for s, n in c.items() if s in objectivist) / 4000
-    assert 0.08 < share < 0.22                                    # present, but not oversampled
+    assert 0.12 < share < 0.32                                    # a main part (about a fifth), not all of it
     assert "legalizingprivacy.substack.com" in objectivist
     assert not any("prometheusfdn" in s or "meetup" in s for s in objectivist)
 
@@ -139,7 +139,7 @@ def test_old_default_persona_is_switched_to_ason_once(tmp_path, monkeypatch):
     c.app["migrated_ason"] = False
     c._save()
     c2 = Controller(str(cfg))
-    assert c2.profile.extras.persona == "Ason"
+    assert c2.profile.extras.persona == "Default mix"
     c2.apply_config({"extras": {"persona": "Data scientist"}})          # a later, deliberate choice is kept
     assert Controller(str(cfg)).profile.extras.persona == "Data scientist"
 

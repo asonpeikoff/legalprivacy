@@ -252,8 +252,8 @@ class ExtrasConfig:
     busy_kbps: int = 400          # backoff: pause while your own traffic is above this
     metrics: bool = False         # Prometheus metrics at /metrics (needs the dashboard token)
     site_list: str = "both"       # both = Tranco re-ranked by Chrome's real browsing (CrUX), default | tranco
-    persona: str = "Ason"   # who the noise mostly looks like ("" = nobody in particular)
-    persona_share: float = 0.9    # how closely the persona is followed (share of visits and searches)
+    persona: str = "Default mix"  # who the noise mostly looks like ("" = nobody in particular)
+    persona_share: float = 0.8    # how closely the persona is followed (share of visits and searches); the rest is random
     packages: str = "auto"        # real pip/npm installs (removed again): auto (techy personas) | on | off
     household: bool = False       # noise from a virtual household of several people
     household_size: int = 3       # 2..5 people, member 1 = you
@@ -554,7 +554,7 @@ def apply_overrides(profile: Profile, raw: dict[str, Any]) -> Profile:
             activity=str(m["activity"]), busy_kbps=int(m["busy_kbps"]), metrics=bool(m["metrics"]),
             site_list="tranco" if m.get("site_list") == "tranco" else "both",
             household=bool(m.get("household")), household_size=int(m.get("household_size") or 3),
-            persona=str(m.get("persona") or ""), persona_share=float(m.get("persona_share", 0.9)),
+            persona=_persona_name(m.get("persona")), persona_share=float(m.get("persona_share", 0.8)),
             packages=str(m.get("packages") or "auto"))
         if (profile.extras.interests or profile.extras.household) and not profile.extras.interest_salt:
             import secrets as _s
@@ -610,6 +610,12 @@ def apply_overrides(profile: Profile, raw: dict[str, Any]) -> Profile:
     if profile.realtime_scale <= 0:
         raise ConfigError("realtime_scale must be > 0")
     return profile
+
+
+def _persona_name(x) -> str:
+    from .interests import LEGACY_PERSONA_NAMES
+    x = str(x or "")
+    return LEGACY_PERSONA_NAMES.get(x, x)
 
 
 def load_profile(path: str | None) -> Profile:

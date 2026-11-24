@@ -618,7 +618,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div style="margin-top:10px"><b>Also running in the background</b> <span class="small mute">— these happen at the same time as the activity above and never take a share from it, just like your computer does lookups and installs while you browse.</span></div>
     <div class="row">DNS lookups <select id="sDnsAmt" title="Name lookups that happen alongside everything else"><option value="0">Off</option><option value="1">Fewer</option><option value="2">Normal</option><option value="3">More (recommended)</option><option value="5">Lots</option></select>
       Package installs (pip, npm) <select id="sPkgAmt" title="Real pip and npm downloads in a throwaway folder that is deleted straight after. Sometimes one package, sometimes a whole project's requirements."><option value="0">Off</option><option value="0.04">Rare</option><option value="0.075">Normal</option><option value="0.15">Often</option></select></div>
-    <div class="small mute">Package installs run automatically for the Ason, Data scientist and Developer personas, one package at a time or a whole requirements file at once, and everything downloaded is deleted straight afterwards.</div>
+    <div class="small mute">Package installs run automatically for the Default mix, Data scientist and Developer personas, one package at a time or a whole requirements file at once, and everything downloaded is deleted straight afterwards.</div>
   </div>
   <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-wave"/></svg>DNS lookups</h3>
     <div class="small mute">In Activity and the Live Log each lookup shows the site looked up and which resolver answered, e.g. <code>www.reddit.com [via your normal DNS]</code>.</div>
@@ -696,14 +696,14 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div class="small mute">CrUX is Google's list of the sites real Chrome users load most. Its global list holds too much adult and gambling content to use on its own, so it only decides which of the already-filtered Tranco sites come up more often.</div>
     <div class="row">Daily data cap <input type="number" id="eCap" min="0" step="10" style="width:90px"> MB <span class="small mute">(0 = no cap, recommended unless your data is metered)</span></div>
     <div style="margin-top:10px"><b>Persona</b> <span class="small mute">— who the noise mostly looks like</span></div>
-    <div class="row">Persona <select id="pers"><option value="">Nobody in particular (neutral)</option></select>
+    <div class="row">Persona <select id="pers"><option value="Default mix" selected>Default mix (default)</option><option value="">Nobody in particular (neutral)</option></select>
       <span class="small mute">pick the one closest to you</span></div>
     <div class="row">How closely it's followed <input type="range" id="persShare" min="10" max="95" step="5" style="flex:1;max-width:220px"> <b class="small" id="persShareP"></b>
-      <span class="small mute">(90% recommended, default: mostly, not perfectly; the rest is everyday browsing)</span></div>
+      <span class="small mute">(80% recommended, default: mostly, not perfectly; the rest is random)</span></div>
     <div class="small mute" id="persMix"></div>
-    <div class="row">📦 Package installs <select id="ePkg"><option value="auto">Automatic: on for Ason, Data scientist and Developer (recommended, default)</option><option value="on">On</option><option value="off">Off</option></select></div>
+    <div class="row">📦 Package installs <select id="ePkg"><option value="auto">Automatic: on for Default mix, Data scientist and Developer (recommended, default)</option><option value="on">On</option><option value="off">Off</option></select></div>
     <div class="small mute">Real <code>pip install</code>, <code>pip download</code> and <code>pip uninstall</code> of popular packages (and <code>npm</code>, if you have it), the way someone who codes talks to PyPI and npm. Everything happens in legalPrivacy's own separate environment, never in yours: only ready-built packages, nothing is ever run, and what's installed is removed again. The environment is wiped and rebuilt daily.</div>
-    <div style="margin-top:10px"><b>Interests</b> <span class="small mute">— a person has a few steady interests, not random everything</span></div>
+    <div style="margin-top:10px"><b>Interests</b> <span class="small mute">— a person has a few steady interests, not random everything. Only used when Persona is “Nobody in particular”: a persona already sets its own themes, and Allowed themes don't change it. “My own corners” are sites and searches from your own life (your sites and repos, Royal Road, PBS NewsHour, Udemy and the like).</span></div>
     <label class="chk"><input type="checkbox" id="iOn"><span><b>Follow a few themes at a time</b> <span class="mute">(off by default) — a share of visits and searches stays on the active themes, which change every so often</span></span></label>
     <div class="row">Themes at once <select id="iN"></select> · change every <input type="number" id="iDays" min="1" max="365" style="width:70px"> days <span class="small mute">(3 themes, every 10 days recommended)</span></div>
     <div class="row">Share that follows the themes <input type="range" id="iShare" min="0" max="100" step="10" style="flex:1;max-width:220px"> <b class="small" id="iShareP"></b> <span class="small mute">(30% recommended)</span></div>
@@ -723,13 +723,14 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div class="row"><button id="eEngReset">Back to defaults</button> <span class="small mute">(defaults recommended: mostly Google and DuckDuckGo, like real people)</span></div>
   </div>
   <div class="card"><h3>General</h3>
-    <div class="row">Speed <input type="number" id="sScale" step="0.1" min="0.05" style="width:90px"> <span class="small mute">1.0 = human pace; lower = faster (for testing)</span></div>
     <div class="row">Stop after <input type="number" id="sMaxF" min="1" style="width:90px"> failures per day</div>
     <div class="row">Clearnet proxy <input type="text" id="sProxy" placeholder="optional  http:// or socks5://…" style="flex:1;min-width:220px"></div>
     <label class="chk"><input type="checkbox" id="sClear"><span>Clearnet noise enabled</span></label>
     <label class="chk"><input type="checkbox" id="sAuto"><span>Start noise automatically when legalPrivacy opens</span></label>
     <label class="chk"><input type="checkbox" id="sUpd"><span>Check GitHub for a newer legalPrivacy when it opens, and twice a day (sends nothing about you) <button id="updNow" class="small" type="button">Check now</button> <span class="small mute" id="updInfo"></span></span></label>
-    <label class="chk"><input type="checkbox" id="sClearLogs"><span>Clear the Live Log and Activity each time noise starts <span class="mute">(recommended, default)</span>. They're kept in memory only and always cleared when legalPrivacy quits.</span></label>
+    <label class="chk"><input type="checkbox" id="sClearLogs"><span>Each time noise starts, clear Live Log and Activity entries older than <input type="number" id="sKeepDays" min="0" max="365" style="width:60px"> days <span class="mute">(recommended, default: 7; 0 clears everything)</span>. They're kept in memory only and always cleared when legalPrivacy quits.</span></label>
+    <details style="margin-top:8px"><summary class="small"><b>Testing only</b></summary>
+      <div class="row">Time compression <input type="number" id="sScale" step="0.5" min="0.01" style="width:90px">× <span class="small mute">leave at 1 for real use. Makes every wait this many times shorter, to watch a day's behaviour quickly. It does not change how much noise an hour: the level does.</span></div></details>
   </div>
   <div class="card"><h3>Realism</h3>
     <div class="row">Browse with a real browser
@@ -868,11 +869,11 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
 </section>
 <!-- TOOLS -->
 <section id="t-proof" class="tab vz">
+    <div class="row" style="margin:0 0 10px"><button id="lkRun" class="pri"><svg class="ic sm" aria-hidden="true"><use href="#i-check"/></svg>Run checks</button><span class="small mute" id="lkWhen"></span></div>
   <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-proof"/></svg>Is it working? <details class="why"><summary>ⓘ</summary><div>Each line says what you <b>want</b> to see, what we actually <b>saw</b>, and whether that is working. Nothing here changes your settings. “Run checks” contacts check.torproject.org once directly and once through Tor (only if Tor is on) to compare the two addresses.</div></details></h3>
     <div id="lkHead" class="big" style="margin:4px 0"></div>
     <div class="small mute" style="margin-bottom:8px"><b class="ok">✓</b> working &nbsp; <b class="bad">✗</b> not working &nbsp; <b style="color:var(--tor)">ℹ</b> for your information &nbsp; <b class="mute">?</b> not tested yet</div>
     <div id="lkRows"></div>
-    <div class="row" style="margin-top:8px"><button id="lkRun" class="pri"><svg class="ic sm" aria-hidden="true"><use href="#i-check"/></svg>Run checks</button><span class="small mute" id="lkWhen"></span></div>
   </div>
   <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-proof"/></svg>Is it working? Proof from your own computer <details class="why"><summary>ⓘ</summary><div>
     Every few seconds legalPrivacy looks at which addresses this computer is connected to and which program owns each connection:
@@ -1773,7 +1774,7 @@ function fillSettings(force){
   if(!S||(dirty.set&&!force))return;const p=S.profile;
   const torOn=!!(p.transports.tor&&p.transports.tor.enabled);
   const ENAME={search:'Searches',crawl:'Following links',dns:'DNS lookups',onion:'🧅 Onion sites',packages:'📦 Package installs'};
-  const exP=p.extras||{},pkgOn=exP.packages==='on'||(exP.packages!=='off'&&['Ason','Data scientist','Developer'].includes(exP.persona));
+  const exP=p.extras||{},pkgOn=exP.packages==='on'||(exP.packages!=='off'&&['Default mix','Data scientist','Developer'].includes(exP.persona));
   window._engMix=MixBar($('#engines'),Object.entries(p.engines).filter(([n])=>(n!=='onion'||torOn)&&n!=='dns'&&n!=='packages')
     .map(([n,e])=>({key:n,label:ENAME[n]||n,value:e.enabled?e.budget_per_day:0})));
   {const base=Math.max(1,['search','crawl'].reduce((a,n)=>a+((p.engines[n]&&p.engines[n].enabled)?p.engines[n].budget_per_day:0),0));
@@ -1787,7 +1788,7 @@ function fillSettings(force){
   $('#dShare').value=Math.round((d.system_share??0.5)*100);$('#dSlow').value=d.slow_ms||250;
   dRes=(d.resolvers||[]).map(r=>({...r}));renderDnsTable();$('#dOpen').checked=d.opennic!==false;$('#dQuad9').checked=!!d.quad9;$('#dCustom').value=(d.custom||[]).join(', ');
   $('#dOpenN').textContent=(S.opennic||[]).length;$('#dOpenList').innerHTML=(S.opennic||[]).map(o=>esc(o[1]+' '+o[0]+' ('+(o[2]||'?')+')'+(o[3]?' · '+(o[3]==='none'?'no logs':'anonymized logs')+' · '+(o[4]||''):''))).join('<br>')+'<div style="margin-top:4px">Noise lookups to these servers are ordinary (unencrypted) DNS, like most lookups; the encryption requirement is a quality bar for the servers.</div>';
-  $('#sScale').value=p.realtime_scale;$('#sMaxF').value=p.daily_max_failures;$('#sProxy').value=p.transports.clearnet.proxy||'';
+  $('#sScale').value=Math.round(100/(p.realtime_scale||1))/100;$('#sKeepDays').value=S.app.log_keep_days??7;$('#sMaxF').value=p.daily_max_failures;$('#sProxy').value=p.transports.clearnet.proxy||'';
   $('#sClear').checked=p.transports.clearnet.enabled;loadUA();
   const ex=p.extras||{};const hrs=[...Array(24).keys()].map(h=>`<option value="${h}">${h12(h)}</option>`).join('');
   $('#eFrom').innerHTML=hrs;$('#eTo').innerHTML=hrs;$('#eFrom').value=ex.active_from??8;$('#eTo').value=ex.active_to??23;
@@ -1795,7 +1796,7 @@ function fillSettings(force){
   $('#ePolite').checked=!!ex.polite;$('#eLow').checked=!!ex.low_data;$('#eCap').value=ex.daily_data_mb||0;
   renderEngines(ex.search_engines||{});
   $('#ePkg').value=ex.packages||'auto';
-  $('#persShare').value=Math.round((ex.persona_share??0.9)*100);$('#persShareP').textContent=$('#persShare').value+'%';
+  $('#persShare').value=Math.round((ex.persona_share??0.8)*100);$('#persShareP').textContent=$('#persShare').value+'%';
   $('#persShare').addEventListener('input',()=>{$('#persShareP').textContent=$('#persShare').value+'%'});
   $('#iOn').checked=!!ex.interests;$('#iDays').value=ex.interest_rotate_days||10;
   $('#iShare').value=Math.round((ex.interest_share??0.3)*100);$('#iShareP').textContent=$('#iShare').value+'%';
@@ -1808,8 +1809,8 @@ function fillSettings(force){
     $('#iN').innerHTML=d.themes.map((_,i)=>`<option value="${i+1}">${i+1}</option>`).join('');$('#iN').value=ex.interest_active||3;
     $('#iThemes').innerHTML='Allowed themes: '+d.themes.map(t=>`<label style="margin-right:10px;white-space:nowrap"><input type="checkbox" data-th="${esc(t)}" ${allowed.includes(t)?'checked':''}> ${esc(t)}</label>`).join('');
     $('#iNow').textContent=d.active.length&&!d.persona?('Active right now: '+d.active.join(', ')):'';
-    $('#pers').innerHTML='<option value="">Nobody in particular (neutral)</option>'+Object.keys(d.personas).map(n=>`<option value="${esc(n)}">${esc(n)}${n==='Ason'?' (default)':''}</option>`).join('');
-    $('#pers').value=ex.persona??'Ason';
+    $('#pers').innerHTML='<option value="">Nobody in particular (neutral)</option>'+Object.keys(d.personas).map(n=>`<option value="${esc(n)}">${esc(n)}${n==='Default mix'?' (default)':''}</option>`).join('');
+    $('#pers').value=ex.persona??'Default mix';$('#pers').dataset.ready='1';
     const mixTxt=()=>{const m=d.personas[$('#pers').value];$('#persMix').textContent=m?('Mostly: '+Object.entries(m).map(([k,v])=>`${k} ${Math.round(v*100)}%`).join(' · ')+'. A persona takes the place of rotating Interests.'):''};
     mixTxt();$('#pers').addEventListener('change',mixTxt);
     $('#hNow').textContent=(d.household||[]).length?('Your household right now: '+d.household.join(' · ')):'';
@@ -1837,7 +1838,7 @@ async function saveSettings(auto){
    const dn=parseFloat($('#sDnsAmt').value),pk=parseFloat($('#sPkgAmt').value);
    engines.dns={enabled:dn>0,budget_per_day:Math.max(1,Math.round(dn*base))};engines.packages={enabled:pk>0,budget_per_day:Math.max(1,Math.round(pk*base))}}
   const rnd=parseInt($('#sRand').value||0)/100;
-  try{await api('/api/config',{realtime_scale:parseFloat($('#sScale').value),daily_max_failures:parseInt($('#sMaxF').value),engines,rate:{mode:rnd>0?'random':'steady',level:parseFloat($('#sLevel').value),randomness:rnd},
+  try{await api('/api/config',{realtime_scale:1/Math.max(0.01,parseFloat($('#sScale').value)||1),daily_max_failures:parseInt($('#sMaxF').value),engines,rate:{mode:rnd>0?'random':'steady',level:parseFloat($('#sLevel').value),randomness:rnd},
       accounts:readAcc(),dns:{mode:document.querySelector('input[name=dnsm]:checked').value,system_share:parseInt($('#dShare').value||50)/100,opennic:$('#dOpen').checked,quad9:$('#dQuad9').checked,custom:$('#dCustom').value,slow_ms:parseInt($('#dSlow').value||250),resolvers:readDnsTable()},
       transports:{clearnet:{enabled:$('#sClear').checked,proxy:$('#sProxy').value||null,browser:$('#sBrowser').value,browser_window:$('#sWin').value,browser_engine:$('#sEngine').value,cookie_hours:parseFloat($('#sCookies').value),cookie_vary:$('#sCookieVary').checked}},
       queries:{live:$('#qLive').checked,dataset:$('#qData').checked,builtin:$('#qBuiltin').checked,words:$('#qWords').checked},
@@ -1852,8 +1853,8 @@ async function saveSettings(auto){
               activity:(document.querySelector('input[name=iact]:checked')||{}).value||'off',busy_kbps:parseInt($('#iBusy').value||400),
               metrics:$('#eMetrics').checked,site_list:$('#eSites').value,
               household:$('#hOn').checked,household_size:parseInt($('#hSize').value||3),
-              persona:$('#pers').value,persona_share:parseInt($('#persShare').value||90)/100,packages:$('#ePkg').value}});
-    await api('/api/app',{autostart:$('#sAuto').checked,update_check:$('#sUpd').checked,clear_logs_on_restart:$('#sClearLogs').checked});dirty.set=false;$('#sSaved').textContent='Saved ✓ '+(S&&S.running?(needApply(),'(going live…)'):'');poll()}catch(e){$('#sSaved').textContent='Not saved: '+e.message;if(!auto)toast(e.message,1)}
+              ...($('#pers').dataset.ready?{persona:$('#pers').value}:{}),persona_share:parseInt($('#persShare').value||80)/100,packages:$('#ePkg').value}});
+    await api('/api/app',{autostart:$('#sAuto').checked,update_check:$('#sUpd').checked,clear_logs_on_restart:$('#sClearLogs').checked,log_keep_days:parseInt($('#sKeepDays').value||0)});dirty.set=false;$('#sSaved').textContent='Saved ✓ '+(S&&S.running?(needApply(),'(going live…)'):'');poll()}catch(e){$('#sSaved').textContent='Not saved: '+e.message;if(!auto)toast(e.message,1)}
 }
 // ---------- optional signed-in accounts (Settings → Accounts)
 const ACC=[['google','Google','Gmail inbox, a Google search, YouTube'],['microsoft','Microsoft (Outlook)','Outlook inbox and calendar, Bing, microsoft.com']];
@@ -2214,31 +2215,39 @@ if(wiz){wiz.setAttribute('role','dialog');wiz.setAttribute('aria-modal','true');
 
 function fixWhy(){document.querySelectorAll('details.why>summary:not([data-f])').forEach(s=>{s.dataset.f=1;const d=s.parentNode.querySelector('div');s.innerHTML='<span class="ibtn" aria-hidden="true">i</span>';s.setAttribute('aria-label','More information');if(d)s.title=d.textContent.trim().slice(0,400)})}
 
-// The header shows a plain wordmark. Something a normal user would not do (the Konami code, or seven quick clicks on the
-// logo) swaps it for the other versions, which then follow the tab you are on (fading) and switch when clicked. The Konami code again undoes it.
+// The header fades on its own through the traditional versions of the logo (unless one is picked in Settings → Logo).
+// Something a normal user would not do (the Konami code, or three quick clicks on the logo) swaps them for the Easter-egg
+// versions, which fade on their own the same way, one colour group at a time with the poses in order, and also switch
+// when clicked. The Konami code (or three quick clicks) again undoes it.
 (()=>{const all=[...document.querySelectorAll('.logos img')];if(all.length<3)return;
   const st={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
   const TRAD=['01-pop-type','02-pop-shadow','03-art-deco','04-painted','05-rope-two-tone','06-rope-blue','07-terminal'];
-  const EGG=['01-green-animated.mp4','02-green-supine-skirt','03-green-supine-pants','04-green-supine-sheer','05-green-prone-skirt','06-green-prone-pants','07-green-kneel','08-green-wink','09-green-back','10-purple-supine','11-purple-prone','12-purple-kneel','13-purple-wink','14-pink-prone','15-pink-back','16-yellow-back'];
+  const EGG_GREEN=['01-green-animated.mp4','02-green-supine-skirt','03-green-supine-pants','04-green-supine-sheer','05-green-prone-skirt','06-green-prone-pants','07-green-kneel','08-green-wink','09-green-back'],
+    EGG_REST=['14-pink-prone','15-pink-back','16-yellow-back'],AUTO_MS=9000;
   const box=document.querySelector('.logos'),T=new URLSearchParams(location.search).get('t')||sessionStorage.getItem('legalprivacy_t')||'';
   const media=(grp,n)=>{const v=n.endsWith('.mp4'),e=document.createElement(v?'video':'img'),u='/logo/'+grp+'/'+(v?n:n+'.webp')+'?t='+encodeURIComponent(T);
     e.src=u;e.alt='legalPrivacy';if(v){e.muted=true;e.loop=true;e.autoplay=true;e.playsInline=true;e.setAttribute('aria-hidden','true')}box.appendChild(e);return e};
-  let tradBy={},eggMore=null;const tradNow=()=>{const k=st.get('lp_trad');if(!k||!TRAD.includes(k))return all[0];return tradBy[k]||(tradBy[k]=media('trad',k))};
-  const plain=all[0],egg=all.slice(1);let on=st.get('lp_egg')==='1',i=0,clicks=[],keys=[];
-  const set=()=>{if(!on)return[tradNow()];if(!eggMore)eggMore=EGG.map(n=>media('egg',n));return egg.concat(eggMore)};
-  window.lpLogoPick=k=>{st.set('lp_trad',k);if(!on)show(0)};
+  let tradBy={},tradAll=null,eggSet=null;const picked=()=>{const k=st.get('lp_trad');return k&&TRAD.includes(k)?k:''};
+  const tradNow=()=>{const k=picked();if(k)return[tradBy[k]||(tradBy[k]=media('trad',k))];
+    if(!tradAll)tradAll=[all[0]].concat(TRAD.map(n=>tradBy[n]||(tradBy[n]=media('trad',n))));return tradAll};
+  // purple: the eight built into the page (lying x5, kneeling x2, from the back) with the purple files placed by pose
+  const pin=all.slice(1);let on=st.get('lp_egg')==='1',i=0,clicks=[],keys=[],timer=null;
+  const set=()=>{if(!on)return tradNow();if(!eggSet){const f=n=>media('egg',n);
+      const purple=pin.slice(0,5).concat([f('10-purple-supine'),f('11-purple-prone')],pin.slice(5,7),[f('12-purple-kneel'),f('13-purple-wink')],pin.slice(7));
+      eggSet=purple.concat(EGG_GREEN.map(f),EGG_REST.map(f))}return eggSet};
+  const auto=()=>{clearInterval(timer);timer=null;if(set().length>1)timer=setInterval(()=>{if(!document.hidden)show(i+1)},AUTO_MS)};
+  window.lpLogoPick=k=>{st.set('lp_trad',k);if(!on){show(0);auto()}};
   const show=n=>{const s=set();[...box.children].forEach(x=>{x.classList.remove('on');if(x.pause)x.pause()});i=((n%s.length)+s.length)%s.length;s[i].classList.add('on');if(s[i].play){try{s[i].play().catch(()=>{})}catch(e){}}};
   const sync=()=>{box.style.cursor=on?'pointer':'';if(on){box.title='Click to switch the logo';box.setAttribute('role','button');box.tabIndex=0}
     else{box.removeAttribute('title');box.removeAttribute('role');box.removeAttribute('tabindex')}};
-  const toggle=()=>{on=!on;st.set('lp_egg',on?'1':'0');sync();show(0)};
-  box.addEventListener('click',()=>{if(on){show(i+1);return}
-    const t=Date.now();clicks=clicks.filter(c=>t-c<900);clicks.push(t);if(clicks.length>=3){clicks=[];toggle()}});
+  const toggle=()=>{on=!on;st.set('lp_egg',on?'1':'0');sync();show(0);auto()};
+  box.addEventListener('click',()=>{const t=Date.now();clicks=clicks.filter(c=>t-c<900);clicks.push(t);
+    if(clicks.length>=3){clicks=[];toggle();return}if(on){show(i+1);auto()}});
   box.addEventListener('keydown',e=>{if(on&&(e.key==='Enter'||e.key===' ')){e.preventDefault();show(i+1)}});
   const code=['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
   document.addEventListener('keydown',e=>{if(/^(INPUT|TEXTAREA|SELECT)$/.test((e.target.tagName||''))||e.target.isContentEditable)return;
     keys.push(e.key.length===1?e.key.toLowerCase():e.key);keys=keys.slice(-code.length);if(keys.join()===code.join()){keys=[];toggle()}});
-  document.querySelectorAll('#nav button[data-t]').forEach((b,k)=>b.addEventListener('click',()=>{if(on)show(k)}));
-  sync();show(0)})();
+  sync();show(0);auto()})();
 {const lp=$('#logoPick');if(lp){try{lp.value=localStorage.getItem('lp_trad')||''}catch(e){}lp.onchange=()=>window.lpLogoPick(lp.value)}}
 fixWhy();new MutationObserver(fixWhy).observe(document.body,{childList:true,subtree:true});
 </script>
