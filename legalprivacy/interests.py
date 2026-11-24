@@ -91,7 +91,7 @@ CATEGORIES: dict[str, dict] = {
                               "rational egoism", "the virtue of selfishness", "capitalism the unknown ideal", "individual rights",
                               "objectivist epistemology", "Leonard Peikoff", "Harry Binswanger", "Yaron Brook", "John Galt",
                               "Atlas Society events", "free market economics", "reason and individualism"]},
-    "AI tools": {"sites": {"chatgpt.com": 6, "openai.com": 4, "claude.ai": 5, "www.anthropic.com": 3, "gemini.google.com": 4,
+    "AI tools": {"sites": {"chatgpt.com": 6, "duck.ai": 3, "openai.com": 4, "claude.ai": 5, "www.anthropic.com": 3, "gemini.google.com": 4,
                            "chat.mistral.ai": 3, "mistral.ai": 2, "www.perplexity.ai": 4, "huggingface.co": 5,
                            "copilot.microsoft.com": 2, "grok.com": 2, "www.deepseek.com": 2, "cohere.com": 1,
                            "ai.meta.com": 2, "ollama.com": 2, "lmarena.ai": 2, "www.linkedin.com": 3,

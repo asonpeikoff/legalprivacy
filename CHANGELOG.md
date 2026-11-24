@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Default (Ason) persona: about 1 in 5 long sessions, of both kinds (long interactive and stepped away), is a duck.ai chat on clearnet. duck.ai also joins the AI-tools sites. Celebrity and gossip sites (people.com, tmz.com and similar) are skipped in the generic popular-sites draw.
 - Long sessions: "stepped away" is rarer (about 1 in 125 visits, 0.5-2 h instead of 1-4 h), "keeps working on one page" is more common, and while away the route still does the odd other visit every 10-40 minutes.
 - Header: the Tor status pill now sits right beside the Running/Stopped pill (web dashboard and desktop app), and the settings-applied text moved to the right of them.
 

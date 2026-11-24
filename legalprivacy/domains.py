@@ -32,6 +32,24 @@ _NOT_A_SITE = ("domaincontrol", "appsflyer", "relay", "update", "sdk", "api", "a
                "gov.", "mux.com", "eeroup", "cloudapp")
 
 
+# Celebrity, gossip and tabloid sites: the default (Ason) persona does not browse these, so the generic
+# "popular sites" draw skips them. Matched on the site name with "www." and a leading "m." removed.
+_ENTERTAINMENT_NEWS = frozenset({
+    "people.com", "ew.com", "tmz.com", "usmagazine.com", "eonline.com", "pagesix.com", "dailymail.co.uk",
+    "hollywoodreporter.com", "variety.com", "deadline.com", "billboard.com", "rollingstone.com", "vulture.com",
+    "buzzfeed.com", "popsugar.com", "justjared.com", "perezhilton.com", "radaronline.com", "okmagazine.com",
+    "intouchweekly.com", "lifeandstylemag.com", "hellomagazine.com", "closermag.com", "enstarz.com",
+    "celebuzz.com", "thesun.co.uk", "mirror.co.uk", "metro.co.uk", "gossipcop.com", "hollywoodlife.com",
+    "etonline.com", "extratv.com", "accesshollywood.com", "entertainmentweekly.com", "tvguide.com",
+    "pinkvilla.com", "bollywoodhungama.com", "koimoi.com", "ranker.com", "screenrant.com", "cbr.com",
+})
+
+
+def is_entertainment_news(domain: str) -> bool:
+    d = domain.lower().removeprefix("www.").removeprefix("m.")
+    return d in _ENTERTAINMENT_NEWS
+
+
 def looks_browsable(domain: str) -> bool:
     """Heuristic: a site a person would open in a browser, not infrastructure behind one."""
     d = domain.lower()
@@ -52,6 +70,7 @@ class DomainPool:
         self.interests = None              # Interests (optional personas)
         self.interest_share = 0.0
         self.site_list = "both"            # both | crux | tranco
+        self.avoid_entertainment = False   # skip celebrity and gossip sites in the generic popular-sites draw
         self._recent: deque[str] = deque(maxlen=60)
         self._seen_good: deque[str] = deque(maxlen=300)    # sites reached by clicking search results
 
@@ -86,7 +105,8 @@ class DomainPool:
         ranked = self.store.items("tranco") if self.store else []
         deny = self.store.denylist() if self.store else set()
         from .safety import english_host
-        ranked = [d for d in ranked if safe_domain(d, deny) and english_host(d)]
+        ranked = [d for d in ranked if safe_domain(d, deny) and english_host(d)
+                  and not (self.avoid_entertainment and is_entertainment_news(d))]
         return ranked or FALLBACK_DOMAINS
 
     def _crux_boost(self) -> dict[str, float]:

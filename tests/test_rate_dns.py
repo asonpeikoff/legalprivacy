@@ -360,3 +360,32 @@ def test_during_a_long_session_visits_to_other_sites_of_that_kind_are_rare():
     assert 50 < mean_min < 75                                              # about an hour
     share = sum(1 for g in gaps if g < 600) / len(gaps)
     assert abs(share - 0.15) < 0.03 and abs(-600 / math.log(1 - 0.15) / 60 - 61.6) < 0.5
+
+
+def test_ason_long_sessions_sometimes_are_a_duck_ai_chat():
+    from legalprivacy.transports import Target
+    p = Profile(name="t")
+    assert p.extras.persona == "Ason"
+    r = _app_runner(p, lambda: 0.0)
+    lane = r.lanes[0]
+    modes = set()
+    for _ in range(4000):
+        lane.linger = None
+        r._maybe_linger(lane, "crawl", Target(url="https://example.org/"))
+        if lane.linger and lane.linger["url"] == "https://duck.ai/":
+            modes.add(lane.linger["mode"])
+    assert modes == {"work", "away"}
+    r.profile.extras.persona = "Student"
+    for _ in range(1500):
+        lane.linger = None
+        r._maybe_linger(lane, "crawl", Target(url="https://example.org/"))
+        assert not lane.linger or lane.linger["url"] != "https://duck.ai/"
+
+
+def test_default_persona_skips_celebrity_sites_in_the_popular_draw():
+    import random
+    from legalprivacy.domains import DomainPool, is_entertainment_news
+    assert is_entertainment_news("www.people.com") and not is_entertainment_news("wikipedia.org")
+    pool = DomainPool(random.Random(1))
+    pool.avoid_entertainment = True
+    assert not any(is_entertainment_news(d) for d in pool._ranked())

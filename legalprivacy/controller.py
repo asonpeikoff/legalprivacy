@@ -436,6 +436,7 @@ class Controller:
                           random_share=ml.random_share, my_weights=ml.weights)
         pool.interests, pool.interest_share = self._interests(), self._interest_share()
         pool.site_list = self.profile.extras.site_list
+        pool.avoid_entertainment = self.profile.extras.persona == "Ason"
         return pool
 
     def interests_state(self) -> dict:

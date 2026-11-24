@@ -881,6 +881,10 @@ class Runner:
         now = self.clock()
         return bool(lg and lg["mode"] == "away" and now < lg["until"] and now < lg.get("other_at", math.inf))
 
+    # For the default persona, a share of the long sessions (both kinds) are a chat on duck.ai.
+    DUCK_AI_URL = "https://duck.ai/"
+    DUCK_AI_CHANCE = 0.2
+
     def _away_detour_gap(self) -> float:
         """While stepped away, the odd thing still happens (a mail check, a quick lookup), about every 10-40 min."""
         return self.rng.uniform(600, 2400) * self.profile.realtime_scale
@@ -930,6 +934,9 @@ class Runner:
                 or target.kind != "html" or target.role in ("search", "linger") or eng_name not in ("crawl", "onion")):
             return
         r, now, scale = self.rng.random(), self.clock(), self.profile.realtime_scale
+        if r < 0.11 and eng_name == "crawl" and getattr(ex, "persona", "") == "Ason" \
+                and self.rng.random() < self.DUCK_AI_CHANCE:
+            target = Target(url=self.DUCK_AI_URL, role="linger", note="duck.ai chat")   # the page to come back to
         if r < 0.008:                                  # rare, and shorter than before: mostly continued use
             hours = self.rng.uniform(0.5, 2.0)
             lane.linger = {"mode": "away", "url": target.url, "engine": eng_name,
