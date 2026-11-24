@@ -490,6 +490,10 @@ class Debouncer:
             self._fire()
 
 
+NUDGE_PARTS = (("browser", "Web pages in a real browser"), ("plain", "Web pages over plain HTTP"),
+               ("onion", "Tor .onion sites"), ("phones", "Share that is a phone"))
+
+
 class LiveApply:
     """Debounced save-and-apply. `collect()` runs on the main thread (it reads the controls) and returns
     {"config": partial profile dict, "app": {flags}}; the work then runs in one worker thread:

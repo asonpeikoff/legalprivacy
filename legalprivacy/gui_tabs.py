@@ -88,9 +88,29 @@ class DashboardTab(Tab):
         self.empty = lc.note("No lanes yet. Press Start (F5) and the lanes appear here with their hits and budgets.",
                              pady=(8, 0))
 
+        # Nudge the mix: a few buttons that steer the traffic mix live
+        self.nudge_card = Card(f, app, "Nudge the mix", "act",
+                               help="Each press moves one part of the traffic mix up or down by 10 points and the rest "
+                                    "give or take the difference. It applies live and is saved. Fine control is in "
+                                    "Traffic mix below.")
+        self.nudge_card.grid(row=4, column=0, sticky="ew", pady=(0, GAP))
+        self.nudge_rows: dict = {}
+        for key, label in L.NUDGE_PARTS:
+            r = self.nudge_card.row((4, 0))
+            self.nudge_card.lbl(r, label, False).pack(side="left")
+            plus = app.btn(r, "+", None, "secondary", lambda k=key: self.nudge(k, 1), "More of this")
+            plus.pack(side="right")
+            pct = self.nudge_card.lbl(r, "—", False)
+            pct.configure(width=7, anchor="center")
+            pct.pack(side="right", padx=6)
+            minus = app.btn(r, "\u2212", None, "secondary", lambda k=key: self.nudge(k, -1), "Less of this")
+            minus.pack(side="right")
+            self.nudge_rows[key] = (r, pct, minus, plus)
+        self.nudge_busy = False
+
         # How much noise
         nc = Card(f, app, "How much noise", "set")
-        nc.grid(row=4, column=0, sticky="ew", pady=(0, GAP))
+        nc.grid(row=5, column=0, sticky="ew", pady=(0, GAP))
         self.level = tk.DoubleVar(value=5)
         r = nc.row()
         nc.lbl(r, "How much", False).pack(side="left")
@@ -126,7 +146,7 @@ class DashboardTab(Tab):
         # Traffic mix
         tc = Card(f, app, "Traffic mix", "web", help="Ordinary web noise never goes through Tor; .onion noise always "
                                                       "does, in its own lane.")
-        tc.grid(row=5, column=0, sticky="ew", pady=(0, GAP))
+        tc.grid(row=6, column=0, sticky="ew", pady=(0, GAP))
         tc.note("What kinds of noise run, and how the mix changes over time.")
         tc.heading("How the mix changes")
         self.f_radios(tc, "traffic_pattern", [
@@ -209,9 +229,42 @@ class DashboardTab(Tab):
     def test_hit(self) -> None:
         self.app.work(self.app.ctl.test_once, done=lambda _r: self.app.flash("Sent one test hit; see Activity."))
 
+    def nudge(self, what: str, direction: int) -> None:
+        if self.nudge_busy:
+            return
+        self.nudge_busy = True
+        self._show_nudge(self.app.ctl.mix_status())
+
+        def done(m):
+            self.nudge_busy = False
+            self._show_nudge(m)
+            self.app.flash("Mix nudged" + (" and applied." if self.app.ctl.running else "."))
+
+        def error(exc):
+            self.nudge_busy = False
+            self._show_nudge(self.app.ctl.mix_status())
+            self.app.error("Could not nudge the mix", exc)
+
+        self.app.work(lambda: self.app.ctl.nudge_mix(what, direction), done=done, error=error)
+
+    def _show_nudge(self, m: dict) -> None:
+        for key, (row, pct, minus, plus) in self.nudge_rows.items():
+            if key == "onion":
+                if m["tor"]:
+                    row.pack(fill="x", pady=(4, 0))
+                else:
+                    row.pack_forget()
+                    continue
+            v = m["phones"] if key == "phones" else m["shares"].get(key, 0.0)
+            pct.configure(text=f"{v:g}%")
+            for b, off in ((minus, v <= 0), (plus, v >= 100)):
+                b.configure(state="disabled" if off or self.nudge_busy else "normal")
+
     def update_state(self, st: dict) -> None:
         kind, text = L.run_status(st)
         self.state_var.set(text)
+        if st.get("mix") and not self.nudge_busy:
+            self._show_nudge(st["mix"])
         lanes = st.get("lanes") or []
         hits, fails = sum(x.get("hits", 0) for x in lanes), sum(x.get("failures", 0) for x in lanes)
         self.k_hits.set(f"{hits:,}", " · ".join(f"{L.lane_label(x['name'])} {x.get('hits', 0)}" for x in lanes))

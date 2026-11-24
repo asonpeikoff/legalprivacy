@@ -50,6 +50,14 @@ def make_logo(tk, size: int, bg: str, fg: str):
     return img
 
 
+KONAMI = ["up", "up", "down", "down", "left", "right", "left", "right", "b", "a"]
+
+
+def _egg_file() -> Path:
+    from .paths import app_dir
+    return app_dir() / "logo_egg"
+
+
 def load_logo(tk, name: str, subsample: int = 1):
     """The packaged logo PNG as a PhotoImage (shrunk by an integer factor), or None if it can't be loaded."""
     from .paths import resource_root
@@ -150,11 +158,16 @@ def build_app_class():
             self.logo_small = (load_logo(tk, "logo.png", 1 if self.scale >= 2 else 2)
                                or make_logo(tk, 28 * self.scale, "#1d2733", "#4cc07d"))
             self.logo_alt = load_logo(tk, "logo_alt.png", 1 if self.scale >= 2 else 2)     # shown on every other tab
-            # the main and alternate logos, then the other versions: the header shows the next one on each tab
+            # The header shows a plain wordmark. The Konami code, or seven quick clicks on the logo, swaps it for the
+            # other versions (which then follow the tab and switch when clicked); the Konami code again undoes it.
             sub = 1 if self.scale >= 2 else 2
+            self.logo_trad = load_logo(tk, "logo_trad.png", sub)
             self.logos = [lg for lg in [self.logo_small, self.logo_alt]
                           + [load_logo(tk, f"logo_v{k}.png", sub) for k in range(1, 7)] if lg]
-            self._logo_i = 0
+            self._egg = _egg_file().exists() and bool(self.logo_trad)
+            self._logo_i, self._logo_clicks, self._logo_keys = 0, [], []
+            if self.logo_trad and not self._egg:
+                self.logo_small = self.logo_trad
             self._logo_now = self.logo_small
             try:
                 root.iconphoto(True, self.logo_big)
@@ -247,8 +260,8 @@ def build_app_class():
             hd.columnconfigure(6, weight=1)
             self.logo_lbl = ttk.Label(hd, image=self.logo_small, style="Header.TLabel")
             self.logo_lbl.grid(row=0, column=0, padx=(0, 10))
-            self.logo_lbl.bind("<Button-1>", lambda _e: self._show_logo(self._logo_i + 1))     # click: next version
-            T.tip(self.logo_lbl, "Click to switch the logo")
+            self.logo_lbl.bind("<Button-1>", self._logo_click)
+            r.bind_all("<Key>", self._logo_key, add="+")
             ttk.Label(hd, text=TITLE, style="HeaderH1.TLabel").grid(row=0, column=1, padx=(0, 20))
             self.b_start = self.btn(hd, "Start", "play", "primary", self.do_start, "Start the noise  (F5)")
             self.b_pause = self.btn(hd, "Pause", "pause", "secondary", self.do_pause, "Pause or resume the noise  (F6)")
@@ -340,12 +353,43 @@ def build_app_class():
                 pass
 
         def _show_logo(self, i: int) -> None:
-            logos = getattr(self, "logos", None)
-            if not logos:
+            if not getattr(self, "logo_trad", None):
                 return
-            self._logo_i = i % len(logos)
-            self._logo_now = logos[self._logo_i]
+            if not self._egg:
+                self._logo_now = self.logo_trad
+            else:
+                self._logo_i = i % len(self.logos)
+                self._logo_now = self.logos[self._logo_i]
             self.logo_lbl.configure(image=self._logo_now)
+
+        def _toggle_logo_egg(self) -> None:
+            self._egg = not self._egg
+            f = _egg_file()
+            try:
+                f.parent.mkdir(parents=True, exist_ok=True)
+                f.write_text("1") if self._egg else f.unlink(missing_ok=True)
+            except OSError:
+                pass
+            self._show_logo(0)
+
+        def _logo_click(self, _e=None) -> None:
+            if self._egg:
+                self._show_logo(self._logo_i + 1)
+                return
+            import time as _t
+            now = _t.time()
+            self._logo_clicks = [c for c in self._logo_clicks if now - c < 3.0] + [now]
+            if len(self._logo_clicks) >= 7:
+                self._logo_clicks = []
+                self._toggle_logo_egg()
+
+        def _logo_key(self, e) -> None:
+            if e.widget.winfo_class() in ("Entry", "TEntry", "Text", "TCombobox", "Spinbox", "TSpinbox"):
+                return
+            self._logo_keys = (self._logo_keys + [e.keysym.lower()])[-len(KONAMI):]
+            if self._logo_keys == KONAMI:
+                self._logo_keys = []
+                self._toggle_logo_egg()
 
         def _tab_changed(self) -> None:
             if getattr(self, "_compact_tabs", False):

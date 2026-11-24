@@ -403,3 +403,44 @@ def test_the_traffic_mix_bar_adds_up_to_100_and_saves(tk_app):
     app.pump_for(2.0)
     assert app.ctl.profile.engines[eng.items[0]["key"]].enabled is False
     assert abs(sum(eng.values().values()) - 100) < 0.2
+
+
+def test_logo_easter_egg_needs_something_a_normal_user_would_not_do(tk_app, tmp_path, monkeypatch):
+    from legalprivacy import gui
+    f = tmp_path / "logo_egg"
+    monkeypatch.setattr(gui, "_egg_file", lambda: f)
+    app = tk_app
+    app._egg = False
+    app._show_logo(0)
+    assert app._logo_now is app.logo_trad                       # the plain wordmark by default
+    for _ in range(6):
+        app._logo_click()
+    assert not app._egg                                         # six clicks are nothing special
+    app._logo_click()
+    assert app._egg and f.exists() and app._logo_now is app.logos[0]
+    app._logo_click()
+    assert app._logo_now is app.logos[1]                        # now clicking switches versions
+    app._show_logo(3)
+    assert app._logo_now is app.logos[3]                        # and tabs pick their own
+    app._logo_keys = gui.KONAMI[:-1]
+
+    class Ev:
+        keysym, widget = "a", app.root
+
+    app._logo_key(Ev)                                           # the Konami code undoes it
+    assert not app._egg and not f.exists() and app._logo_now is app.logo_trad
+
+
+def test_nudge_buttons_move_the_mix_and_save_it(tk_app):
+    app = tk_app
+    tab = next(t for t in app.tabs if type(t).__name__ == "DashboardTab")
+    app.ctl.apply_config({"traffic": {"browser": 100, "plain": 0}})
+    tab._show_nudge(app.ctl.mix_status())
+    assert tab.nudge_rows["browser"][1].cget("text") == "100%" and str(tab.nudge_rows["browser"][3].cget("state")) == "disabled"
+    app.work = lambda fn, done=None, error=None: done and done(fn())          # run inline for the test
+    app.flash = lambda *_a, **_k: None
+    tab.nudge("browser", -1)
+    assert tab.nudge_rows["browser"][1].cget("text") == "90%" and tab.nudge_rows["plain"][1].cget("text") == "10%"
+    assert app.ctl.profile.traffic.plain == 10.0 and not tab.nudge_busy
+    tab.nudge("phones", 1)
+    assert tab.nudge_rows["phones"][1].cget("text") == "65%"
