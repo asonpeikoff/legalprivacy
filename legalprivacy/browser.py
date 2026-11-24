@@ -401,6 +401,11 @@ class BrowserTransport(Transport):
             return ctx
         ctx = make()
         ctx.add_init_script(self._NO_POPUPS_JS)
+        try:
+            from . import fingerprint
+            ctx.add_init_script(fingerprint.init_script(fingerprint.seed_state()["seed"]))   # canvas, WebGL, fonts, audio
+        except Exception:
+            pass
         ours = self._our_pages
 
         def _stray(pg):
@@ -571,8 +576,9 @@ class BrowserTransport(Transport):
                 locale=lang, storage_state=self._load_jar(False)))
         page = self._new_tab(ctx)
         if not mobile:
-            (w, h), _ = rng.choices(DESKTOP_VIEWPORTS, weights=[v[1] for v in DESKTOP_VIEWPORTS])[0]
-            vh = h - rng.choice([0, 70, 85, 110])          # browser chrome eats some height
+            from . import fingerprint
+            w, h = fingerprint.window_size(fingerprint.seed_state()["seed"])      # not maximised; steady for hours
+            w += rng.choice([0, 0, 8]); vh = h - 85          # browser chrome eats some height
             try:
                 page.set_viewport_size({"width": w, "height": vh})
             except Exception:

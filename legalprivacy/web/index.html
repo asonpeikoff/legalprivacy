@@ -37,6 +37,7 @@ nav button.on{color:var(--ink);border-bottom-color:var(--acc)}
 nav .badge{background:var(--bad);color:var(--on-bad);border-radius:99px;font-size:11px;padding:0 6px;margin-left:5px}
 main{padding:16px;max-width:1200px;margin:0 auto}
 .tab{display:none}.tab.on{display:block}
+#t-tools.on{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:start}#t-tools .card{margin-bottom:0;padding:10px}#t-tools .card h3{margin-bottom:6px;padding-bottom:4px}@media(max-width:860px){#t-tools.on{grid-template-columns:1fr}}
 .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px}
 .card h3{margin:0 0 8px;font-size:13px;color:var(--mute);text-transform:uppercase;letter-spacing:.04em}
@@ -476,7 +477,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div class="small mute" id="tInstallNote"></div>
     <label class="chk"><input type="checkbox" id="tEnable"><span><b>Use Tor</b> — turn the Tor lane on. Starting noise will automatically start (and if needed, install) Tor.</span></label>
     <label class="chk"><input type="checkbox" id="tOnion"><span><b>🧅 Visit onion sites</b> (darknet noise) — only .onion addresses, never leaves the Tor network.</span></label>
-    <label class="chk"><input type="checkbox" id="tOnionBrowser"><span><b>Use the real Tor Browser for onion visits</b> <span class="mute">(recommended, on) — scrolls, reads and clicks like a person, through this app's Tor, at security level Safest. If it can't start (not installed yet, no display), the plain lane is used and the Live Log says why.</span></span></label>
+    <label class="chk"><input type="checkbox" id="tOnionBrowser"><span><b>Use the real Tor Browser for onion visits</b> <span class="mute">(off by default: it opens a Tor Browser window) — scrolls, reads and clicks like a person, through this app's Tor, at security level Safest. If it can't start (not installed yet, no display), the plain lane is used and the Live Log says why.</span></span></label>
     <label class="chk"><input type="checkbox" id="tManage"><span><b>Let legalPrivacy manage Tor</b> (recommended, default). Untick to use an existing Tor at the address below instead.</span></label>
     <div class="row" id="tExt" style="display:none">SOCKS <input type="text" id="tSocks" size="16"> Control <input type="text" id="tCtl" size="16"></div>
     <div class="row"><button id="tSave" style="display:none" class="pri">Save Tor settings</button><span class="small mute" id="tSaved"></span></div>

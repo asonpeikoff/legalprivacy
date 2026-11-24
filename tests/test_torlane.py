@@ -111,9 +111,31 @@ def test_the_lane_is_only_used_when_everything_it_needs_is_there(tmp_path, monke
     monkeypatch.setenv("HOME", str(tmp_path))
     c = Controller(str(tmp_path / "p.yaml"))
     c.apply_config({"transports": {"tor": {"enabled": True}}})
+    assert c._tor_cfg().onion_browser is False                              # it opens a window: only when switched on
+    assert c._tor_lane_transport(__import__("threading").Event()) is None
+    c.apply_config({"transports": {"tor": {"onion_browser": True}}})
     monkeypatch.setattr(torlane, "support", lambda: (False, "Tor Browser isn't installed yet"))
     assert c._tor_lane_transport(__import__("threading").Event()) is None   # plain lane, with the reason in the log
     monkeypatch.setattr(torlane, "support", lambda: (True, "/x/firefox"))
     assert isinstance(c._tor_lane_transport(__import__("threading").Event()), torlane.TorBrowserTransport)
     c.apply_config({"transports": {"tor": {"onion_browser": False}}})
     assert c._tor_lane_transport(__import__("threading").Event()) is None   # switched off
+
+
+def test_fingerprint_seed_lasts_hours_and_window_is_never_maximised(tmp_path, monkeypatch):
+    from legalprivacy import fingerprint as fp
+    monkeypatch.setattr(fp, "app_dir", lambda: tmp_path)
+    a = fp.seed_state(now=1000.0)
+    assert fp.seed_state(now=1000.0 + 7 * 3600) == a                        # steady for at least 8 hours
+    assert fp.seed_state(now=1000.0 + 25 * 3600)["seed"] != a["seed"]       # then it rotates
+    assert fp.profile(a["seed"]) == fp.profile(a["seed"]) and "getImageData" in fp.init_script(a["seed"])
+    for seed in range(50):
+        w, h = fp.window_size(seed, (1920, 1080))
+        assert w < 1920 and h < 1080 and w >= 800
+
+
+def test_tor_browser_start_up_file_turns_custom_security_off(tmp_path):
+    from legalprivacy import torbrowser as TB
+    TB.customize(tmp_path)
+    uj = (tmp_path / "Browser/TorBrowser/Data/Browser/profile.default/user.js").read_text()
+    assert 'security_slider", 1' in uj and 'security_custom", false' in uj
