@@ -49,7 +49,7 @@ def wipe_old_log_files() -> None:
             pass
 
 
-APP_DEFAULTS = {"migrated_ason": False, "migrated_share": False, "migrated_tb_lane": False, "observe": True, "update_check": True, "autostart": True, "open_browser": True, "port": 8765, "intensity": "normal",
+APP_DEFAULTS = {"migrated_ason": False, "migrated_share": False, "migrated_tb_lane": False, "migrated_cookie_day": False, "observe": True, "update_check": True, "autostart": True, "open_browser": True, "port": 8765, "intensity": "normal",
                 "auto_refresh_sources": False,   # off: use the snapshot shipped with the app (no lookups)
                 "ml_auto": False, "ml_history": [],
                 "clear_logs_on_restart": True,   # on start, clear Live Log and Activity entries older than…
@@ -166,6 +166,11 @@ class Controller:
             if not self.app.get("migrated_defaults_v3"):
                 self._moved_defaults = move_old_defaults(self.profile)
                 self.app["migrated_defaults_v3"] = True
+            if not self.app.get("migrated_cookie_day"):
+                cl = self.profile.transports.get("clearnet")
+                if cl is not None and cl.cookie_hours == 1.0:
+                    cl.cookie_hours = 24.0                 # the old default: a returning visitor keeps its cookies for a day now
+                self.app["migrated_cookie_day"] = True
             if not self.app.get("migrated_tb_lane"):
                 tor = self.profile.transports.get("tor")
                 if tor is not None:
@@ -1585,6 +1590,18 @@ class Controller:
                 add(f"Python library: {lib}", "ok", "installed")
             except ImportError:
                 add(f"Python library: {lib}", "fail", "missing — reinstall legalPrivacy")
+        try:
+            import random as _r
+            from .fingerprint_audit import audit_identity
+            from .identity import make_identity
+            rng, bad = _r.Random(0), []
+            for k in range(300):
+                bad += audit_identity(make_identity(rng, k, []))
+            add("Identity consistency", "ok" if not bad else "warn",
+                "300 sample identities checked: user agent, platform, client hints and language all agree" if not bad
+                else f"{len(bad)} contradictions in 300 sample identities, for example: {bad[0]}")
+        except Exception as exc:
+            add("Identity consistency", "info", f"not checked ({exc})")
         wl = next((e.wordlist for e in self.profile.engines.values() if e.enabled and e.wordlist), None)
         if wl:
             path = resolve_resource(wl)

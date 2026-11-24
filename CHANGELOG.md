@@ -14,8 +14,9 @@
 - "Speed" is now **Time compression (testing only)**: 2x = waits half as long. It never changed how much noise an hour.
 - **Google sign-in** uses the sign-in you already have in your own Firefox when there is one (no window). The sign-in window no longer reloads every second (it read the whole browser state each second).
 - Header logo fades on its own through the traditional versions (unless one is picked in Settings); the Easter-egg set fades the same way, purple first, then green, pink and yellow, poses in order. "Run checks" is at the top of Proof.
-
-
+- **Returning-visitor state**: the noise browser now keeps its cookies for a day by default (was an hour; saved settings that still had the old default move over once), so consent choices and "returning visitor" state persist like a real user's. Each jar still lives 60-140% of that, so wipes are not on a fixed beat. Not done: a warm HTTP cache across sessions.
+- **Identity changes are random and more frequent**: a new identity (and, on Tor, a new circuit and fresh browser) now comes after a random number of visits drawn each time (usually a handful, sometimes more; about 40% of the old fixed 8 or 10 at the median) instead of every Nth visit exactly.
+- **Identity consistency auditor** (`fingerprint_audit.py`): checks that user agent, platform, mobile flag, client hints, language order and window shape agree, the contradictions bot detection looks for. Health shows the result for 300 sample identities (none found).
 - Tools: a local **password and passphrase generator** (secure random numbers in the page; nothing sent or saved). The hard panic also deletes the browser lane's fingerprint seed.
 - **Logos, sorted**: the header logo now has two sets. Traditional (no character): a "Logo" picker in Settings with 7 more (pop colours, pop shadowed, art deco, painted, rope red/blue, rope blue, terminal). Easter egg (with the character): 15 more plus an animated green one, in order by colour (green, purple, pink, yellow) and pose (on her back, on her front, kneeling, wink, from behind). The egg is now **three quick clicks on the logo** (or the Konami code); the same again turns it off.
 - Dashboard menu is a **side menu**: four collapsible groups (Monitor, Privacy, Learn, App), collapsible to icons; on narrow screens it stays a top bar. Tools cards are two compact columns with a hover lift.
