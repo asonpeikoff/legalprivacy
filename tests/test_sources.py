@@ -121,3 +121,13 @@ def test_shipped_snapshot_works_offline_without_fetching():
     st.refresh()                                  # not forced: snapshot is fresh, nothing fetched
     assert calls == [] and not st.path.exists()
     assert all(s["origin"] == "shipped snapshot" for s in st.status())
+
+
+def test_the_header_logo_has_a_dozen_versions_to_rotate_through():
+    import re
+    from pathlib import Path
+    web = Path(__file__).resolve().parent.parent / "legalprivacy" / "web"
+    html = (web / "index.html").read_text(encoding="utf-8")
+    assert len(re.findall(r'<img[^>]*src="data:image/webp;base64,', html.split('class="logos"', 1)[1].split("</span>", 1)[0])) == 8
+    assert all((web / f"logo_v{k}.png").exists() for k in range(1, 7))
+    assert "show(k%a.length)" in html
