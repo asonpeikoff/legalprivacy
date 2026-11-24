@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v2.17.0
 
 - **Fix: Tor Browser opened from the app could not load any page.** The app started it with `TOR_TRANSPROXY=0`, but Tor Browser only checks that the variable exists; it then switches its own proxy off (no SOCKS address at all) and every page fails. Reproduced and fixed on a real Tor Browser 16.0.3: it now ends up with SOCKS on this app's Tor, Safest security level and the 37 onion bookmarks on its toolbar.
 - Health tab (and a banner on the Dashboard) now strongly recommend Tor bridges and Tor DNS when Tor is on, and say how your own lookups can be kept private (encrypted DNS in your browser or system, or Tor DNS); each recommendation has a one-click fix (built-in obfs4 bridges, Tor DNS on, DNS noise back to Mix, or switching Tor on). Fixes apply to saved settings; restart Tor to apply.
