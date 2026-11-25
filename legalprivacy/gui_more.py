@@ -724,7 +724,7 @@ class HelpTab(Tab):
                                        "and is a deliberate, narrow use of exits for DNS only) and Contribute to Tor: run a "
                                        "relay (a middle relay or bridge as a separate Tor program; start with Practice mode, "
                                        "which publishes nothing). A relay is not an exit and does not provide DNS."),
-                ("Antivirus (optional).", "The Security tab manages the ClamAV you installed yourself, offline-first. Only "
+                ("Antivirus (optional).", "The Antivirus tab manages the ClamAV you installed yourself, offline-first. Only "
                                           "freshclam, the signature updater, ever contacts the internet, and only when you press "
                                           "Update and confirm. Scans use clamscan with this app's own signature folder, with "
                                           "the network removed where the system allows (Linux) and the scanner watched for any "

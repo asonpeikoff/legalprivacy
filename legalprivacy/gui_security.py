@@ -38,7 +38,7 @@ def verdict_of(last: dict | None) -> tuple[str, str]:
 
 
 class SecurityTab(Tab):
-    title, icon = "Security", "scan"
+    title, icon = "Antivirus", "scan"
 
     def __init__(self, nb, app):
         super().__init__(nb, app)
@@ -187,7 +187,7 @@ class SecurityTab(Tab):
 
     def _act(self, action: str, body: dict | None = None) -> None:
         self.app.work(lambda: self.app.ctl.av_action(action, body or {}), self._got,
-                      lambda e: self.app.error("Security", e))
+                      lambda e: self.app.error("Antivirus", e))
 
     def _later(self) -> None:
         if self._poll_job is not None:

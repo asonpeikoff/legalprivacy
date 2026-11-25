@@ -138,7 +138,7 @@ def build_checks(f: dict[str, Any]) -> list[dict]:
         want = "0 connections during scans"
         if av.get("connections") is None or av.get("when") is None:
             out.append(_c("av", "Antivirus scanner stays offline", want, "No scan yet", "unknown",
-                          "Run a scan or the self-test on the Security tab."))
+                          "Run a scan or the self-test on the Antivirus tab."))
         elif av["connections"] == 0:
             how = "network removed" if av.get("isolated") else "connections watched"
             out.append(_c("av", "Antivirus scanner stays offline", want,
