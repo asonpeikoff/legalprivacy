@@ -988,9 +988,27 @@ class Runner:
             else:
                 note = "still working on the same page"
                 lg["next_at"] = now + self.rng.uniform(120, 600) * scale
+            ex = getattr(self.profile, "extras", None)
+            if lg.get("chat") and ex is not None and getattr(ex, "duck_chat", False) and lg.get("chats", 0) < 2 \
+                    and self.rng.random() < (0.9 if not lg.get("chats") else 0.3):
+                from .narrative import chat_script
+                lg["chats"] = lg.get("chats", 0) + 1
+                topic = self._chat_topic()
+                return lane, lg["engine"], Target(url=lg["url"], timeout=60.0, note=f"chat about {topic}", role="chat",
+                                                  script=chat_script(self.rng, topic), accept_terms=True)
             return lane, lg["engine"], Target(url=lg["url"], timeout=60.0 if lg["engine"] == "onion" else 25.0,
                                               note=note, role="linger", dwell=self.rng.uniform(60, 300) * scale)
         return None
+
+    def _chat_topic(self) -> str:
+        """What a made-up chat is about: a topic from the same sources as the searches, so a person's day hangs together."""
+        if self.queries is not None:
+            try:
+                return self.queries.next(None)[0]
+            except Exception:
+                pass
+        from .queries import BUILTIN_TOPICS
+        return self.rng.choice(BUILTIN_TOPICS)
 
     def _maybe_linger(self, lane: Lane, eng_name: str, target: Target) -> None:
         """Now and then a page becomes something you work on for a long time, or leave open for hours."""
@@ -999,13 +1017,15 @@ class Runner:
                 or target.kind != "html" or target.role in ("search", "linger") or eng_name not in ("crawl", "onion")):
             return
         r, now, scale = self.rng.random(), self.clock(), self.profile.realtime_scale
+        chat = False
         if r < 0.11 and eng_name == "crawl" and getattr(ex, "persona", "") == "Default mix" \
                 and self.rng.random() < self.DUCK_AI_CHANCE:
             target = Target(url=self.DUCK_AI_URL, role="linger", note="duck.ai chat")   # the page to come back to
+            chat = True
         if r < 0.008:                                  # rare, and shorter than before: mostly continued use
             hours = self.rng.uniform(0.5, 2.0)
             excl = self._exclusive()
-            lane.linger = {"mode": "away", "url": target.url, "engine": eng_name, "exclusive": excl,
+            lane.linger = {"mode": "away", "url": target.url, "engine": eng_name, "exclusive": excl, "chat": chat,
                            "until": now + hours * 3600 * scale, "next_at": 0.0,
                            "other_at": now + self._away_detour_gap()}
             self._emit("info", lane.name, f"Long session: left a page open for about {hours:.1f} h to come back to "
@@ -1014,7 +1034,7 @@ class Runner:
         elif r < 0.11:
             minutes = min(180.0, max(15.0, self.rng.lognormvariate(3.7, 0.6)))    # typically ~40 minutes
             excl = self._exclusive()
-            lane.linger = {"mode": "work", "url": target.url, "engine": eng_name, "exclusive": excl,
+            lane.linger = {"mode": "work", "url": target.url, "engine": eng_name, "exclusive": excl, "chat": chat,
                            "until": now + minutes * 60 * scale, "next_at": now + self.rng.uniform(120, 600) * scale,
                            "other_at": now + self._other_site_gap()}
             self._emit("info", lane.name, f"Long session: keeps coming back to the same page for about "

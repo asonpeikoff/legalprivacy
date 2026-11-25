@@ -688,6 +688,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div class="row">from <select id="eFrom"></select> to <select id="eTo"></select> <span class="small mute">your local time</span></div>
     <label class="chk"><input type="checkbox" id="eDns"><span><b>Look sites up like a browser does</b> <span class="mute">(recommended, on) — also asks for IPv6 (AAAA) and HTTPS records, not just the address</span></span></label>
     <label class="chk"><input type="checkbox" id="eDnsBurst"><span><b>Follow lookups with a page's burst of lookups</b> <span class="mute">(recommended, on) — a real page load asks for its fonts, scripts and other sites a few tens of milliseconds apart; single lookups on their own look unlike that</span></span></label>
+    <label class="chk"><input type="checkbox" id="eDuckChat"><span><b>Chat noise on duck.ai</b> <span class="mute">(off by default) — now and then, in a long session, the real-browser lane has a short made-up chat there: one topic, one to four messages of different lengths, typed like a person, with its reply read. The questions come from the same topics as the searches and never from you. <b>Switching this on accepts duck.ai's terms screen for you</b> (its Privacy Policy and Terms of Service), and duck.ai may limit or block automated use.</span></span></label>
     <label class="chk"><input type="checkbox" id="eLong"><span><b>Long sessions</b> <span class="mute">(on by default) — now and then the noise keeps going back to one page for half an hour or more, or leaves it open for a few hours as if you stepped away, then comes back to it. People do this with things they care about.</span></span></label>
     <label class="chk"><input type="checkbox" id="eTypos"><span><b>More typos in searches</b> <span class="mute">(off by default) — a few searches always have a small slip; this makes it about 1 in 9</span></span></label>
     <label class="chk"><input type="checkbox" id="ePolite"><span><b>Polite mode</b> <span class="mute">(off by default) — never the same site twice within a minute</span></span></label>
@@ -1793,7 +1794,7 @@ function fillSettings(force){
   $('#sClear').checked=p.transports.clearnet.enabled;loadUA();
   const ex=p.extras||{};const hrs=[...Array(24).keys()].map(h=>`<option value="${h}">${h12(h)}</option>`).join('');
   $('#eFrom').innerHTML=hrs;$('#eTo').innerHTML=hrs;$('#eFrom').value=ex.active_from??8;$('#eTo').value=ex.active_to??23;
-  $('#eHours').checked=!!ex.active_hours;$('#eDns').checked=ex.browser_dns!==false;$('#eDnsBurst').checked=ex.dns_bursts!==false;$('#eTypos').checked=!!ex.typos;$('#eLong').checked=ex.long_sessions!==false;
+  $('#eHours').checked=!!ex.active_hours;$('#eDuckChat').checked=!!ex.duck_chat;$('#eDns').checked=ex.browser_dns!==false;$('#eDnsBurst').checked=ex.dns_bursts!==false;$('#eTypos').checked=!!ex.typos;$('#eLong').checked=ex.long_sessions!==false;
   $('#ePolite').checked=!!ex.polite;$('#eLow').checked=!!ex.low_data;$('#eCap').value=ex.daily_data_mb||0;
   renderEngines(ex.search_engines||{});
   $('#ePkg').value=ex.packages||'auto';
@@ -1846,7 +1847,7 @@ async function saveSettings(auto){
       traffic:{pattern:(document.querySelector('input[name=xpat]:checked')||{}).value||'drift',...(()=>{const m=window._trMix.values();return {browser:m.browser,plain:m.plain,onion:m.onion??window._trOnion}})(),
                mobile_share:parseInt($('#xMobile').value||0)/100,device:$('#xDevice').value},
       extras:{active_hours:$('#eHours').checked,active_from:parseInt($('#eFrom').value),active_to:parseInt($('#eTo').value),
-              browser_dns:$('#eDns').checked,dns_bursts:$('#eDnsBurst').checked,typos:$('#eTypos').checked,long_sessions:$('#eLong').checked,polite:$('#ePolite').checked,low_data:$('#eLow').checked,
+              browser_dns:$('#eDns').checked,duck_chat:$('#eDuckChat').checked,dns_bursts:$('#eDnsBurst').checked,typos:$('#eTypos').checked,long_sessions:$('#eLong').checked,polite:$('#ePolite').checked,low_data:$('#eLow').checked,
               daily_data_mb:parseFloat($('#eCap').value||0),search_engines:engWeights(),
               interests:$('#iOn').checked,interest_active:parseInt($('#iN').value||3),interest_rotate_days:parseInt($('#iDays').value||10),
               interest_share:parseInt($('#iShare').value||30)/100,
