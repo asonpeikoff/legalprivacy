@@ -226,6 +226,8 @@ class UIServer:
                         return self._json(ctl.leak_runner().state())
                     if u.path == "/api/relay":
                         return self._json(ctl.relay_state())
+                    if u.path == "/api/remote":
+                        return self._json(ctl.remote_state())
                     if u.path == "/api/tor/dns/addresses":
                         return self._json(ctl.tor_dns_addresses())
                     if u.path == "/api/tools/resolvers":
@@ -347,6 +349,9 @@ class UIServer:
                         return self._json(ctl.relay_start(body))
                     elif path == "/api/relay/stop":
                         return self._json(ctl.relay_stop())
+                    elif path.startswith("/api/remote/") and path[12:] in (
+                            "add", "test", "trust", "forget_key", "configure", "start", "stop", "remove"):
+                        return self._json(getattr(ctl, "remote_" + path[12:])(body))
                     elif path.startswith("/api/tor/"):
                         return self._json(ctl.tor_action(path.rsplit("/", 1)[1]))
                     elif path == "/api/config":

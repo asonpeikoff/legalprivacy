@@ -27,6 +27,7 @@ cricket-launch = "legalprivacy.launcher:main"
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
 desktop = ["pywebview>=5"]          # native window for the dashboard (legalprivacy-desktop)
+remote = ["paramiko>=3.4"]          # run the noise on other computers you own, over SSH (the Remote tab)
 parity = ["brotli>=1.1", "zstandard>=0.22"]   # lets the plain-HTTP lane read and advertise br and zstd like a current browser
 
 [project.urls]

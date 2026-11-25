@@ -345,10 +345,14 @@ def tk_app(tmp_path, monkeypatch):
         pass
 
 
+def _tab(app, title):
+    return next(t for t in app.tabs if t.title == title)
+
+
 def test_window_builds_polls_and_saves_a_change(tk_app):
     app = tk_app
     app.pump_for(1.6)
-    assert [t.title for t in app.tabs] == ["Dashboard", "Activity", "Live Log", "Tor", "Settings", "My List", "ML",
+    assert [t.title for t in app.tabs] == ["Dashboard", "Activity", "Live Log", "Tor", "Remote", "Settings", "My List", "ML",
                                            "Proof", "Security", "Tools", "Health", "Help"]
     assert app.state.get("version") and app.status_var.get() == "Stopped"
     assert str(app.b_start.cget("state")) != "disabled" and "disabled" in app.b_stop.state()
@@ -360,7 +364,7 @@ def test_window_builds_polls_and_saves_a_change(tk_app):
     app.pump_for(2.0)
     assert app.ctl.profile.rate.level == 9.0
     assert "Start" in app.apply_var.get() or "Live" in app.apply_var.get()
-    app.tabs[4].load({"dns_mode": "system"})            # setting a control saves it like a click would
+    _tab(app, "Settings").load({"dns_mode": "system"})            # setting a control saves it like a click would
     app.pump_for(2.0)
     assert app.ctl.profile.dns.mode == "system"
     # the log tab got the start-up lines; dark mode switches without error
@@ -368,10 +372,10 @@ def test_window_builds_polls_and_saves_a_change(tk_app):
     app.set_theme("dark")
     app.set_theme("light")
     # proof tab renders the checks and the three charts from real controller data
-    app.nb.select(7)
+    app.nb.select(app.tabs.index(_tab(app, "Proof")))
     app.pump_for(3.0)
-    assert app.tabs[7].headline.get()
-    assert app.tabs[7].verdicts["intended"].get().startswith("Reads as")
+    assert _tab(app, "Proof").headline.get()
+    assert _tab(app, "Proof").verdicts["intended"].get().startswith("Reads as")
 
 
 def test_every_tab_opens_and_the_controls_match_the_profile(tk_app):

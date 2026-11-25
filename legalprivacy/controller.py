@@ -130,6 +130,8 @@ class Controller:
         self._feed_timer_started = False
         from .relayrun import RelayManager
         self.relay = RelayManager(self.log)        # optional relay: its own Tor process, practice mode unless set up
+        from .remoterun import RemoteManager
+        self.remote = RemoteManager(self.log, pools=self._remote_pools)   # other computers you own, over SSH
         from .torbrowser import TorBrowserManager
         self.torbrowser = TorBrowserManager(self.log)   # Tor Browser for your own use: separate from the noise
         from .accounts import AccountsManager
@@ -1042,6 +1044,61 @@ class Controller:
         self.relay.stop()
         return self.relay_state()
 
+    # ── remote machines (noise from other computers you own, over SSH) ───────
+    def _remote_pools(self, rng, os_name: str = "Linux") -> dict:
+        """What one remote machine draws from: a fresh random slice of sites, searches and browser identities."""
+        from .domains import DomainPool, looks_browsable
+        from .queries import QueryConfig, QuerySource
+        from .useragents import build_pool
+        sites = [d for d in DomainPool(rng, self.feeds)._ranked()[:6000] if looks_browsable(d)]
+        rng.shuffle(sites)
+        qs = QuerySource(rng, self.feeds, QueryConfig())
+        queries: list[str] = []
+        for _ in range(400):
+            try:
+                q = qs.next()[0]
+            except Exception:
+                break
+            if q not in queries:
+                queries.append(q)
+        plat = {"Darwin": "macOS", "Windows": "Windows"}.get(os_name, "Linux")
+        uas = [e["ua"] for key in ("desktop-firefox", "desktop-chrome") for e in build_pool().get(key, [])
+               if e["platform"] == plat]
+        return {"domains": sites[:600], "queries": queries, "user_agents": uas}
+
+    def remote_state(self) -> dict:
+        return self.remote.snapshot()
+
+    def remote_add(self, body: dict) -> dict:
+        return self.remote.add(
+            target=str(body.get("target") or ""), auth=str(body.get("auth") or "password"),
+            password=body.get("password") or None, key_path=body.get("key_path") or None,
+            passphrase=body.get("passphrase") or None, label=str(body.get("label") or ""),
+            authorised=bool(body.get("authorised")), settings=body.get("settings"))
+
+    def remote_test(self, body: dict) -> dict:
+        return self.remote.test(str(body.get("id") or ""), body.get("password") or None, body.get("passphrase") or None)
+
+    def remote_trust(self, body: dict) -> dict:
+        return self.remote.trust(str(body.get("id") or ""), str(body.get("fingerprint") or ""))
+
+    def remote_forget_key(self, body: dict) -> dict:
+        return self.remote.forget_key(str(body.get("id") or ""))
+
+    def remote_configure(self, body: dict) -> dict:
+        return self.remote.configure(str(body.get("id") or ""), body.get("settings") or {})
+
+    def remote_start(self, body: dict) -> dict:
+        return self.remote.start(str(body.get("id") or ""), body.get("password") or None,
+                                 body.get("passphrase") or None, body.get("fingerprint") or None)
+
+    def remote_stop(self, body: dict) -> dict:
+        return self.remote.stop(str(body.get("id") or ""))
+
+    def remote_remove(self, body: dict) -> dict:
+        return self.remote.remove(str(body.get("id") or ""), bool(body.get("wipe", True)),
+                                  body.get("password") or None, body.get("passphrase") or None)
+
     def relay_autostart(self) -> None:
         """Called once when the app opens. Starts the relay if 'start with the app' is on (the default). Out of the
         box that is practice mode: loopback only, nothing published. A public relay starts only after its
@@ -1367,6 +1424,9 @@ class Controller:
         if self.relay.running:
             self.relay.stop()
             done.append("relay stopped")
+        if any(m.running for m in self.remote.machines.values()):
+            self.remote.stop_all()
+            done.append("remote machines stopped")
         if level in ("medium", "hard"):
             self.log.clear()
             done.append("log cleared")
@@ -1487,6 +1547,7 @@ class Controller:
             self.tor.stop()
         if stop_tor:
             self.relay.stop()                     # quitting the app also stops the relay
+            self.remote.stop_all()                # ...and the noise on remote machines
         wipe_old_log_files()                      # the log itself lives in memory and ends with the app
 
     def pause(self, paused: bool) -> None:
