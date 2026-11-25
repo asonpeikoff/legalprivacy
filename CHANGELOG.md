@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Second tab (real-browser lane)**: about one desktop visit in eight (not on search pages) opens a link of the same site in a second tab while the first is read, then looks at it for a few seconds and closes it, so loads overlap like a real person's. Setting: `extras.multi_tab` (on by default). Not done: Tor Browser's lane (one tab) and phone identities.
 - **My List from your own recording**: a "From my imported recording" button (web and desktop) fills My List from the browser recording (HAR) you imported on the Proof tab, with the same pick-and-add screen as the history scan, so the sites the noise returns to match how often you return to yours. Needs an imported recording; the history scan still works without one.
 - **Relay: "another Tor process is running with the same data directory" fixed.** A relay left running by an earlier run (the app was killed or crashed) held the data folder's lock, so every new start exited with code 1. Starting now stops that leftover relay first; if the holder is another running legalPrivacy window or another program, the message says so instead.
 - **Returning-visitor state**: the noise browser now keeps its cookies for a day by default (was an hour; saved settings that still had the old default move over once), so consent choices and "returning visitor" state persist like a real user's. Each jar still lives 60-140% of that, so wipes are not on a fixed beat. Not done: a warm HTTP cache across sessions.

@@ -34,6 +34,7 @@ from .humanize import HumanDriver, lognormal_clipped
 from .transports import ClearnetTransport, HitResult, Target, Transport
 from .paths import getenv
 
+MULTI_TAB = True        # set from Settings (extras.multi_tab)
 DESKTOP_VIEWPORTS = [((1920, 1080), 30), ((1536, 864), 14), ((1366, 768), 12), ((1440, 900), 9),
                      ((1280, 720), 8), ((2560, 1440), 7), ((1600, 900), 6), ((1280, 800), 5)]
 MOBILE_VIEWPORTS = [((390, 844), 3.0, 30), ((412, 915), 2.625, 25), ((393, 873), 2.75, 20), ((360, 800), 3.0, 15)]
@@ -680,10 +681,17 @@ class BrowserTransport(Transport):
                 except Exception:
                     probe = [0, ""]
                 walled = looks_like_login_wall(page.url, title, probe[1], password_fields=probe[0])
-            if walled or foreign:     # needs an account, or not in English: a quick glance, then elsewhere
-                stats = driver.browse(dwell=self.rng.uniform(2, 6))
-            else:
-                stats = driver.serp() if target.role == "search" else driver.browse()
+            side = None
+            if not (walled or foreign) and target.role != "search":
+                side = self._open_side_tab(page, mobile)            # now and then a link is opened in a second tab, as people do
+            try:
+                if walled or foreign:     # needs an account, or not in English: a quick glance, then elsewhere
+                    stats = driver.browse(dwell=self.rng.uniform(2, 6))
+                else:
+                    stats = driver.serp() if target.role == "search" else driver.browse()
+            finally:
+                if side is not None:
+                    self._glance_and_close(side, page, mobile)
             downloaded = None if walled or foreign else (self._maybe_download(page) or self._maybe_save_image(page))
             s["last_url"] = page.url
             s["on_serp"] = target.role == "search"
@@ -721,6 +729,38 @@ class BrowserTransport(Transport):
                 self._sessions.pop(getattr(identity, "id", 0), None)
                 self._contexts = {k: c for k, c in self._contexts.items() if c is not s.get("ctx")}
             return HitResult(None, error=msg)
+
+    def _open_side_tab(self, page, mobile: bool):
+        """About one visit in eight on a desktop: open a link of this page in a second tab (it loads while you read the first)."""
+        if mobile or not MULTI_TAB or self.rng.random() > 0.12:
+            return None
+        try:
+            hrefs = page.evaluate(
+                "() => [...document.querySelectorAll('a[href]')].filter(a => a.offsetParent && a.origin === location.origin"
+                " && a.pathname !== location.pathname && !a.hasAttribute('download')).map(a => a.href).slice(0, 40)")
+            if not hrefs:
+                return None
+            side = self._new_tab(page.context)
+            side.goto(self.rng.choice(hrefs), referer=page.url, wait_until="domcontentloaded", timeout=15000)
+            page.bring_to_front()
+            return side
+        except Exception:
+            return None
+
+    def _glance_and_close(self, side, page, mobile: bool) -> None:
+        """Switch to the second tab, look at it for a few seconds, close it and go back to the first."""
+        try:
+            side.bring_to_front()
+            HumanDriver(self.rng, PlaywrightActuator(side, mobile, self.stop_event, None),
+                        scale=self.scale()).browse(dwell=self.rng.uniform(3, 9))
+        except Exception:
+            pass
+        finally:
+            try:
+                side.close()
+                page.bring_to_front()
+            except Exception:
+                pass
 
     def _click_through(self, page, driver: HumanDriver, target: Target, mobile: bool):
         """Find the result's link on the results page and click (or tap) it like a person."""
