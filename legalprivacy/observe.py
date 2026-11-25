@@ -336,16 +336,20 @@ class TrafficObserver:
         return out
 
     # ── automatic correction ───────────────────────────────────────────────
-    def hour_gains(self, min_minutes: int = 20) -> dict[int, float]:
+    def hour_gains(self, min_minutes: int = 20, kind: str | None = None) -> dict[int, float]:
         """How much more (or less) noise to plan in each hour of the day so the traffic an observer sees, yours plus the
         noise, is about as busy at every hour as your busy hours are. In an hour when you are rarely here the noise gets
         up to twice its normal share; in hours when you are busy it eases to about half. Needs `min_minutes` of recorded
-        minutes in an hour; other hours stay at 1."""
+        minutes in an hour; other hours stay at 1. `kind` "weekday" (Mon-Fri) or "weekend" (Sat-Sun) uses only those days,
+        for people whose week has a rhythm (the record is kept for 7 days); None uses every day."""
         with self._lock:
             rows = [(t, (len(m["you"]) if isinstance(m["you"], set) else m["you"])) for t, m in self.minutes.items()]
         by_hour: dict[int, list[float]] = {}
         for t, n in rows:
-            by_hour.setdefault(time.localtime(t).tm_hour, []).append(float(n))
+            lt = time.localtime(t)
+            if kind is not None and (lt.tm_wday >= 5) != (kind == "weekend"):
+                continue
+            by_hour.setdefault(lt.tm_hour, []).append(float(n))
         means = {h: sum(v) / len(v) for h, v in by_hour.items() if len(v) >= min_minutes}
         if len(means) < 4:
             return {}
@@ -355,17 +359,30 @@ class TrafficObserver:
             return {}
         return {h: round(min(2.0, max(0.5, 1.0 + (target - m) / target)), 2) for h, m in means.items()}
 
-    def hour_gain(self, hour: int) -> float:
+    def _today_kind(self) -> str:
+        return "weekend" if time.localtime(self.clock()).tm_wday >= 5 else "weekday"
+
+    def _gains_now(self) -> tuple[str, dict[int, float]]:
+        """(which record the gains come from, gains): today's kind of day (weekday or weekend) once there are enough hours of
+        it recorded, otherwise every day together. Cached for ten minutes."""
         now = self.clock()
+        kind = self._today_kind()
         cache = getattr(self, "_gain_cache", None)
-        if cache is None or now - cache[0] > 600:
-            cache = self._gain_cache = (now, self.hour_gains())
-        return cache[1].get(int(hour), 1.0)
+        if cache is None or now - cache[0] > 600 or cache[1] != kind:
+            g = self.hour_gains(kind=kind)
+            label = kind
+            if not g:
+                g, label = self.hour_gains(), "all days"
+            cache = self._gain_cache = (now, kind, label, g)
+        return cache[2], cache[3]
+
+    def hour_gain(self, hour: int) -> float:
+        return self._gains_now()[1].get(int(hour), 1.0)
 
     def correction(self) -> dict:
-        g = self.hour_gains()
+        label, g = self._gains_now()
         moves = sorted(((h, v) for h, v in g.items() if abs(v - 1.0) >= 0.1), key=lambda x: -abs(x[1] - 1.0))
-        return {"active": bool(moves), "hours": [{"hour": h, "gain": v} for h, v in sorted(moves)[:24]]}
+        return {"active": bool(moves), "basis": label, "hours": [{"hour": h, "gain": v} for h, v in sorted(moves)[:24]]}
 
     def onoff(self) -> dict:
         """Average per-minute picture for minutes with the noise off vs on (last 24 h)."""
