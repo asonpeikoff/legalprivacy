@@ -123,3 +123,16 @@ def test_network_tools_report_errors_without_crashing_and_leak_check_has_shape()
     leak = dns_leak_check(["9.9.9.9"])
     assert {"resolvers", "sample_lookup", "external_test"} <= set(leak)
 
+
+
+def test_my_list_can_be_filled_from_the_imported_recording():
+    c = _ctl()
+    c.har.load = lambda: {"top_hosts": [["www.example.com", 40], ["example.com", 5], ["news.example.org", 12]], "entries": 57}
+    r = c.mylist_from_recording()
+    assert r["sites"][0] == ["example.com", 45] and ["news.example.org", 12] in r["sites"]
+    c.har.load = lambda: None
+    try:
+        c.mylist_from_recording()
+        raise AssertionError("expected ConfigError")
+    except ConfigError:
+        pass

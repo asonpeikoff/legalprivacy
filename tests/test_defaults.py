@@ -202,3 +202,14 @@ def test_background_amounts_sit_outside_the_activity_mix():
     out = F.build_config_payload({"engines_mix": {"search": 75, "crawl": 25}, "dns_amount": "5", "pkg_amount": "0"})
     assert out["engines"]["dns"] == {"enabled": True, "budget_per_day": 5000}
     assert out["engines"]["packages"]["enabled"] is False
+
+
+def test_health_offers_to_restore_the_recommended_behaviour_switches_and_nothing_else():
+    from legalprivacy.controller import Controller
+    c = Controller()
+    row = next(r for r in c.doctor() if r["name"] == "Recommended settings")
+    assert row["status"] == "ok" and "fix" not in row
+    c.profile.extras.multi_tab = False
+    c.profile.extras.persona = "Data scientist"           # a persona choice is not a behaviour switch
+    row = next(r for r in c.doctor() if r["name"] == "Recommended settings")
+    assert row["status"] == "warn" and row["fix"]["config"] == {"extras": {"multi_tab": True}}

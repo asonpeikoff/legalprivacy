@@ -684,6 +684,25 @@ class Controller:
         self.log.info("mylist", f"Scanned browser history (last {days:g} days): {len(res['sites'])} sites found.")
         return res
 
+    def mylist_from_recording(self) -> dict:
+        """Your habits from the browser recording you imported: the sites you load most, safety-filtered, in the same
+        shape as a history scan (so the same 'pick the ones to add' screen works). Counts are requests, which include
+        a page's own files, so sites that are only helper hosts (CDNs, trackers) are left out by the list filter."""
+        from .safety import safe_domain
+        har = self.har.load()
+        if not har or not har.get("top_hosts"):
+            raise ConfigError("No browser recording has been imported yet. Import one in the Proof tab first.")
+        deny = self.feeds.denylist()
+        seen: dict[str, int] = {}
+        for host, n in har["top_hosts"]:
+            site = host.removeprefix("www.")
+            if safe_domain(site, deny):
+                seen[site] = seen.get(site, 0) + int(n)
+        sites = sorted(seen.items(), key=lambda kv: -kv[1])[:200]
+        self.log.info("mylist", f"Read your imported recording: {len(sites)} sites found.")
+        return {"sites": [list(x) for x in sites], "browsers": ["imported recording"], "errors": [],
+                "filtered": len(har["top_hosts"]) - len(sites)}
+
     def mylist_watch(self, action: str, hours: float | None = None) -> dict:
         from .history import top_sites
         ml = self.profile.mylist
@@ -1208,6 +1227,8 @@ class Controller:
             if browser_tr is not None and prof.traffic.plain > 0:      # both kinds of clearnet noise
                 from .transports import ClearnetTransport
                 plain_tr = ClearnetTransport(proxy=prof.transports["clearnet"].proxy)
+            from . import browser as _bw
+            _bw.MULTI_TAB = bool(getattr(prof.extras, "multi_tab", True))
             lanes = build_lanes(prof, words, tor_gate=gate, clearnet_transport=browser_tr,
                                 plain_transport=plain_tr, tor_transport=self._tor_lane_transport(self._stop))
             if not lanes:
@@ -1594,6 +1615,31 @@ class Controller:
                 add(f"Python library: {lib}", "ok", "installed")
             except ImportError:
                 add(f"Python library: {lib}", "fail", "missing — reinstall legalPrivacy")
+        try:                                  # the recommended human-like behaviour switches, each on by default
+            rec = {"extras": {"long_sessions": True, "multi_tab": True, "dns_bursts": True,
+                              "browser_dns": True},
+                   "transports": {"clearnet": {"cookie_hours": 24.0, "cookie_vary": True}},
+                   "identity": {"ua_mode": "mix"}}
+            diff: dict = {}
+            for sect, vals in rec.items():
+                obj = getattr(self.profile, sect)
+                for key, val in vals.items():
+                    if isinstance(val, dict):                      # transports.<name>.<field>
+                        for k2, v2 in val.items():
+                            if getattr(obj[key], k2, v2) != v2:
+                                diff.setdefault(sect, {}).setdefault(key, {})[k2] = v2
+                    elif getattr(obj, key, val) != val:
+                        diff.setdefault(sect, {})[key] = val
+            names = [k for v in diff.values() for k in v]
+            if diff:
+                add("Recommended settings", "warn", "These differ from the recommended human-like defaults: " +
+                    ", ".join(names) + ". Your other choices (sites, personas, limits) are left alone.",
+                    fix={"label": "Use the recommended ones", "config": diff})
+            else:
+                add("Recommended settings", "ok", "The human-like behaviour switches (long sessions, second tab, DNS "
+                    "bursts, cookie lifetime, user agent mix) are all on the recommended values.")
+        except Exception as exc:
+            add("Recommended settings", "info", f"not checked ({exc})")
         try:
             import random as _r
             from .fingerprint_audit import audit_identity
