@@ -120,8 +120,13 @@ class FeedStore:
         ent = self._entry("deny")
         key = (id(ent), ent.get("ts"))
         if getattr(self, "_deny_key", None) != key:          # building a 160k-entry set is not free
-            self._deny_set, self._deny_key = set(ent.get("items", [])), key
+            self._deny_set, self._deny_key = set(ent.get("items", [])) | getattr(self, "user_block", set()), key
         return self._deny_set
+
+    def set_user_block(self, hosts: set[str]) -> None:
+        """Sites the user told the app to leave alone (from the network map): added to the deny list."""
+        self.user_block = set(hosts)
+        self._deny_key = None
 
     def status(self) -> list[dict]:
         out = []

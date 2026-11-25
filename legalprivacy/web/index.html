@@ -912,6 +912,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
   <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-tor"/></svg>Live network map <details class="why"><summary>ⓘ</summary><div>Like EtherApe: each bubble is a machine this computer is talking to right now, sized by how long it's been connected. Noise sites are named; your own connections never are.</div></details></h3>
     <div id="pMapMsg"></div>
     <div id="pMap" style="min-height:420px"></div>
+    <div id="pMapAct" class="small" style="margin-top:8px"><span class="mute">Click a bubble for what it is and what you can do about it.</span></div>
   </div>
   <div class="card"><h3>Last 6 hours, per minute <details class="why"><summary>ⓘ</summary><div>Bars count the different addresses connected in each minute, split by who opened them. Shaded stripes are minutes when the noise was on. Turn the noise off for a while and on again to see the difference, and whether your own pattern and the noise look alike.</div></details></h3>
     <div id="pTime"></div>
@@ -1166,6 +1167,16 @@ async function poll(){
 }
 setInterval(poll,1000);
 let pMap=null,pTimer=null;
+async function mapPick(n){const box=$('#pMapAct');if(!n){box.innerHTML='<span class="mute">Click a bubble for what it is and what you can do about it.</span>';return}
+  const name=(n.text||'').replace(/^legalPrivacy$|^Your app$/,'');
+  box.innerHTML=`<b>${esc(n.text||'Your app')}</b> <span class="mute">${esc(n.detail||'')}</span><div class="row" style="margin-top:6px"><button id="mapInfo">Info</button><button id="mapBlk">Block this site (a day)</button><button id="mapBlkP">Block always</button><button id="mapFw">Firewall commands</button></div><div id="mapOut" style="margin-top:6px"></div>`;
+  const ip=n.id,out=$('#mapOut');
+  $('#mapInfo').onclick=async()=>{try{const d=await api('/api/map/info?ip='+encodeURIComponent(ip)+'&name='+encodeURIComponent(name)+'&kind='+encodeURIComponent(n.kind||''));
+    out.innerHTML=`<div>Address <code>${esc(d.ip)}</code>${d.rdns?` · reverse name <code>${esc(d.rdns)}</code>`:' · no reverse name'}${d.name?` · seen as ${esc(d.name)}`:''}${d.blocked?' · <b class="warnc">blocked for the noise</b>':''}</div><div class="mute">Who owns it: <a href="${esc(d.whois)}" target="_blank" rel="noopener">bgp.he.net</a> (opens in a new tab)</div>`}catch(e){out.textContent=String(e.message||e)}};
+  const blk=m=>async()=>{if(!name){out.textContent='This bubble has no site name, so it cannot be blocked by name. Use the firewall commands.';return}
+    try{await api('/api/map/block',{host:name,mode:m});out.innerHTML=`Blocked <code>${esc(name)}</code> for the noise${m==='temporary'?' for a day':''}. It cannot block your other programs.`}catch(e){out.textContent=String(e.message||e)}};
+  $('#mapBlk').onclick=blk('temporary');$('#mapBlkP').onclick=blk('permanent');
+  $('#mapFw').onclick=async()=>{try{const d=await api('/api/map/info?ip='+encodeURIComponent(ip));out.innerHTML='<div class="mute">Run one in a terminal (needs administrator rights); this app cannot change your firewall.</div>'+d.firewall.map(f=>`<div style="margin-top:4px"><b>${esc(f.name)}</b><br><code>${esc(f.add)}</code>${f.remove?`<br><span class="mute">undo:</span> <code>${esc(f.remove)}</code>`:''}${f.note?`<br><span class="mute">${esc(f.note)}</span>`:''}</div>`).join('')}catch(e){out.textContent=String(e.message||e)}}}
 function proofOn(){return $('#t-proof').classList.contains('on')}
 async function pollTrace(){
   try{const d=await api('/api/browser/trace');
@@ -1266,7 +1277,7 @@ function renderProof(o){
     `Noise is <b class="${o.running?'ok':''}">${o.running?'ON':'OFF'}</b> right now.`+
     (o.limited?' <span class="warnc">This system only lets legalPrivacy see its own connections (on macOS, run it as administrator to see your apps too), so “your apps” stays empty.</span>':'');
   if(window.NetMap){
-    try{if(!pMap)pMap=new NetMap($('#pMap'),{height:420});pMap.update(o.nodes||[]);$('#pMapMsg').innerHTML=mapWhyEmpty(o)}
+    try{if(!pMap)pMap=new NetMap($('#pMap'),{height:420,onSelect:mapPick});pMap.update(o.nodes||[]);$('#pMapMsg').innerHTML=mapWhyEmpty(o)}
     catch(err){$('#pMapMsg').innerHTML=`<div class="note bad small">The map hit an error and couldn't draw: <code>${esc(String(err))}</code>. Please send this to the developer.</div>`}
   }else $('#pMap').innerHTML='<div class="note bad small">The map’s script isn’t part of this install, so it can’t draw. Reinstall legalPrivacy, or start it with the start script.</div>';
   $('#pTime').innerHTML=svgTimeline(o.timeline||[]);

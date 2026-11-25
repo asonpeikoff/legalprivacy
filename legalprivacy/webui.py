@@ -198,6 +198,9 @@ class UIServer:
                         return self._json(ctl.torbrowser_state())
                     if u.path == "/api/defaults":
                         return self._json(ctl.defaults_info())
+                    if u.path == "/api/map/info":
+                        return self._json(ctl.map_info((q.get("ip") or [""])[0], (q.get("name") or [""])[0],
+                                                       (q.get("kind") or [""])[0]))
                     if u.path == "/api/scrape":
                         return self._json(ctl.scrape_state())
                     if u.path == "/api/proxies":
@@ -377,6 +380,8 @@ class UIServer:
                         return self._json(ctl.mylist_save(body))
                     elif path == "/api/mylist/bookmarks":
                         return self._json(ctl.mylist_bookmarks(body.get("urls")))
+                    elif path == "/api/map/block":
+                        return self._json(ctl.map_block(str(body.get("host", "")), str(body.get("mode", ""))))
                     elif path == "/api/scrape/start":
                         return self._json(ctl.scrape_start(body))
                     elif path == "/api/scrape/stop":

@@ -82,6 +82,7 @@
     this.lastT = 0;
     this.hoverId = null;
     this.pinnedId = null;
+    this.onSelect = opts.onSelect || null;     // called with the clicked node (or null when the click was on empty map)
     this.colors = {};
     this.destroyed = false;
 
@@ -274,6 +275,7 @@
       var id = idOf(ev);
       if (id !== null) { self.pinnedId = id; self._hover(id, ev); }
       else { self.pinnedId = null; self._hover(null); }
+      if (self.onSelect) { try { self.onSelect(id !== null ? self.nodes.get(id) || null : null); } catch (e) { /* the page's own handler */ } }
     };
     this.gNodes.addEventListener('pointerover', this._onOver);
     this.gNodes.addEventListener('pointerout', this._onOut);
