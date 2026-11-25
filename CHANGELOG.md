@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Easter egg (this branch only): 6 more purple logos, a back view and five short looping animations, placed with the other purple ones. The pose-sorted order is green, purple, pink, yellow.
 - **Recommended settings check** (Health): compares the human-like behaviour switches (long sessions, second tab, DNS bursts, DNS in the browser, cookie lifetime, user agent mix) with the recommended values and offers a one-click "Use the recommended ones" that changes only those, never your sites, personas or limits.
 - **Second tab (real-browser lane)**: about one desktop visit in eight (not on search pages) opens a link of the same site in a second tab while the first is read, then looks at it for a few seconds and closes it, so loads overlap like a real person's. Setting: `extras.multi_tab` (on by default). Not done: Tor Browser's lane (one tab) and phone identities.
 - **My List from your own recording**: a "From my imported recording" button (web and desktop) fills My List from the browser recording (HAR) you imported on the Proof tab, with the same pick-and-add screen as the history scan, so the sites the noise returns to match how often you return to yours. Needs an imported recording; the history scan still works without one.
