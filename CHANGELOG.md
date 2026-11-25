@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Weekly rhythm.** "Adjust to my rhythm" now keeps weekdays and weekends apart: on a Saturday or Sunday it uses what the observer recorded of your weekends, on other days your weekdays (each needs about 20 recorded minutes in at least four hours; until then it uses all days together, and the Proof tab says which). The observer keeps 7 days, so a weekend's record is two days of data and is rough at first. Not done: a different rhythm for each of the seven days.
 - **Desktop app catches up with the web dashboard.** Settings > **Logo**: pick the header logo (red, white and blue by default; four other traditional ones) and optionally let it change as you change tabs; the choice is saved. Tools > **Block a site for the noise**: type a site to leave it alone for a day or always (and unblock it), or an IP address to get its reverse name, an owner lookup link and firewall commands to copy; the web dashboard does the same by clicking a bubble on the network map. The Proof text already showed p-values and the automatic correction. Not tested on screen: this sandbox has no Tk, so the new desktop controls are covered by tests of their logic and files only; please look at them.
 
 ## v2.18.0

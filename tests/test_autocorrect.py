@@ -41,3 +41,22 @@ def test_the_planner_applies_the_gain_only_when_auto_correct_is_on():
         return pl.actions_for_hour(3, 0.4), pl.actions_for_hour(14, 0.4)
     on, off = total(True), total(False)
     assert abs(on[0] - 2 * off[0]) < 1e-9 and on[1] == off[1]
+
+
+def test_weekdays_and_weekends_get_their_own_gains():
+    """Away every weekday night but at the computer all weekend: the weekend record must not borrow the weekday gains."""
+    obs = TrafficObserver(lambda: False, lambda t: 0, clock=lambda: 0.0)
+    mon = int(time.mktime((2026, 3, 2, 0, 0, 0, 0, 0, -1)))          # a Monday
+    for day in range(7):
+        for h in range(24):
+            for m in range(30):
+                away = day < 5 and h in {2, 3, 4}
+                obs.minutes[mon + day * 86400 + h * 3600 + m * 60] = {"you": 0 if away else 6, "noise": 0, "on": False}
+    assert obs.hour_gains(kind="weekday")[3] == 2.0
+    assert obs.hour_gains(kind="weekend") == {h: 1.0 for h in range(24)}
+    saturday = mon + 5 * 86400 + 12 * 3600
+    obs.clock = lambda: saturday
+    assert obs.hour_gain(3) == 1.0 and obs.correction()["basis"] == "weekend"
+    obs._gain_cache = None
+    obs.clock = lambda: mon + 12 * 3600
+    assert obs.hour_gain(3) == 2.0 and obs.correction()["basis"] == "weekday"
