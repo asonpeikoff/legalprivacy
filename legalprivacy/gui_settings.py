@@ -51,6 +51,7 @@ class SettingsTab(Tab):
         self.build_realism()
         self.build_accounts()
         self.build_general()
+        self.build_logo()
         self.build_panic()
         for label, key in SECTIONS:
             b = app.btn(nav, label, None, "seg", lambda k=key: self.sf.scroll_to(self.cards[k]))
@@ -615,6 +616,26 @@ class SettingsTab(Tab):
         self.f_check(c, "observe", "Watch this computer's connection counts for the Proof tab",
                      "Local only; never leaves this computer.")
         self.path_note = c.note("", pady=(6, 0))
+
+    # ── logo ───────────────────────────────────────────────────────────────
+    def build_logo(self) -> None:
+        from .gui import TRAD_LOGOS, load_prefs
+        c = self.card("logo", "Logo", "set")
+        p = load_prefs()
+        labels = {k: lab for k, lab, _f in TRAD_LOGOS}
+        r = c.row()
+        c.lbl(r, "Header logo").pack(side="left")
+        self.logo_pick = tk.StringVar(value=labels.get(p.get("logo", ""), labels[""]))
+        self.logo_follow = tk.BooleanVar(value=bool(p.get("logo_follow")))
+        box = ttk.Combobox(r, textvariable=self.logo_pick, values=[lab for _k, lab, _f in TRAD_LOGOS], state="readonly", width=30)
+        box.pack(side="left", padx=8)
+
+        def apply(_e=None) -> None:
+            key = next((k for k, lab, _f in TRAD_LOGOS if lab == self.logo_pick.get()), "")
+            self.app.set_logo(key, self.logo_follow.get())
+        box.bind("<<ComboboxSelected>>", apply)
+        ttk.Checkbutton(c.body, text="Change the logo as I change tabs", variable=self.logo_follow, command=apply).pack(
+            anchor="w", pady=(4, 0))
 
     # ── panic ──────────────────────────────────────────────────────────────
     def build_panic(self) -> None:

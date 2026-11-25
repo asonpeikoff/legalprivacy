@@ -53,6 +53,14 @@ def make_logo(tk, size: int, bg: str, fg: str):
 KONAMI = ["up", "up", "down", "down", "left", "right", "left", "right", "b", "a"]
 
 
+# the traditional header logos the Settings > Logo card offers: (id, label, packaged PNG). "" is the fixed default.
+TRAD_LOGOS = [("", "Red, white and blue (default)", "logo_trad.png"),
+              ("01-pop-type", "Pop colours", "logo_trad_01-pop-type.png"),
+              ("04-painted", "Painted", "logo_trad_04-painted.png"),
+              ("07-terminal", "Terminal", "logo_trad_07-terminal.png"),
+              ("02-pop-shadow", "Pop, shadowed", "logo_trad_02-pop-shadow.png")]
+
+
 def _egg_file() -> Path:
     from .paths import app_dir
     return app_dir() / "logo_egg"
@@ -164,6 +172,8 @@ def build_app_class():
             self.logo_trad = load_logo(tk, "logo_trad.png", sub)
             self.logos = [lg for lg in [self.logo_small, self.logo_alt]
                           + [load_logo(tk, f"logo_v{k}.png", sub) for k in range(1, 7)] if lg]
+            self.trad_images = {k: (self.logo_trad if k == "" else load_logo(tk, f, sub)) for k, _l, f in TRAD_LOGOS}
+            self.trad_images = {k: v for k, v in self.trad_images.items() if v}
             self._egg = _egg_file().exists() and bool(self.logo_trad)
             self._logo_i, self._logo_clicks, self._logo_keys = 0, [], []
             if self.logo_trad and not self._egg:
@@ -361,11 +371,29 @@ def build_app_class():
             if not getattr(self, "logo_trad", None):
                 return
             if not self._egg:
-                self._logo_now = self.logo_trad
+                self._logo_now = self._chosen_trad(i)
             else:
                 self._logo_i = i % len(self.logos)
                 self._logo_now = self.logos[self._logo_i]
             self.logo_lbl.configure(image=self._logo_now)
+
+        def _chosen_trad(self, tab_index: int = 0):
+            """The traditional logo to show: the one picked in Settings > Logo, or (if "change as I change tabs" is on) the
+            next one in the list for each tab. The red, white and blue one is the default."""
+            p = load_prefs()
+            keys = [k for k, _l, _f in TRAD_LOGOS if k in self.trad_images]
+            if p.get("logo_follow") and keys:
+                return self.trad_images[keys[tab_index % len(keys)]]
+            return self.trad_images.get(p.get("logo", ""), self.logo_trad)
+
+        def set_logo(self, name: str, follow: bool) -> None:
+            p = load_prefs()
+            p["logo"], p["logo_follow"] = name, bool(follow)
+            save_prefs(p)
+            try:
+                self._show_logo(self.nb.index(self.nb.select()))
+            except (tk.TclError, AttributeError):
+                self._show_logo(0)
 
         def _toggle_logo_egg(self) -> None:
             self._egg = not self._egg

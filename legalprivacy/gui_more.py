@@ -536,6 +536,18 @@ class ToolsTab(Tab):
         ttk.Checkbutton(r, text="Through a tested proxy", variable=self.sc_proxy).pack(side="left", padx=(0, 8))
         self.sc = self._tool(c, "Start", self.scrape_run)
         self.app.btn(c.row(), "Stop", "stop", "secondary", lambda: self.app.work(self.app.ctl.scrape_stop, lambda d: None, lambda e: None)).pack(side="left")
+        c = add_card(self, app, "Block a site for the noise")
+        c.note("The web dashboard's network map lets you click a bubble; here you type the site or address. Blocking a site "
+               "tells the noise to leave it alone (for a day, or until you unblock it). It cannot block your other programs: for "
+               "that, type an IP address and use Info for firewall commands to copy (they need administrator rights).")
+        self.blk_host = tk.StringVar()
+        r = c.row()
+        ttk.Entry(r, textvariable=self.blk_host).pack(side="left", fill="x", expand=True)
+        self.blk = self._tool(c, "Block for a day", lambda: self.block_run("temporary"))
+        r = c.row()
+        self.app.btn(r, "Block always", None, "secondary", lambda: self.block_run("permanent")).pack(side="left", padx=(0, 6))
+        self.app.btn(r, "Unblock", None, "ghost", lambda: self.block_run("unblock")).pack(side="left", padx=(0, 6))
+        self.app.btn(r, "Info and firewall commands", None, "ghost", self.block_info).pack(side="left")
         c = add_card(self, app, "Proxies (tested)")
         c.note("Pulls free proxy lists from public GitHub files (and any page you add), tests every candidate through a real "
                "HTTPS request and throws out the slow, dead, wrong-answer and transparent ones. Used only for jobs you start, "
@@ -629,6 +641,22 @@ class ToolsTab(Tab):
         body = {"url": self.sc_url.get().strip(), "kinds": [k for k, v in self.sc_kinds.items() if v.get()],
                 "mix_noise": self.sc_mix.get(), "use_proxy": self.sc_proxy.get()}
         self.app.work(lambda: self.app.ctl.scrape_start(body), lambda d: poll(d), lambda e: self._text(self.sc, str(e)))
+
+    def block_run(self, mode: str) -> None:
+        host = self.blk_host.get().strip()
+        self.app.work(lambda: self.app.ctl.map_block(host, mode),
+                      lambda d: self._text(self.blk, "Blocked for the noise: " + (", ".join(d["blocked"]) or "nothing")),
+                      lambda e: self._text(self.blk, str(e)))
+
+    def block_info(self) -> None:
+        def show(d: dict) -> str:
+            lines = [f"Address {d['ip']}" + (f", reverse name {d['rdns']}" if d.get("rdns") else ", no reverse name"),
+                     "Who owns it: " + d["whois"], "Run one of these in a terminal as administrator:"]
+            for f in d["firewall"]:
+                lines.append(f"  {f['name']}: {f['add']}" + (f"   (undo: {f['remove']})" if f.get("remove") else ""))
+            return "\n".join(lines)
+        self.app.work(lambda: self.app.ctl.map_info(self.blk_host.get().strip()),
+                      lambda d: self._text(self.blk, show(d)), lambda e: self._text(self.blk, str(e)))
 
     def proxies_run(self) -> None:
         def poll(d=None):
