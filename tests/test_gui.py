@@ -469,3 +469,14 @@ def test_tor_tab_has_the_tor_browser_card_like_the_web_dashboard(tk_app, monkeyp
     # sharing the app's Tor is a saved setting, like the web dashboard's tickbox
     from legalprivacy import gui_fields as F
     assert F.FIELDS["tor_share_browser"][0] == ("transports", "tor", "share_browser")
+
+
+def test_trad_logo_choices_are_packaged():
+    """Every logo Settings > Logo offers has its PNG in the package, and the first (the default) is the fixed one."""
+    from pathlib import Path
+
+    from legalprivacy import gui
+    assert gui.TRAD_LOGOS[0][0] == "" and gui.TRAD_LOGOS[0][2] == "logo_trad.png"
+    web = Path(gui.__file__).parent / "web"
+    for _key, _label, fname in gui.TRAD_LOGOS:
+        assert (web / fname).is_file(), fname
