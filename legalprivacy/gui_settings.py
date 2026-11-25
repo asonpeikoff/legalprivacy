@@ -294,6 +294,11 @@ class SettingsTab(Tab):
         self.f_check(c, "dns_bursts", "Follow lookups with a page's burst of lookups",
                      "Recommended. A real page load asks for its fonts, scripts and other sites a few tens of milliseconds "
                      "apart; single lookups on their own look unlike that.")
+        self.f_check(c, "duck_chat", "Chat noise on duck.ai",
+                     "Off by default. Now and then, in a long session, the real-browser lane has a short made-up chat on duck.ai "
+                     "(one topic, one to four messages of different lengths, typed like a person). The questions never come from "
+                     "you. Switching it on accepts duck.ai's terms screen for you (its Privacy Policy and Terms of Service), and "
+                     "duck.ai may limit or block automated use.")
         self.f_check(c, "typos", "More typos in searches", "Off by default. A few searches always have a small slip; this "
                                                             "makes it about 1 in 9.")
         self.f_check(c, "polite", "Polite mode", "Off by default. Never the same site twice within a minute.")

@@ -246,6 +246,7 @@ class ExtrasConfig:
     interest_active: int = 3      # how many themes at once
     interest_rotate_days: int = 10
     interest_share: float = 0.3   # share of visits and searches that follow the themes
+    duck_chat: bool = False       # short made-up chats on duck.ai (accepts duck.ai's terms for you: off until you switch it on)
     multi_tab: bool = True        # now and then open a link in a second tab, read the first, then glance at it
     long_sessions: bool = True    # now and then stay on one page a long time, or leave it open for hours and come back
     interest_salt: str = ""       # random, set on first use: keeps your themes yours
@@ -557,6 +558,8 @@ def apply_overrides(profile: Profile, raw: dict[str, Any]) -> Profile:
             household=bool(m.get("household")), household_size=int(m.get("household_size") or 3),
             persona=_persona_name(m.get("persona")), persona_share=float(m.get("persona_share", 0.8)),
             packages=str(m.get("packages") or "auto"))
+        for _k, _d in (("long_sessions", True), ("multi_tab", True), ("duck_chat", False)):    # fields the call above does not take
+            setattr(profile.extras, _k, bool(m.get(_k, _d)))
         if (profile.extras.interests or profile.extras.household) and not profile.extras.interest_salt:
             import secrets as _s
             profile.extras.interest_salt = _s.token_hex(8)

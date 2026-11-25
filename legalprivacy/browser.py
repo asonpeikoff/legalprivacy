@@ -637,6 +637,8 @@ class BrowserTransport(Transport):
         bytes_before = s.get("counter", {}).get("bytes", 0)
         driver = HumanDriver(self.rng, act, scale=self.scale())
         how = "open"
+        if target.role == "chat" and target.script:
+            return self._chat_hit(page, driver, target, s)
         try:
             resp = None
             t_load = time.time()
@@ -729,6 +731,81 @@ class BrowserTransport(Transport):
                 self._sessions.pop(getattr(identity, "id", 0), None)
                 self._contexts = {k: c for k, c in self._contexts.items() if c is not s.get("ctx")}
             return HitResult(None, error=msg)
+
+    def _chat_hit(self, page, driver: HumanDriver, target: Target, s: dict) -> HitResult:
+        """A short chat on a chat site (duck.ai): open it, type each message like a person, wait for the reply to finish
+        streaming, read it, then the next message. The messages are made up from a topic (never from you). The site's
+        terms screen is clicked through only when the user switched chat noise on (target.accept_terms)."""
+        t0 = time.time()
+        sc = self.scale()
+        try:
+            page.goto(target.url, wait_until="domcontentloaded", timeout=int(target.timeout * 1000))
+            box = page.locator("textarea").first
+            try:
+                box.wait_for(state="visible", timeout=15000)
+            except Exception:
+                return HitResult(None, error="the chat box did not appear")
+            self._doing(page, None)
+            if not self._consent(page, target.accept_terms):
+                driver.browse(dwell=self.rng.uniform(3, 8))
+                res = HitResult(200, "")
+                res.detail, res.final_url, res.load_ms = "chat not started: its terms screen needs your OK", page.url, 0.0
+                return res
+            sent = 0
+            for i, msg in enumerate(target.script or []):
+                if self._stopped():
+                    break
+                driver.pause(lognormal_clipped(self.rng, 2.0 if i == 0 else 4.0, 0.5, 0.8, 15))     # think about what to ask
+                box = page.locator("textarea").first
+                box.click()
+                self._type_like_a_person(page, msg, sc)
+                page.keyboard.press("Enter")
+                sent += 1
+                self._wait_for_reply(page, sc)
+                driver.pause(lognormal_clipped(self.rng, 6.0, 0.6, 2.0, 40))                          # read the answer
+            res = HitResult(200, "")
+            res.detail = f"chat: {sent} message{'s' if sent != 1 else ''}"
+            res.final_url, res.load_ms = page.url, (time.time() - t0) * 1000.0
+            res.on_page_s = time.time() - t0
+            res.bytes = 0
+            return res
+        except Exception as exc:
+            return HitResult(None, error=str(exc).splitlines()[0][:200])
+
+    def _stopped(self) -> bool:
+        return bool(self.stop_event is not None and self.stop_event.is_set())
+
+    def _consent(self, page, accept: bool) -> bool:
+        """True when nothing blocks the chat (or the terms screen was accepted because the user said so)."""
+        try:
+            btn = page.get_by_role("button", name=re.compile(r"^(continue|agree and continue|i agree)$", re.I))
+            if btn.count() and btn.first.is_visible():
+                if not accept:
+                    return False
+                btn.first.click()
+                page.wait_for_timeout(int(800 * self.scale() + 200))
+        except Exception:
+            pass
+        return True
+
+    def _type_like_a_person(self, page, text: str, scale: float) -> None:
+        for ch in text:
+            page.keyboard.type(ch, delay=0)
+            d = self.rng.lognormvariate(-2.6, 0.45) * scale           # about 70 ms a key, with a slow tail
+            if ch in " ,." and self.rng.random() < 0.08:
+                d += self.rng.uniform(0.2, 0.7) * scale               # a pause between words
+            page.wait_for_timeout(int(max(5, d * 1000)))
+
+    def _wait_for_reply(self, page, scale: float, limit: float = 90.0) -> None:
+        """The reply is done when the page stops changing for a few seconds (or after `limit` seconds)."""
+        end, last, still = time.time() + limit * max(scale, 0.05), -1, 0
+        while time.time() < end and not self._stopped():
+            page.wait_for_timeout(int(600 * max(scale, 0.05) + 100))
+            n = page.evaluate("() => document.body.innerText.length")
+            still = still + 1 if n == last else 0
+            if still >= 4:
+                return
+            last = n
 
     def _open_side_tab(self, page, mobile: bool):
         """About one visit in eight on a desktop: open a link of this page in a second tab (it loads while you read the first)."""
