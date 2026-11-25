@@ -518,6 +518,15 @@ class ToolsTab(Tab):
         c.note("Downloads about 10 MB and uploads 2 MB once, over the normal internet (not Tor), through your clearnet proxy if "
                "you set one. Runs only when you click.")
         self.speed = self._tool(c, "Run speed test", self.speedtest)
+        c = add_card(self, app, "Proxies (tested)")
+        c.note("Pulls free proxy lists from public GitHub files (and any page you add), tests every candidate through a real "
+               "HTTPS request and throws out the slow, dead, wrong-answer and transparent ones. Used only for jobs you start, "
+               "such as scraping, never for the noise or for logins: free proxies are run by strangers and can read plain traffic.")
+        self.prox = self._tool(c, "Fetch and test", self.proxies_run)
+        r = c.row()
+        self.prox_url = tk.StringVar()
+        ttk.Entry(r, textvariable=self.prox_url, width=48).pack(side="left", fill="x", expand=True)
+        self.app.btn(r, "Add source", "play", "secondary", self.proxies_add).pack(side="left", padx=6)
         c = add_card(self, app, "How much data will this use?", "act")
         c.note("A rough estimate from your current settings (amount, mix, real browser, low-data mode, active hours, cap). Real pages vary a lot.")
         self.est = self._tool(c, "Estimate", self.estimate)
@@ -572,6 +581,31 @@ class ToolsTab(Tab):
             out.btn.state(["!disabled"])
             self._text(out, str(e))
         self.app.work(fn, done, fail)
+
+    @staticmethod
+    def _proxy_text(d: dict) -> str:
+        p = d.get("progress") or {}
+        head = (f"Testing… {p.get('tested')}/{p.get('total')}: {p.get('kept')} kept, {p.get('thrown_out')} thrown out"
+                if p.get("running") else f"{d.get('kept', 0)} working proxies kept (each answers within {d.get('max_ms')} ms).")
+        fast = "\n".join(f"  {r['proxy']}  {r['ms']} ms" for r in (d.get("fastest") or [])[:10])
+        src = "\n".join(f"  {s['name']}: " + (s["error"] if s.get("error") else ("not read yet" if s.get("found") is None
+                                                                                  else f"{s['found']} found"))
+                        for s in d.get("sources") or [])
+        return head + ("\n" + fast if fast else "") + "\nSources:\n" + src
+
+    def proxies_run(self) -> None:
+        def poll(d=None):
+            d = d or self.app.ctl.proxy_state()
+            self._text(self.prox, self._proxy_text(d))
+            if (d.get("progress") or {}).get("running"):
+                self.after(1500, poll)
+        self.app.work(self.app.ctl.proxy_refresh, lambda d: poll(d), lambda e: self._text(self.prox, str(e)))
+
+    def proxies_add(self) -> None:
+        url = self.prox_url.get().strip()
+        self.app.work(lambda: self.app.ctl.proxy_source("add", url),
+                      lambda d: (self.prox_url.set(""), self._text(self.prox, self._proxy_text(d))),
+                      lambda e: self._text(self.prox, str(e)))
 
     def estimate(self) -> None:
         self._run(self.est, self.app.ctl.estimate, lambda d: self._text(self.est, F.estimate_text(d)))

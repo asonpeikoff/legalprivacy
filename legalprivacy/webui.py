@@ -198,6 +198,8 @@ class UIServer:
                         return self._json(ctl.torbrowser_state())
                     if u.path == "/api/defaults":
                         return self._json(ctl.defaults_info())
+                    if u.path == "/api/proxies":
+                        return self._json(ctl.proxy_state())
                     if u.path == "/api/accounts":
                         return self._json(ctl.accounts.status())
                     if u.path == "/api/activity":
@@ -373,6 +375,10 @@ class UIServer:
                         return self._json(ctl.mylist_save(body))
                     elif path == "/api/mylist/bookmarks":
                         return self._json(ctl.mylist_bookmarks(body.get("urls")))
+                    elif path == "/api/proxies/refresh":
+                        return self._json(ctl.proxy_refresh())
+                    elif path == "/api/proxies/source":
+                        return self._json(ctl.proxy_source(str(body.get("action", "")), str(body.get("url", ""))))
                     elif path == "/api/mylist/recording":
                         return self._json(ctl.mylist_from_recording())
                     elif path == "/api/mylist/scan":

@@ -1027,6 +1027,12 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div id="toolMacOut" class="small" style="margin-top:8px"></div>
     <div class="small mute" style="margin-top:6px"><code>sudo legalprivacy mac randomize --all</code> &nbsp; <code>sudo legalprivacy mac restore --all</code></div>
   </div>
+  <div class="card"><h3>Proxies (tested)</h3>
+    <p class="small mute">Pulls free proxy lists from public GitHub files (and any page you add), tests every candidate through a real HTTPS request, and throws out the slow, dead, wrong-answer and transparent ones. Used only for jobs you start, such as scraping, never for the noise or for logins: free proxies are run by strangers and can read plain traffic.</p>
+    <div class="row"><button id="pxGo">Fetch and test</button><span class="small mute" id="pxNote"></span></div>
+    <div id="pxOut" class="small" style="margin-top:8px"></div>
+    <div class="row" style="margin-top:8px"><input type="text" id="pxUrl" placeholder="Add a list or web page with ip:port addresses" style="flex:1"><button id="pxAdd">Add source</button></div>
+  </div>
   <div class="card"><h3>Password generator</h3>
     <p class="small mute">Made in this page with your browser's secure random numbers. Nothing is sent or saved.</p>
     <div class="row"><select id="pwKind"><option value="pass">Passphrase (6 words)</option><option value="chars">Characters (20)</option></select><button id="pwGo">Generate</button><button id="pwCopy">Copy</button></div>
@@ -2074,6 +2080,17 @@ const rndInt=n=>{const a=new Uint32Array(1),lim=Math.floor(4294967296/n)*n;do{cr
 $('#pwGo').onclick=()=>{let o='';if($('#pwKind').value==='pass'){o=Array.from({length:6},()=>PW_WORDS[rndInt(PW_WORDS.length)]).join('-')}
   else{const cs='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*-_=+';o=Array.from({length:20},()=>cs[rndInt(cs.length)]).join('')}$('#pwOut').textContent=o;$('#pwBits').textContent=' about '+Math.round($('#pwKind').value==='pass'?6*Math.log2(PW_WORDS.length):20*Math.log2(64))+' bits'};
 $('#pwCopy').onclick=()=>{const t=$('#pwOut').textContent;if(t&&navigator.clipboard)navigator.clipboard.writeText(t).catch(()=>{})};
+let pxT=null;
+function pxShow(d){const p=d.progress||{};$('#pxNote').textContent=p.running?`Testing… ${p.tested}/${p.total}: ${p.kept} kept, ${p.thrown_out} thrown out`:(p.total?`Last run: ${p.kept} kept, ${p.thrown_out} thrown out`:'');
+  const rows=(d.fastest||[]).slice(0,12).map(r=>`<tr><td><code>${esc(r.proxy)}</code></td><td>${r.ms} ms</td></tr>`).join('');
+  $('#pxOut').innerHTML=`<div><b>${d.kept}</b> working proxies kept (answer within ${d.max_ms} ms).</div>`+(rows?`<table style="margin-top:6px"><tbody>${rows}</tbody></table>`:'')+
+   `<div class="mute" style="margin-top:6px">Sources:</div>`+(d.sources||[]).map(s=>`<div class="small">${esc(s.name)} — ${s.error?'<span class="bad">'+esc(s.error)+'</span>':(s.found==null?'not read yet':s.found+' found')}${(d.extra_sources||[]).includes(s.url)?` <a data-rm="${esc(s.url)}" role="button" tabindex="0">remove</a>`:''}</div>`).join('');
+  $$('#pxOut [data-rm]').forEach(a=>a.onclick=async()=>{try{pxShow(await api('/api/proxies/source',{action:'remove',url:a.dataset.rm}))}catch(e){$('#pxNote').textContent=String(e.message||e)}});
+  if(p.running&&!pxT)pxT=setInterval(pxPoll,1500);if(!p.running&&pxT){clearInterval(pxT);pxT=null}}
+async function pxPoll(){try{pxShow(await api('/api/proxies'))}catch(e){}}
+$('#pxGo').onclick=async()=>{try{pxShow(await api('/api/proxies/refresh',{}))}catch(e){$('#pxNote').textContent=String(e.message||e)}};
+$('#pxAdd').onclick=async()=>{try{pxShow(await api('/api/proxies/source',{action:'add',url:$('#pxUrl').value.trim()}));$('#pxUrl').value=''}catch(e){$('#pxNote').textContent=String(e.message||e)}};
+pxPoll();
 $('#toolClearLog').onclick=()=>act('/api/logs/clear').then(()=>{$('#toolLogNote').textContent='cleared';renderLog(true)});
 $('#fRefresh').onclick=()=>{if(confirm('Download fresh lists now from Google Trends, Wikipedia, BBC, Hugging Face and Tranco? This contacts those sites from your connection.')){act('/api/feeds/refresh');toast('Refreshing sources in the background…')}};
 $('#fAuto').onchange=()=>act('/api/app',{auto_refresh_sources:$('#fAuto').checked});

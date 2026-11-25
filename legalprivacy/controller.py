@@ -122,6 +122,8 @@ class Controller:
             noise_requests=self._requests_in_minute,
             tor_pid=lambda: (self.tor.pid if self.tor else None),
             path=app_dir() / "observe.json")
+        from .proxies import ProxyManager
+        self.proxies = ProxyManager(app_dir() / "proxies.json")       # tested free proxies, for jobs the user starts
         from .har import HarStore
         self.har = HarStore(app_dir() / "har.json")      # derived counts from an imported browser recording
         self._hist_cache: tuple | None = None            # (read at, [(time, site)]) for the baseline fallback
@@ -689,6 +691,28 @@ class Controller:
         res = top_sites(time.time() - days * 86400, denylist=self.feeds.denylist())
         self.log.info("mylist", f"Scanned browser history (last {days:g} days): {len(res['sites'])} sites found.")
         return res
+
+    def proxy_state(self) -> dict:
+        return self.proxies.state()
+
+    def proxy_refresh(self) -> dict:
+        """Fetch the proxy lists and test candidates in the background; poll proxy_state for progress."""
+        if not self.proxies.progress["running"]:
+            threading.Thread(target=self.proxies.refresh, daemon=True, name="proxy-refresh").start()
+            self.log.info("tools", "Testing free proxies from the lists (slow and dead ones are thrown out).")
+        return self.proxies.state()
+
+    def proxy_source(self, action: str, url: str) -> dict:
+        try:
+            if action == "add":
+                self.proxies.add_source(str(url).strip())
+            elif action == "remove":
+                self.proxies.remove_source(str(url))
+            else:
+                raise ConfigError("action must be add or remove")
+        except ValueError as exc:
+            raise ConfigError(str(exc)) from None
+        return self.proxies.state()
 
     def mylist_from_recording(self) -> dict:
         """Your habits from the browser recording you imported: the sites you load most, safety-filtered, in the same
