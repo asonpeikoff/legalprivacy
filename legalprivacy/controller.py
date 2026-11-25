@@ -633,6 +633,25 @@ class Controller:
         self.log.info("mylist", f"Scanned browser history (last {days:g} days): {len(res['sites'])} sites found.")
         return res
 
+    def mylist_from_recording(self) -> dict:
+        """Your habits from the browser recording you imported: the sites you load most, safety-filtered, in the same
+        shape as a history scan (so the same 'pick the ones to add' screen works). Counts are requests, which include
+        a page's own files, so sites that are only helper hosts (CDNs, trackers) are left out by the list filter."""
+        from .safety import safe_domain
+        har = self.har.load()
+        if not har or not har.get("top_hosts"):
+            raise ConfigError("No browser recording has been imported yet. Import one in the Proof tab first.")
+        deny = self.feeds.denylist()
+        seen: dict[str, int] = {}
+        for host, n in har["top_hosts"]:
+            site = host.removeprefix("www.")
+            if safe_domain(site, deny):
+                seen[site] = seen.get(site, 0) + int(n)
+        sites = sorted(seen.items(), key=lambda kv: -kv[1])[:200]
+        self.log.info("mylist", f"Read your imported recording: {len(sites)} sites found.")
+        return {"sites": [list(x) for x in sites], "browsers": ["imported recording"], "errors": [],
+                "filtered": len(har["top_hosts"]) - len(sites)}
+
     def mylist_watch(self, action: str, hours: float | None = None) -> dict:
         from .history import top_sites
         ml = self.profile.mylist

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **My List from your own recording**: a "From my imported recording" button (web and desktop) fills My List from the browser recording (HAR) you imported on the Proof tab, with the same pick-and-add screen as the history scan, so the sites the noise returns to match how often you return to yours. Needs an imported recording; the history scan still works without one.
 - **Relay: "another Tor process is running with the same data directory" fixed.** A relay left running by an earlier run (the app was killed or crashed) held the data folder's lock, so every new start exited with code 1. Starting now stops that leftover relay first; if the holder is another running legalPrivacy window or another program, the message says so instead.
 - **Returning-visitor state**: the noise browser now keeps its cookies for a day by default (was an hour; saved settings that still had the old default move over once), so consent choices and "returning visitor" state persist like a real user's. Each jar still lives 60-140% of that, so wipes are not on a fixed beat. Not done: a warm HTTP cache across sessions.
 - **Identity changes are random and more frequent**: a new identity (and, on Tor, a new circuit and fresh browser) now comes after a random number of visits drawn each time (usually a handful, sometimes more; about 40% of the old fixed 8 or 10 at the median) instead of every Nth visit exactly.
