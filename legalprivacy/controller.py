@@ -692,6 +692,53 @@ class Controller:
         self.log.info("mylist", f"Scanned browser history (last {days:g} days): {len(res['sites'])} sites found.")
         return res
 
+    # ── scraping jobs (Tools) ──────────────────────────────────────────────
+    def scrape_state(self) -> dict:
+        job = getattr(self, "_scrape", None)
+        return {"job": dict(job.status) if job else None, "kinds": ["tables", "images", "video", "audio", "documents", "archives"],
+                "proxies": len(self.proxies.good()), "folder": str(app_dir() / "scrapes")}
+
+    def scrape_start(self, body: dict) -> dict:
+        """Start one polite crawl of a site the user named. Tables become CSV; images, video, audio, documents and archives are
+        saved. It follows robots.txt, waits a random few seconds, and can mix in visits to unrelated popular sites."""
+        from .scrape import ALL_KINDS, USER_AGENT, ScrapeJob
+        job = getattr(self, "_scrape", None)
+        if job and job.status["running"]:
+            raise ConfigError("A scrape is already running. Stop it first.")
+        url = str(body.get("url", "")).strip()
+        kinds = [k for k in (body.get("kinds") or ALL_KINDS) if k in ALL_KINDS]
+        proxy = None
+        if body.get("use_proxy"):
+            proxy = self.proxies.pick()
+            if proxy is None:
+                raise ConfigError("No tested proxies yet. Fetch and test some on this tab first, or turn the proxy off.")
+        host = re.sub(r"[^a-z0-9.-]+", "-", (url.split("//", 1)[-1].split("/", 1)[0] or "site").lower())[:40]
+        out = app_dir() / "scrapes" / f"{time.strftime('%Y%m%d-%H%M%S')}-{host}"
+        pool = list(self.feeds.items("tranco")[:400]) or ["wikipedia.org", "bbc.com", "nytimes.com"]
+
+        def noise() -> None:
+            import requests
+            site = random.choice(pool)
+            requests.get(f"https://{site}/", timeout=10, headers={"User-Agent": USER_AGENT},
+                         proxies={"http": proxy, "https": proxy} if proxy else None).close()
+        try:
+            self._scrape = ScrapeJob(
+                url, out, kinds=kinds, depth=int(body.get("depth", 1)), max_pages=int(body.get("max_pages", 20)),
+                delay=float(body.get("delay", 2.0)), max_mb=float(body.get("max_mb", 200)),
+                same_site=body.get("same_site", True) is not False, respect_robots=body.get("respect_robots", True) is not False,
+                mix_noise=body.get("mix_noise", True) is not False, proxy=proxy, noise_fn=noise)
+        except (ValueError, TypeError) as exc:
+            raise ConfigError(str(exc)) from None
+        threading.Thread(target=self._scrape.run, daemon=True, name="scrape").start()
+        self.log.info("tools", f"Scraping {url} into {out}" + (" through a tested proxy." if proxy else "."))
+        return self.scrape_state()
+
+    def scrape_stop(self) -> dict:
+        job = getattr(self, "_scrape", None)
+        if job:
+            job.stop.set()
+        return self.scrape_state()
+
     def proxy_state(self) -> dict:
         return self.proxies.state()
 
