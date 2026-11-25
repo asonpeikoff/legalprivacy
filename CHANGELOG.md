@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Relay: "another Tor process is running with the same data directory" fixed.** A relay left running by an earlier run (the app was killed or crashed) held the data folder's lock, so every new start exited with code 1. Starting now stops that leftover relay first; if the holder is another running legalPrivacy window or another program, the message says so instead.
 - **Returning-visitor state**: the noise browser now keeps its cookies for a day by default (was an hour; saved settings that still had the old default move over once), so consent choices and "returning visitor" state persist like a real user's. Each jar still lives 60-140% of that, so wipes are not on a fixed beat. Not done: a warm HTTP cache across sessions.
 - **Identity changes are random and more frequent**: a new identity (and, on Tor, a new circuit and fresh browser) now comes after a random number of visits drawn each time (usually a handful, sometimes more; about 40% of the old fixed 8 or 10 at the median) instead of every Nth visit exactly.
 - **Identity consistency auditor** (`fingerprint_audit.py`): checks that user agent, platform, mobile flag, client hints, language order and window shape agree, the contradictions bot detection looks for. Health shows the result for 300 sample identities (none found).

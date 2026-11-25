@@ -81,3 +81,25 @@ def test_tor_transport_check_status_handles_offline_gracefully():
     assert status["socks_ok"] is False
     assert status["control_ok"] is False
     assert status["error"] is not None
+
+
+def test_a_relay_left_over_from_an_earlier_run_is_stopped_but_another_window_is_left_alone(tmp_path, monkeypatch):
+    import subprocess
+    import sys
+
+    from legalprivacy import relayrun
+    monkeypatch.setattr(relayrun, "relay_dir", lambda: tmp_path)
+    data = tmp_path / "data"
+    data.mkdir()
+    child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)  # " + str(tmp_path)],
+                             start_new_session=True)
+    try:
+        (data / "lock").write_text(f"{child.pid}\n")
+        m = relayrun.RelayManager.__new__(relayrun.RelayManager)
+        m.log = type("L", (), {"info": lambda *a: None})()
+        m._reap_orphan(data)
+        assert child.wait(timeout=10) is not None            # stopped
+        (data / "lock").write_text("999999999\n")
+        m._reap_orphan(data)                                  # a stale lock file: nothing to do, no error
+    finally:
+        child.kill()

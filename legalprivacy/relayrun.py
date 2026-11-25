@@ -98,6 +98,7 @@ class RelayManager:
             if not _port_free(host, spec.or_port):
                 raise RuntimeError(f"Port {spec.or_port} is already in use on this computer. Pick another one.")
             data = self.data_dir()
+            self._reap_orphan(data)
             self.torrc = generate_torrc(spec, data_dir=str(data))
             torrc_path = relay_dir() / "torrc"
             write_private(torrc_path, self.torrc)
@@ -125,6 +126,44 @@ class RelayManager:
                 self._registered = True
         self.log.info("relay", f"Starting a {spec.mode} relay ({'practice mode, not published' if spec.practice else 'public'}).")
         threading.Thread(target=self._pump, args=(proc,), daemon=True, name="relay-log").start()
+
+    def _reap_orphan(self, data: Path) -> None:
+        """A relay Tor left over from an earlier run (the app was killed or crashed) still holds the data folder's lock
+        and the new one exits with 'another Tor process is running with the same data directory'. If the process that
+        holds it is clearly this app's own relay (its command line names our relay folder), stop it; otherwise explain."""
+        try:
+            pid = int((data / "lock").read_text(encoding="utf-8", errors="ignore").strip().split()[0])
+        except (OSError, ValueError, IndexError):
+            return
+        if pid == os.getpid():
+            return
+        try:
+            import psutil
+            proc = psutil.Process(pid)
+            cmd = " ".join(proc.cmdline())
+        except Exception:
+            return                                   # not running (the lock file is stale: Tor ignores it) or unreadable
+        if str(relay_dir()) not in cmd:
+            raise RuntimeError(f"Another program (process {pid}) is using the relay's data folder. Close it, or stop that "
+                               "process, then start the relay again.")
+        try:                                         # still owned by a running legalPrivacy window: leave it alone
+            parent = " ".join(psutil.Process(proc.ppid()).cmdline()).lower()
+        except Exception:
+            parent = ""
+        if "legalprivacy" in parent:
+            raise RuntimeError("Another legalPrivacy window is already running the relay. Use that window, or close it "
+                               "first.")
+        self.log.info("relay", f"Stopping a relay left running by an earlier run (process {pid}).")
+        try:
+            proc.terminate()
+            proc.wait(timeout=8)
+        except Exception:
+            try:
+                proc.kill()
+                proc.wait(timeout=4)
+            except Exception:
+                raise RuntimeError(f"A relay from an earlier run (process {pid}) would not stop. Stop that process, "
+                                   "then start the relay again.") from None
 
     def stop(self) -> None:
         with self._lock:
