@@ -294,6 +294,11 @@ class SettingsTab(Tab):
         self.f_check(c, "dns_bursts", "Follow lookups with a page's burst of lookups",
                      "Recommended. A real page load asks for its fonts, scripts and other sites a few tens of milliseconds "
                      "apart; single lookups on their own look unlike that.")
+        self.f_check(c, "file_transfers", "File transfers",
+                     "Recommended. Now and then the noise downloads a real public file and throws it away (mostly photos, sometimes "
+                     "a video, zip, document or track) from the Internet Archive's free collections, or uploads a random-sized "
+                     "block of random bytes to a speed-test server (never anything of yours). Each download is capped at 20 MB. "
+                     "Skipped in low-data mode.")
         self.f_check(c, "duck_chat", "Chat noise on duck.ai",
                      "Off by default. Now and then, in a long session, the real-browser lane has a short made-up chat on duck.ai "
                      "(one topic, one to four messages of different lengths, typed like a person). The questions never come from "

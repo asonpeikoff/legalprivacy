@@ -27,13 +27,14 @@ from .paths import getenv
 @dataclass
 class Target:
     url: str
-    kind: str = "html"            # html | doh | dns | pkg
+    kind: str = "html"            # html | doh | dns | pkg | download | upload
     timeout: float = 25.0
     referer: str | None = None    # set on click-through / link-follow hits
     note: str | None = None       # e.g. query origin ("trends", "dataset"…), shown in the log
     role: str = "page"            # search | result | page
     dwell: float | None = None    # seconds a person would spend on this page (sessions)
     script: list[str] | None = None   # role 'chat': the messages to send, one after another
+    size: int = 0                 # download: stop after this many bytes; upload: how many random bytes to send
     accept_terms: bool = False    # role 'chat': the user switched chat noise on, which accepts the site's terms
 
     @property
@@ -107,6 +108,9 @@ class ClearnetTransport(Transport):
     def hit(self, identity: Identity, target: Target) -> HitResult:
         from .identity import navigation_headers
         proxies = {"http": self.proxy, "https": self.proxy} if self.proxy else None
+        if target.kind in ("download", "upload"):
+            from .files import transfer
+            return transfer(target, proxies, None)
         headers = navigation_headers(identity, target.url, target.referer)
         try:
             # A fresh session with none of requests' own default headers, so the request carries exactly the
@@ -161,6 +165,9 @@ class TorTransport(Transport):
         return {"http": uri, "https": uri}
 
     def hit(self, identity: Identity, target: Target) -> HitResult:
+        if target.kind in ("download", "upload"):
+            from .files import transfer
+            return transfer(target, self._socks_proxies(identity), dict(TOR_BROWSER_HEADERS), 120.0)
         onion = is_onion_host(target.url)
         headers = dict(TOR_BROWSER_HEADERS) if onion else _identity_headers(identity)
         try:
