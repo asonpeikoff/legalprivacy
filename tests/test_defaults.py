@@ -175,3 +175,14 @@ def test_health_strongly_recommends_bridges_and_tor_dns_with_one_click_fixes(tmp
     c.apply_config({"transports": {"tor": {"enabled": False}}})
     off = {x["name"]: x for x in c.doctor()}["Tor"]
     assert off["fix"]["config"]["transports"]["tor"]["enabled"] is True              # without Tor, the fix is to switch it on
+
+
+def test_health_offers_to_restore_the_recommended_behaviour_switches_and_nothing_else():
+    from legalprivacy.controller import Controller
+    c = Controller()
+    row = next(r for r in c.doctor() if r["name"] == "Recommended settings")
+    assert row["status"] == "ok" and "fix" not in row
+    c.profile.extras.multi_tab = False
+    c.profile.extras.persona = "Ason"
+    row = next(r for r in c.doctor() if r["name"] == "Recommended settings")
+    assert row["status"] == "warn" and row["fix"]["config"] == {"extras": {"multi_tab": True}}
