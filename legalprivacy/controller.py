@@ -1176,6 +1176,8 @@ class Controller:
             if browser_tr is not None and prof.traffic.plain > 0:      # both kinds of clearnet noise
                 from .transports import ClearnetTransport
                 plain_tr = ClearnetTransport(proxy=prof.transports["clearnet"].proxy)
+            from . import browser as _bw
+            _bw.MULTI_TAB = bool(getattr(prof.extras, "multi_tab", True))
             lanes = build_lanes(prof, words, tor_gate=gate, clearnet_transport=browser_tr,
                                 plain_transport=plain_tr, tor_transport=self._tor_lane_transport(self._stop))
             if not lanes:
