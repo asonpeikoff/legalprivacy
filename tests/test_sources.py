@@ -123,7 +123,7 @@ def test_shipped_snapshot_works_offline_without_fetching():
     assert all(s["origin"] == "shipped snapshot" for s in st.status())
 
 
-def test_the_header_logo_is_a_plain_wordmark_and_the_character_art_is_not_shipped():
+def test_the_header_logo_is_the_red_white_and_blue_one_and_the_egg_is_a_triple_click():
     import re
     from pathlib import Path
     root = Path(__file__).resolve().parent.parent
@@ -131,8 +131,9 @@ def test_the_header_logo_is_a_plain_wordmark_and_the_character_art_is_not_shippe
     html = (web / "index.html").read_text(encoding="utf-8")
     box = html.split('class="logos"', 1)[1].split("</span>", 1)[0]
     assert len(re.findall(r"<img[^>]*>", box)) == 1 and (web / "logo_trad.png").exists()
-    assert not (web / "logos" / "egg").exists() and not list(web.glob("logo_v*.png")) and not (root / "docs/logo/variants").exists()
-    assert "Konami" not in html and "ArrowUp" not in html
+    assert "clicks.length>=3" in html and "'ArrowUp','ArrowUp','ArrowDown'" in html            # the egg: three quick clicks, or Konami
+    assert (web / "logos" / "egg" / "02-green-supine-skirt.webp").exists()
+    assert not (web / "logos" / "trad" / "03-art-deco.webp").exists() and not (web / "logos" / "trad" / "06-rope-blue.webp").exists()
 
 
 def test_nudges_keep_the_mix_at_100_and_never_go_negative():

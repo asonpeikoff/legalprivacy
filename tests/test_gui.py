@@ -405,9 +405,30 @@ def test_the_traffic_mix_bar_adds_up_to_100_and_saves(tk_app):
     assert abs(sum(eng.values().values()) - 100) < 0.2
 
 
-def test_the_header_shows_the_plain_wordmark(tk_app):
+def test_logo_easter_egg_needs_something_a_normal_user_would_not_do(tk_app, tmp_path, monkeypatch):
+    from legalprivacy import gui
+    f = tmp_path / "logo_egg"
+    monkeypatch.setattr(gui, "_egg_file", lambda: f)
     app = tk_app
-    assert app._logo_now is app.logo_trad or app.logo_trad is None
+    app._egg = False
+    app._show_logo(0)
+    assert app._logo_now is app.logo_trad                       # the plain wordmark by default
+    for _ in range(2):
+        app._logo_click()
+    assert not app._egg                                         # two clicks are nothing special
+    app._logo_click()
+    assert app._egg and f.exists() and app._logo_now is app.logos[0]
+    app._logo_click()
+    assert app._logo_now is app.logos[1]                        # now clicking switches versions
+    app._show_logo(3)
+    assert app._logo_now is app.logos[3]                        # and tabs pick their own
+    app._logo_keys = gui.KONAMI[:-1]
+
+    class Ev:
+        keysym, widget = "a", app.root
+
+    app._logo_key(Ev)                                           # the Konami code undoes it
+    assert not app._egg and not f.exists() and app._logo_now is app.logo_trad
 
 
 def test_nudge_buttons_move_the_mix_and_save_it(tk_app):
