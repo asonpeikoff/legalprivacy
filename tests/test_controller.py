@@ -94,12 +94,11 @@ def test_web_api_requires_token_and_serves_state():
             assert e.code == 403
         with urllib.request.urlopen(base + "/?t=" + srv.token, timeout=5) as r:
             assert b"legalPrivacy" in r.read()
-        for path, kind in (("/logo/egg/02-green-supine-skirt.webp", "image/webp"), ("/logo/egg/01-green-animated.mp4", "video/mp4"),
-                           ("/logo/trad/07-terminal.webp", "image/webp")):
+        for path, kind in (("/logo/trad/04-painted.webp", "image/webp"), ("/logo/trad/07-terminal.webp", "image/webp")):
             with urllib.request.urlopen(base + path + "?t=" + srv.token, timeout=5) as r:
                 assert r.headers["Content-Type"] == kind and len(r.read()) > 1000
-        assert _call(base, srv.token, "/logo/egg/../../webui.py")[0] in (401, 404)      # only the logo files are served
-        assert _call(base, "wrong", "/logo/egg/02-green-supine-skirt.webp")[0] == 401
+        assert _call(base, srv.token, "/logo/trad/../../webui.py")[0] in (401, 404)      # only the logo files are served
+        assert _call(base, "wrong", "/logo/trad/04-painted.webp")[0] == 401
     finally:
         srv.httpd.shutdown()
 

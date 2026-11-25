@@ -123,16 +123,16 @@ def test_shipped_snapshot_works_offline_without_fetching():
     assert all(s["origin"] == "shipped snapshot" for s in st.status())
 
 
-def test_the_header_logo_is_a_plain_wordmark_with_hidden_alternates():
+def test_the_header_logo_is_a_plain_wordmark_and_the_character_art_is_not_shipped():
     import re
     from pathlib import Path
-    web = Path(__file__).resolve().parent.parent / "legalprivacy" / "web"
+    root = Path(__file__).resolve().parent.parent
+    web = root / "legalprivacy" / "web"
     html = (web / "index.html").read_text(encoding="utf-8")
     box = html.split('class="logos"', 1)[1].split("</span>", 1)[0]
-    imgs = re.findall(r"<img[^>]*>", box)
-    assert len(imgs) == 9 and 'class="on"' in imgs[0] and all("on" not in i.split("src=")[0] for i in imgs[1:])
-    assert all((web / f"logo_v{k}.png").exists() for k in range(1, 7)) and (web / "logo_trad.png").exists()
-    assert "'ArrowUp','ArrowUp','ArrowDown'" in html and "clicks.length>=3" in html
+    assert len(re.findall(r"<img[^>]*>", box)) == 1 and (web / "logo_trad.png").exists()
+    assert not (web / "logos" / "egg").exists() and not list(web.glob("logo_v*.png")) and not (root / "docs/logo/variants").exists()
+    assert "Konami" not in html and "ArrowUp" not in html
 
 
 def test_nudges_keep_the_mix_at_100_and_never_go_negative():
