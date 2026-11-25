@@ -136,3 +136,33 @@ def test_my_list_can_be_filled_from_the_imported_recording():
         raise AssertionError("expected ConfigError")
     except ConfigError:
         pass
+
+
+def test_map_node_actions_block_a_site_for_the_noise_and_give_firewall_commands(tmp_path):
+    import os
+    import time as _t
+    os.environ["LEGALPRIVACY_HOME"] = str(tmp_path / "h")
+    from legalprivacy.config import ConfigError
+    c = _ctl()
+    c.map_block("www.Example.com", "temporary")
+    assert "example.com" in c.feeds.denylist() and list(c.blocked()) == ["example.com"]
+    c.map_block("tracker.example.net", "permanent")
+    assert set(c.blocked()) == {"example.com", "tracker.example.net"}
+    c.map_block("example.com", "unblock")
+    assert "example.com" not in c.feeds.denylist() and "tracker.example.net" in c.feeds.denylist()
+    c._apply_blocks({"old.example.org": _t.time() - 5})                  # a day-long block that has run out
+    assert "old.example.org" not in c.blocked()
+    for bad in (("1.2.3.4", "permanent"), ("nodots", "permanent"), ("good.example", "zap")):
+        try:
+            c.map_block(*bad)
+            raise AssertionError("expected ConfigError")
+        except ConfigError:
+            pass
+    info = c.map_info("93.184.216.34", "example.com/", "noise")
+    assert info["ip"] == "93.184.216.34" and info["block_host"] == "example.com" and not info["private"]
+    assert any("iptables" in f["add"] and "93.184.216.34" in f["add"] for f in info["firewall"])
+    try:
+        c.map_info("not-an-ip")
+        raise AssertionError("expected ConfigError")
+    except ConfigError:
+        pass
