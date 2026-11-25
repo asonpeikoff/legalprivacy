@@ -518,6 +518,24 @@ class ToolsTab(Tab):
         c.note("Downloads about 10 MB and uploads 2 MB once, over the normal internet (not Tor), through your clearnet proxy if "
                "you set one. Runs only when you click.")
         self.speed = self._tool(c, "Run speed test", self.speedtest)
+        c = add_card(self, app, "Scrape a site")
+        c.note("A polite spider for jobs you start. Tables become CSV files; images, video, audio, documents and archives are "
+               "saved to a folder. It follows robots.txt, stays on the site, waits a random few seconds between requests, and can "
+               "mix in visits to unrelated popular sites. It reads only what a visitor can see: no logins.")
+        self.sc_url = tk.StringVar()
+        r = c.row()
+        ttk.Entry(r, textvariable=self.sc_url).pack(side="left", fill="x", expand=True)
+        r = c.row()
+        self.sc_kinds = {k: tk.BooleanVar(value=k in ("tables", "images", "documents"))
+                         for k in ("tables", "images", "video", "audio", "documents", "archives")}
+        for k, v in self.sc_kinds.items():
+            ttk.Checkbutton(r, text=k.capitalize(), variable=v).pack(side="left", padx=(0, 8))
+        r = c.row()
+        self.sc_mix, self.sc_proxy = tk.BooleanVar(value=True), tk.BooleanVar(value=False)
+        ttk.Checkbutton(r, text="Mix in noise", variable=self.sc_mix).pack(side="left", padx=(0, 8))
+        ttk.Checkbutton(r, text="Through a tested proxy", variable=self.sc_proxy).pack(side="left", padx=(0, 8))
+        self.sc = self._tool(c, "Start", self.scrape_run)
+        self.app.btn(c.row(), "Stop", "stop", "secondary", lambda: self.app.work(self.app.ctl.scrape_stop, lambda d: None, lambda e: None)).pack(side="left")
         c = add_card(self, app, "Proxies (tested)")
         c.note("Pulls free proxy lists from public GitHub files (and any page you add), tests every candidate through a real "
                "HTTPS request and throws out the slow, dead, wrong-answer and transparent ones. Used only for jobs you start, "
@@ -592,6 +610,25 @@ class ToolsTab(Tab):
                                                                                   else f"{s['found']} found"))
                         for s in d.get("sources") or [])
         return head + ("\n" + fast if fast else "") + "\nSources:\n" + src
+
+    @staticmethod
+    def _scrape_text(d: dict) -> str:
+        j = d.get("job")
+        if not j:
+            return f"Saved under {d.get('folder')}. {d.get('proxies', 0)} tested proxies available."
+        return (f"{'Running' if j['running'] else 'Finished'}: {j['pages']} pages, {j['tables']} tables, {j['files']} files "
+                f"({j['bytes'] / 1e6:.1f} MB), {j['noise']} noise visits.\nFolder: {j['folder']}"
+                + (f"\n{len(j['errors'])} problems, e.g. {j['errors'][0]}" if j["errors"] else ""))
+
+    def scrape_run(self) -> None:
+        def poll(d=None):
+            d = d or self.app.ctl.scrape_state()
+            self._text(self.sc, self._scrape_text(d))
+            if (d.get("job") or {}).get("running"):
+                self.after(1500, poll)
+        body = {"url": self.sc_url.get().strip(), "kinds": [k for k, v in self.sc_kinds.items() if v.get()],
+                "mix_noise": self.sc_mix.get(), "use_proxy": self.sc_proxy.get()}
+        self.app.work(lambda: self.app.ctl.scrape_start(body), lambda d: poll(d), lambda e: self._text(self.sc, str(e)))
 
     def proxies_run(self) -> None:
         def poll(d=None):
