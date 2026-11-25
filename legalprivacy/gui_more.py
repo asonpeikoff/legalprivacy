@@ -97,6 +97,7 @@ class MyListTab(Tab):
         ttk.Spinbox(r, from_=1, to=365, width=5, textvariable=self.days).pack(side="left", padx=6)
         f.lbl(r, "days (30 recommended)", True).pack(side="left")
         self.b_scan = app.btn(r, "Scan my history", "refresh", "secondary", self.scan)
+        self.b_rec = app.btn(r, "From my imported recording", "refresh", "secondary", self.recording)
         self.b_scan.pack(side="left", padx=10)
         r = f.row()
         f.lbl(r, "From bookmarks:").pack(side="left")
@@ -225,6 +226,9 @@ class MyListTab(Tab):
     def scan(self) -> None:
         days = float(self.days.get() or 30)
         self._finder(self.b_scan, lambda: self.app.ctl.mylist_scan(days), "history", "Reading your browser history…")
+
+    def recording(self) -> None:
+        self._finder(self.b_rec, self.app.ctl.mylist_from_recording, "history", "Reading your recording…")
 
     def bookmarks(self) -> None:
         self._finder(self.b_bm, lambda: self.app.ctl.mylist_bookmarks(None), "bookmarks", "Reading your bookmarks…")
