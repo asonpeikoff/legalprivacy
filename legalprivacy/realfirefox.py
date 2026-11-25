@@ -222,6 +222,7 @@ class RealFirefoxTransport:
         self._cookies_at = time.time()
         self._factory = driver_factory
         self._alt_factory, self._alt = alt_factory, None       # the app's own browser, if yours can't be started
+        self._other = None       # the app's own browsers for identities that are not "you" (another UA, a phone)
 
     # ── lifecycle ──────────────────────────────────────────────────────────
     def _ensure(self) -> None:
@@ -243,6 +244,12 @@ class RealFirefoxTransport:
             if self.proxy:
                 opts.set_preference("network.proxy.type", 1)
             self._driver = webdriver.Firefox(options=opts)
+        try:                                          # never maximised and never your real screen size
+            from . import fingerprint
+            w, h = fingerprint.window_size(fingerprint.seed_state()["seed"])
+            self._driver.set_window_size(w, h)
+        except Exception:
+            pass
         try:
             self.user_agent = self._driver.execute_script("return navigator.userAgent")
         except Exception:
@@ -253,6 +260,8 @@ class RealFirefoxTransport:
     def close(self) -> None:
         if self._alt is not None and hasattr(self._alt, "close"):
             self._alt.close()
+        if self._other is not None and hasattr(self._other, "close"):
+            self._other.close()
         d, self._driver = self._driver, None
         if d is not None:
             try:
@@ -290,11 +299,22 @@ class RealFirefoxTransport:
         except Exception:
             return False
 
+    @staticmethod
+    def _not_you(identity) -> bool:
+        return bool(getattr(identity, "mobile", False)) or getattr(identity, "persona", "own") not in ("own", "", None)
+
     def hit(self, identity, target: Target) -> HitResult:
         if target.kind != "html":
             return self.fallback.hit(identity, target)
         if self._alt is not None:
             return self._alt.hit(identity, target)
+        if self._alt_factory is not None and self._not_you(identity):
+            # User agent "Mix": the identities that don't use your own browser's user agent (and phones, which your
+            # Firefox can't be) browse in the app's own browsers, so the noise also looks like other machines.
+            if self._other is None:
+                self._other = self._alt_factory()
+            if self._other is not None:
+                return self._other.hit(identity, target)
         try:
             self._ensure()
         except Exception as exc:

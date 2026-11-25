@@ -49,7 +49,8 @@ def make(cfg=None, running=True, visit=None, proxy=None, tor=(), clock=None, see
                                        "microsoft": {"enabled": True, "per_hour": 3, "per_day": 5}}
     return A.AccountsManager(EventLog(), config=lambda: cfg, running=lambda: running, proxy=lambda: proxy,
                              tor_addrs=lambda: tor, visit_impl=visit, has_display_fn=lambda: True,
-                             browser_ok=lambda: (True, "x"), rng=random.Random(seed), now=clock or time.time)
+                             browser_ok=lambda: (True, "x"), firefox_import=lambda p: None,
+                             rng=random.Random(seed), now=clock or time.time)
 
 
 def sign_in(m, provider="google", state=None):
@@ -465,3 +466,23 @@ def test_endpoints(home):
         assert _call(base, tok, "/api/accounts")[1]["accounts"]["google"]["state"] == "signed_out"
     finally:
         srv.httpd.shutdown()
+
+
+def test_firefox_sign_in_is_reused_without_a_window(tmp_path, monkeypatch):
+    import sqlite3
+    monkeypatch.setattr(A, "accounts_dir", lambda: tmp_path)
+    prof = tmp_path / "ff"
+    prof.mkdir()
+    con = sqlite3.connect(prof / "cookies.sqlite")
+    con.execute("CREATE TABLE moz_cookies (name, value, host, path, expiry, isSecure, isHttpOnly, sameSite)")
+    far = (time.time() + 86400 * 30) * 1000                       # milliseconds, as newer Firefox stores them
+    con.executemany("INSERT INTO moz_cookies VALUES (?,?,?,?,?,?,?,?)",
+                    [("SID", "x", ".google.com", "/", far, 1, 1, 0), ("other", "y", ".example.com", "/", far, 0, 0, 1)])
+    con.commit(); con.close()
+    st = A.firefox_session("google", prof)
+    assert st and [c["name"] for c in st["cookies"]] == ["SID"] and st["cookies"][0]["expires"] < 1e11
+    assert A.firefox_session("microsoft", prof) is None
+    m = make()
+    m._firefox_import = lambda p: A.firefox_session(p, prof)
+    m._signin_impl = lambda *a: (_ for _ in ()).throw(AssertionError("no window should open"))
+    assert m.begin_signin("google").get("from_firefox") and m.has_session("google")

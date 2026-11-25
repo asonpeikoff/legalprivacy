@@ -214,7 +214,7 @@ class IdentityConfig:
     rotate_every: str = "hour"    # hour | day   (rotate mode: how often the choice changes)
     ua_pin: str = "own"           # pin mode: "own" or a library id. "own" with no UA yet = rotate until known
     own_ua: str = ""              # your browser's user agent (stored only on this computer)
-    ua_own_share: float = 0.7     # mix mode: share of identities that use your own browser's user agent (0 to 1);
+    ua_own_share: float = 0.85    # mix mode: share of identities that use your own browser's user agent (0 to 1);
                                   # the rest get a random one from the library
 
     def validate(self) -> None:
@@ -253,8 +253,8 @@ class ExtrasConfig:
     busy_kbps: int = 400          # backoff: pause while your own traffic is above this
     metrics: bool = False         # Prometheus metrics at /metrics (needs the dashboard token)
     site_list: str = "both"       # both = Tranco re-ranked by Chrome's real browsing (CrUX), default | tranco
-    persona: str = "Ason"   # who the noise mostly looks like ("" = nobody in particular)
-    persona_share: float = 0.9    # how closely the persona is followed (share of visits and searches)
+    persona: str = "Default mix"  # who the noise mostly looks like ("" = nobody in particular)
+    persona_share: float = 0.8    # how closely the persona is followed (share of visits and searches); the rest is random
     packages: str = "auto"        # real pip/npm installs (removed again): auto (techy personas) | on | off
     household: bool = False       # noise from a virtual household of several people
     household_size: int = 3       # 2..5 people, member 1 = you
@@ -310,7 +310,7 @@ class TrafficConfig:
     browser: float = 100.0        # clearnet pages in a real browser (relative weight)
     plain: float = 0.0            # clearnet pages over plain HTTP (no JavaScript, no scrolling)
     onion: float = 40.0           # Tor .onion sites (only when Tor is on)
-    mobile_share: float = 0.55    # share of noise identities that are phones (most browsing is on phones)
+    mobile_share: float = 0.10    # share of noise identities that are phones (emulated on this computer, so kept low)
     device: str = "iPhone 13"     # phone to emulate, or "mix"
 
     def validate(self) -> None:
@@ -384,7 +384,7 @@ class Profile:
     engines: dict[str, EngineConfig] = field(default_factory=lambda: {
         "search": EngineConfig(budget_per_day=120),
         "crawl": EngineConfig(budget_per_day=40),
-        "dns": EngineConfig(budget_per_day=320),
+        "dns": EngineConfig(budget_per_day=480),     # 3x searches + link-following ("More")
         "onion": EngineConfig(budget_per_day=40, max_depth=3),
         "packages": EngineConfig(budget_per_day=28),
     })
@@ -555,7 +555,7 @@ def apply_overrides(profile: Profile, raw: dict[str, Any]) -> Profile:
             activity=str(m["activity"]), busy_kbps=int(m["busy_kbps"]), metrics=bool(m["metrics"]),
             site_list="tranco" if m.get("site_list") == "tranco" else "both",
             household=bool(m.get("household")), household_size=int(m.get("household_size") or 3),
-            persona=str(m.get("persona") or ""), persona_share=float(m.get("persona_share", 0.9)),
+            persona=_persona_name(m.get("persona")), persona_share=float(m.get("persona_share", 0.8)),
             packages=str(m.get("packages") or "auto"))
         if (profile.extras.interests or profile.extras.household) and not profile.extras.interest_salt:
             import secrets as _s
@@ -611,6 +611,12 @@ def apply_overrides(profile: Profile, raw: dict[str, Any]) -> Profile:
     if profile.realtime_scale <= 0:
         raise ConfigError("realtime_scale must be > 0")
     return profile
+
+
+def _persona_name(x) -> str:
+    from .interests import LEGACY_PERSONA_NAMES
+    x = str(x or "")
+    return LEGACY_PERSONA_NAMES.get(x, x)
 
 
 def load_profile(path: str | None) -> Profile:

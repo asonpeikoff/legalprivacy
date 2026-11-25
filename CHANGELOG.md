@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- **Busier levels**: searches an hour by level are now 1, 2, 4, 7, 11, 17, 25, 36, 50, 70 (level 9 was 15, now 50); random mode still goes well above that in busy hours. The per-engine limit is 20 searches an hour (was 8); above it searches spread over more engines.
+- **Mix of activity vs background**: DNS lookups and package installs run alongside the activity mix and never took a share of it; the desktop app now shows them as their own amounts (as the web dashboard already did). DNS defaults to **More** (3x searches + link-following); a new **Lots** step.
+- **DNS bursts are visible**: each lookup's page-load burst is listed with it in Activity and the Live Log.
+- **More randomness**: searches, link-following, DNS and installs each wander on their own every hour; the burst, click-through and search-first chances vary a little each time.
+- **Long sessions no longer hold up the rest**: most run alongside everything else; about 1 in 8 (itself varied) takes over the way it used to.
+- **Phones: 10% by default** (was 55%): phones are emulated on this computer, so a site that checks deeply can tell; a few still suggest more than one device.
+- **User agent: Mix is the default**, 85% your own browser's user agent. **Browser engine** choices renamed so it is clear which is your own Firefox and which are the app's copies; with your Firefox, the share of the noise that isn't your user agent, and phones, run in the app's own browsers. Your Firefox's window is never maximised.
+- **Persona "Default mix"** (was "Ason"): data science, Objectivism and a regular person's everyday web, followed 80% (the rest is random). The web page could save "Nobody in particular" before its list loaded; fixed.
+- **Old defaults move to the new ones once**: settings still on an older version's default (persona, how closely it's followed, browser engine, user agent, DNS amount, phone share) move to the current default, and Objectivism, Authors and readers and Web 2.0 join a saved list of allowed themes. The Live Log says what moved.
+- On start, the Live Log and Activity now only lose entries **older than 7 days** (0 = clear everything, as before).
+- "Speed" is now **Time compression (testing only)**: 2x = waits half as long. It never changed how much noise an hour.
+- **Google sign-in** uses the sign-in you already have in your own Firefox when there is one (no window). The sign-in window no longer reloads every second (it read the whole browser state each second).
+- Header logo fades on its own through the wordmark and the traditional logos (unless one is picked in Settings). "Run checks" is at the top of Proof.
 - **Recommended settings check** (Health): compares the human-like behaviour switches (long sessions, second tab, DNS bursts, DNS in the browser, cookie lifetime, user agent mix) with the recommended values and offers a one-click "Use the recommended ones" that changes only those, never your sites, personas or limits.
 - **Second tab (real-browser lane)**: about one desktop visit in eight (not on search pages) opens a link of the same site in a second tab while the first is read, then looks at it for a few seconds and closes it, so loads overlap like a real person's. Setting: `extras.multi_tab` (on by default). Not done: Tor Browser's lane (one tab) and phone identities.
 - **My List from your own recording**: a "From my imported recording" button (web and desktop) fills My List from the browser recording (HAR) you imported on the Proof tab, with the same pick-and-add screen as the history scan, so the sites the noise returns to match how often you return to yours. Needs an imported recording; the history scan still works without one.

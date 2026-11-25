@@ -339,13 +339,23 @@ class Interests:
         return _pick_query(self.rng, self.rng.choice(self.active()))
 
 
+DEFAULT_PERSONA = "Default mix"
+LEGACY_PERSONA_NAMES = {"Ason": DEFAULT_PERSONA}     # older settings files
+
 # A persona is who the noise mostly looks like: a fixed mix of themes. It's followed
 # "mostly" (Settings sets how much); the rest of the noise stays varied.
 PERSONAS: dict[str, dict[str, float]] = {
     "Data scientist": {"Data science": 0.85, "Everyday": 0.15},     # mostly data science, plus everyday life
-    # Ason: part data scientist, part ordinary web user (Web 2.0, Wikipedia, everyday), part Objectivist.
-    "Ason": {"Data science": 0.12, "Everyday": 0.10, "My own corners": 0.08, "Authors and readers": 0.03, "Web 2.0": 0.12, "Wikipedia": 0.09, "Objectivism": 0.14,
-             "AI tools": 0.09, "Shopping": 0.07, "Technology": 0.06, "News": 0.04, "Books": 0.04, "Science": 0.02},
+    # Default mix (the default, made for the app's author): data science, Objectivism and a regular person's
+    # everyday web, plus randomness (the share the persona does not follow, "How closely it's followed").
+    DEFAULT_PERSONA: {
+        # data science: 30%
+        "Data science": 0.16, "AI tools": 0.08, "Technology": 0.06,
+        # Objectivism: 22%
+        "Objectivism": 0.22,
+        # a regular person: 48% (news light: mostly seen in passing)
+        "Everyday": 0.11, "Web 2.0": 0.11, "Wikipedia": 0.07, "Shopping": 0.05, "My own corners": 0.04,
+        "Authors and readers": 0.04, "Books": 0.03, "News": 0.02, "Science": 0.01},
     "Developer": {"Technology": 0.6, "Data science": 0.2, "Science": 0.1, "Books": 0.1},
     "Sports fan": {"Sports": 0.7, "Fitness": 0.15, "Movies & TV": 0.15},
     "Student": {"Science": 0.3, "Books": 0.25, "Technology": 0.2, "Movies & TV": 0.15, "Personal finance": 0.1},

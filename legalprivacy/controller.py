@@ -52,7 +52,49 @@ def wipe_old_log_files() -> None:
 APP_DEFAULTS = {"migrated_ason": False, "migrated_share": False, "migrated_tb_lane": False, "migrated_cookie_day": False, "observe": True, "update_check": True, "autostart": True, "open_browser": True, "port": 8765, "intensity": "normal",
                 "auto_refresh_sources": False,   # off: use the snapshot shipped with the app (no lookups)
                 "ml_auto": False, "ml_history": [],
-                "clear_logs_on_restart": True}
+                "clear_logs_on_restart": True,   # on start, clear Live Log and Activity entries older than…
+                "log_keep_days": 7,              # …this many days (0 = clear everything)
+                "migrated_defaults_v3": False}
+
+
+def move_old_defaults(profile) -> list[str]:
+    """Once: settings still on what an older version used as its default move to the current default.
+    Settings files hold every value, so an old default looks like a choice; these were not."""
+    moved = []
+    ex, ident = profile.extras, profile.identity
+    if ex.persona == "":                                 # older web pages could save "" before the list loaded
+        ex.persona = "Default mix"
+        moved.append("persona: Default mix")
+    if abs(float(ex.persona_share) - 0.9) < 1e-9:
+        ex.persona_share = 0.8
+        moved.append("persona followed 80% (20% random)")
+    if ex.interest_list:
+        add = [t for t in ("Objectivism", "Authors and readers", "Web 2.0") if t not in ex.interest_list]
+        if add:
+            ex.interest_list = list(ex.interest_list) + add
+            moved.append("allowed themes: added " + ", ".join(add))
+    clear = profile.transports.get("clearnet")
+    if clear is not None and clear.browser_engine in ("auto", "mix"):
+        clear.browser_engine = "mine"
+        moved.append("browser engine: your own Firefox")
+    if ident.ua_mode == "pin" and ident.ua_pin == "own":
+        ident.ua_mode, ident.ua_own_share = "mix", 0.85
+        moved.append("user agent: Mix, 85% your own")
+    elif ident.ua_mode == "mix" and abs(float(ident.ua_own_share) - 0.7) < 1e-9:
+        ident.ua_own_share = 0.85
+        moved.append("user agent: 85% your own")
+    tc = getattr(profile, "traffic", None)
+    if tc is not None and abs(float(tc.mobile_share) - 0.55) < 1e-9:
+        tc.mobile_share = 0.10
+        moved.append("phones: 10%")
+    eng = profile.engines
+    dns = eng.get("dns")
+    if dns is not None and dns.enabled:
+        base = sum(eng[n].budget_per_day for n in ("search", "crawl") if n in eng and eng[n].enabled)
+        if base and dns.budget_per_day < 3 * base:
+            dns.budget_per_day = 3 * base
+            moved.append("DNS lookups: More")
+    return moved
 
 
 class Controller:
@@ -65,8 +107,12 @@ class Controller:
         self.app: dict[str, Any] = dict(APP_DEFAULTS)
         self.profile: Profile = Profile(name="default")
         self._load()
-        if self.profile.extras.persona == "Ason" and self.app.get("migrated_ason") and not self.first_run:
+        if self.profile.extras.persona == "Default mix" and self.app.get("migrated_ason") and not self.first_run:
             self._save()                          # remember that the one-time switch to the new default happened
+        if getattr(self, "_moved_defaults", None):
+            self._save()
+            self.log.info("app", "Settings that were still on an older default now use the new one: "
+                                 + "; ".join(self._moved_defaults) + ".")
         self._fresh_relay_nickname()
         self.tor: TorManager | None = None
         self.feeds = FeedStore(self.log)
@@ -114,13 +160,16 @@ class Controller:
             self.profile = apply_overrides(Profile(name="default"), raw)
             self.app |= {k: v for k, v in (raw.get("app") or {}).items() if k in APP_DEFAULTS}
             if self.profile.extras.persona == "Data scientist" and not self.app.get("migrated_ason"):
-                self.profile.extras.persona = "Ason"        # the new default persona replaces the old default once
+                self.profile.extras.persona = "Default mix"  # the new default persona replaces the old default once
                 self.app["migrated_ason"] = True
             if not self.app.get("migrated_share"):
                 tor = self.profile.transports.get("tor")
                 if tor is not None:
                     tor.share_browser = True               # sharing the app's Tor with Tor Browser is now on by default
                 self.app["migrated_share"] = True
+            if not self.app.get("migrated_defaults_v3"):
+                self._moved_defaults = move_old_defaults(self.profile)
+                self.app["migrated_defaults_v3"] = True
             if not self.app.get("migrated_cookie_day"):
                 cl = self.profile.transports.get("clearnet")
                 if cl is not None and cl.cookie_hours == 1.0:
@@ -242,6 +291,8 @@ class Controller:
         for k in ("autostart", "open_browser", "auto_refresh_sources", "ml_auto", "observe", "clear_logs_on_restart", "update_check"):
             if k in raw:
                 self.app[k] = bool(raw[k])
+        if "log_keep_days" in raw:
+            self.app["log_keep_days"] = max(0, min(365, int(float(raw["log_keep_days"] or 0))))
         if "observe" in raw:
             (self.observer.start if self.app["observe"] else self.observer.stop)()
         self._save()
@@ -462,7 +513,7 @@ class Controller:
                           random_share=ml.random_share, my_weights=ml.weights)
         pool.interests, pool.interest_share = self._interests(), self._interest_share()
         pool.site_list = self.profile.extras.site_list
-        pool.avoid_entertainment = self.profile.extras.persona == "Ason"
+        pool.avoid_entertainment = self.profile.extras.persona == "Default mix"
         return pool
 
     def interests_state(self) -> dict:
@@ -1184,9 +1235,13 @@ class Controller:
                 raise ConfigError("Nothing to run: enable clearnet noise or Tor/onion noise in Settings.")
             import random as _r
             prev = self.runner
-            if self.app.get("clear_logs_on_restart", True):      # Settings → General (on by default)
+            keep_s = float(self.app.get("log_keep_days", 7) or 0) * 86400
+            clearing = self.app.get("clear_logs_on_restart", True)     # Settings → General (on by default)
+            if clearing and not keep_s:
                 self.log.clear()
                 self.log_epoch = getattr(self, "log_epoch", 0) + 1
+            elif clearing:
+                self.log.clear_older(keep_s)                     # only what is older than the days kept
             self.runner = Runner(profile=prof, lanes=lanes, wordlist=words, log=self.log,
                                  stop_event=self._stop, sleep_fn=lambda s: self._stop.wait(s),
                                  queries=self._query_source(words), domains=self._domain_pool(_r),
@@ -1195,8 +1250,11 @@ class Controller:
                                  mix=True, side_streams=("dns", "packages"))
             if prev is not None:                  # request numbers keep counting across restarts
                 self.runner._hit_seq = prev._hit_seq
-                if not self.app.get("clear_logs_on_restart", True):
+                if not clearing:
                     self.runner.hit_log.extend(prev.hit_log)
+                elif keep_s:
+                    cut = time.time() - keep_s
+                    self.runner.hit_log.extend(h for h in prev.hit_log if h.get("ts", 0) >= cut)
             self._thread = threading.Thread(target=self._run_loop, daemon=True, name="legalprivacy-runner")
             self._thread.start()
             self.accounts.start()                 # idle unless an account is signed in AND switched on

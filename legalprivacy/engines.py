@@ -72,9 +72,9 @@ def add_typo(rng, query: str) -> str:
     words[i] = w
     return " ".join(words)
 
-# No search engine gets more than this many searches from us in any hour, whatever the
-# level: well under the volume that triggers CAPTCHAs or rate limits for one address.
-MAX_SEARCHES_PER_ENGINE_PER_HOUR = 8
+# No search engine gets more than this many searches from us in any hour, whatever the level. A busy person can
+# do this many on one engine; much more from one address starts to draw CAPTCHAs.
+MAX_SEARCHES_PER_ENGINE_PER_HOUR = 20
 _ENGINE_HITS: dict[str, list[float]] = {}
 _ENGINE_LOCK = __import__("threading").Lock()
 

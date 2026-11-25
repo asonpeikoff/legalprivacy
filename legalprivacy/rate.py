@@ -18,11 +18,11 @@ from dataclasses import dataclass
 
 from .pacing import diurnal_factor
 
-# searches per hour at each slider level (1..10)
-# The top is kept low enough that no one search engine sees bot-like volume from your
-# address: at level 10 the busiest engine (Google, ~35% of searches) gets about 7 an hour,
-# and engines.py also caps every engine at 8 searches in any hour.
-SEARCHES_PER_HOUR = [0.5, 1, 1.5, 2.5, 4, 6, 8, 11, 15, 20]
+# searches per hour at each slider level (1..10), the average. In random mode busy hours go well above it.
+# A busy person searches far more than the population average below (heavy phone users search over a hundred
+# times in a busy hour), so the upper levels are meant to cover that. engines.py caps every engine at
+# MAX_SEARCHES_PER_ENGINE_PER_HOUR, so at the top levels the searches spread over more engines.
+SEARCHES_PER_HOUR = [1, 2, 4, 7, 11, 17, 25, 36, 50, 70]
 LEVEL_NAMES = ["barely there", "very light", "light", "light-moderate", "moderate",
                "moderate-busy", "busy", "very busy", "heavy", "very heavy"]
 AVG_PERSON_SEARCHES_PER_DAY = 4.2      # SparkToro 2024, active US desktop users (126/month)

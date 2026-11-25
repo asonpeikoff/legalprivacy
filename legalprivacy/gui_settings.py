@@ -217,8 +217,9 @@ class SettingsTab(Tab):
                                                      "and system it is. Noise that claims a different browser than yours can "
                                                      "stand out. This sets how the plain-HTTP noise sends it; the real "
                                                      "browser always sends its own.")
-        c.note("Your own browser's user agent means the noise looks like you, same as your real traffic. That is what we "
-               "recommend. Random changes the browser the noise claims to be every hour or day (it adds a second browser on "
+        c.note("Mix (recommended) sends your own browser's user agent most of the time and a random one the rest, so the "
+               "noise looks like you and also like other machines; it keeps working when your browser randomises its own "
+               "user agent with an add-on. Your own only always looks like you. Random changes the browser the noise claims to be every hour or day (it adds a second browser on "
                "your connection). One fixed library entry is an easy pattern: only pick it for a specific reason.")
         self.ua_choice = tk.StringVar()
         self.ua_choice.trace_add("write", self._var_changed)
@@ -321,7 +322,7 @@ class SettingsTab(Tab):
                      "Off by default; most people never need this. For people who already run a tool such as "
                      "Prometheus or Grafana: adds a page at /metrics?t=<your dashboard token> in the web dashboard "
                      "with counts like hits and failures. Nothing leaves this computer.")
-        c.heading("Search engines", "always adds up to 100%; every engine also has a hard limit of 8 searches an hour")
+        c.heading("Search engines", "always adds up to 100%; every engine also has a hard limit of 20 searches an hour")
         self.se_mix = MixBar(c.body, self.app, [], self.app.edited)
         self.se_mix.pack(fill="x")
         self.se_touched = False
@@ -374,7 +375,7 @@ class SettingsTab(Tab):
         self.pers_mix = c.note("", pady=(2, 2))
         r = c.row()
         c.lbl(r, "Package installs").pack(side="left")
-        self.f_combo(r, "packages", [("auto", "Automatic: on for Ason, Data scientist and Developer (recommended)"), ("on", "On"),
+        self.f_combo(r, "packages", [("auto", "Automatic: on for Default mix, Data scientist and Developer (recommended)"), ("on", "On"),
                                      ("off", "Off")], 54).pack(side="left", padx=8)
         c.note("Real pip install / download / uninstall of popular packages (and npm, if you have it), the way someone who "
                "codes talks to PyPI and npm. It happens in legalPrivacy's own separate environment, never in yours: only "
@@ -444,8 +445,16 @@ class SettingsTab(Tab):
                "and then downloads a file (discarded). Plain HTTP cannot do any of that and is easier to spot.")
         r = c.row()
         c.lbl(r, "Browser engine").pack(side="left")
-        self.f_combo(r, "engine", [("mine", "My own Firefox, with my settings, add-ons and bookmarks (recommended)"), ("mix", "Mix every browser found"), ("auto", "Match my own browser only"), ("chromium", "Chromium / Chrome"),
-                                   ("firefox", "Firefox")], 34).pack(side="left", padx=8)
+        self.f_combo(r, "engine", [("mine", "Your own Firefox, with your add-ons (recommended)"),
+                                   ("mix", "The app's own browsers, Chromium and Firefox mixed"),
+                                   ("auto", "The app's own browser, the same kind as yours"),
+                                   ("chromium", "The app's own Chromium only"), ("firefox", "The app's own Firefox only")],
+                     44).pack(side="left", padx=8)
+        c.note("Your own Firefox: the Firefox installed here, with the profile it opens by default, on a private copy "
+               "(settings, add-ons and bookmarks; never logins, cookies or history). Fingerprint blockers and user-agent "
+               "switchers keep working. With User agent set to Mix, the part that isn't your own user agent, and phone "
+               "visits, run in the app's own browsers, which vary canvas, WebGL, audio, fonts and window size themselves. "
+               "Windows are never maximised.")
         r = c.row()
         c.lbl(r, "Browser window").pack(side="left")
         self.f_combo(r, "window", L.WINDOW_CHOICES, 34).pack(side="left", padx=8)
@@ -573,10 +582,6 @@ class SettingsTab(Tab):
     def build_general(self) -> None:
         c = self.card("general", "General", "set")
         r = c.row()
-        c.lbl(r, "Speed").pack(side="left")
-        self.f_spin(r, "speed", 0.05, 100, 0.1, 7, float).pack(side="left", padx=8)
-        c.lbl(r, "1.0 = human pace; lower = faster (for testing)", True).pack(side="left")
-        r = c.row()
         c.lbl(r, "Stop after").pack(side="left")
         self.f_spin(r, "max_failures", 1, 100000, 1, 7).pack(side="left", padx=8)
         c.lbl(r, "failures per day").pack(side="left")
@@ -585,8 +590,18 @@ class SettingsTab(Tab):
         self.f_entry(r, "proxy", 40, "optional: http:// or socks5://…").pack(side="left", padx=8)
         self.f_check(c, "clearnet_enabled", "Clearnet noise enabled")
         self.f_check(c, "autostart", "Start the noise by itself when this app opens")
-        self.f_check(c, "clear_logs_on_restart", "Clear the Live Log and Activity each time noise starts",
+        self.f_check(c, "clear_logs_on_restart", "Each time noise starts, clear old Live Log and Activity entries",
                      "Recommended. They are kept in memory only and always cleared when legalPrivacy quits.")
+        r = c.row()
+        c.lbl(r, "Clear entries older than").pack(side="left")
+        self.f_spin(r, "log_keep_days", 0, 365, 1, 5).pack(side="left", padx=8)
+        c.lbl(r, "days  (0 = clear everything)", True).pack(side="left")
+        c.heading("Testing only", "leave this at 1 for real use")
+        r = c.row()
+        c.lbl(r, "Time compression").pack(side="left")
+        self.f_spin(r, "speed", 0.01, 20, 0.5, 7, float).pack(side="left", padx=8)
+        c.lbl(r, "×  makes every wait this many times shorter, to watch a day's behaviour quickly. It does not "
+                 "change how much noise an hour: the level does.", True).pack(side="left")
         self.f_check(c, "observe", "Watch this computer's connection counts for the Proof tab",
                      "Local only; never leaves this computer.")
         self.path_note = c.note("", pady=(6, 0))
@@ -635,13 +650,14 @@ class SettingsTab(Tab):
     def _got_interests(self, d: dict) -> None:
         self.interest = d
         keep = self._get_persona() or self.app.ctl.profile.extras.persona
-        self.pers_box.configure(values=["Nobody in particular (neutral)"] + [n + (" (default)" if n == "Ason" else "") for n in d["personas"]])
+        self.pers_box.configure(values=["Nobody in particular (neutral)"] + [n + (" (default)" if n == "Default mix" else "") for n in d["personas"]])
         self._set_persona(keep)
         allowed = list(self.app.ctl.profile.extras.interest_list)
         for w in self.theme_frame.winfo_children():
             w.destroy()
         self.theme_vars = {}
-        ttk.Label(self.theme_frame, text="Allowed themes", style="CardMuted.TLabel").grid(row=0, column=0, sticky="w", columnspan=4)
+        ttk.Label(self.theme_frame, text="Allowed themes (only used when Persona is Nobody in particular; "
+                  "My own corners = sites from your own life)", style="CardMuted.TLabel").grid(row=0, column=0, sticky="w", columnspan=4)
         for i, t in enumerate(d["themes"]):
             var = tk.BooleanVar(value=(not allowed or t in allowed))
             var.trace_add("write", self._var_changed)

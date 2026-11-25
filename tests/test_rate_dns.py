@@ -17,16 +17,16 @@ from legalprivacy.transports import HitResult  # noqa: E402
 
 def test_slider_is_monotonic_and_labelled_with_benchmarks():
     vals = [searches_per_hour(lv) for lv in range(1, 11)]
-    assert vals == sorted(vals) and vals[0] < 1 and vals[-1] >= 20
+    assert vals == sorted(vals) and vals[0] <= 1 and searches_per_hour(9) >= 45 and vals[-1] >= 60
     d = describe(5, 0.3)
-    assert d["searches_per_hour"] == 4 and d["vs_average_person"] > 1
+    assert d["searches_per_hour"] == 11 and d["vs_average_person"] > 1
 
 
 def test_random_mode_varies_hour_to_hour_and_has_quiet_hours():
     rp = RatePlanner(random.Random(1), RateConfig(mode="random", level=5))
     xs = [rp.actions_for_hour(h % 24, 0.3) for h in range(24 * 30)]
     assert statistics.pstdev(xs) > 0.3 * statistics.mean(xs)
-    assert sum(x < 2 for x in xs) > 24 * 30 * 0.05            # some near-empty "away" hours
+    assert sum(x < 0.15 * statistics.mean(xs) for x in xs) > 24 * 30 * 0.05   # some near-empty "away" hours
     night = [rp.actions_for_hour(4, 0.3) for _ in range(400)]
     evening = [rp.actions_for_hour(20, 0.3) for _ in range(400)]
     assert statistics.mean(evening) > statistics.mean(night)
@@ -135,10 +135,10 @@ def test_partial_randomness_scales_between_steady_and_random():
 def test_top_level_stays_gentle_and_no_engine_exceeds_its_hourly_cap():
     from legalprivacy.engines import MAX_SEARCHES_PER_ENGINE_PER_HOUR, _ENGINE_HITS, pick_search_endpoint
     from legalprivacy.rate import searches_per_hour
-    assert searches_per_hour(10) <= 20
+    assert searches_per_hour(10) <= 100
     _ENGINE_HITS.clear()
     rng, t0 = random.Random(1), 1_000_000.0
-    picks = [pick_search_endpoint(rng, now=t0 + i) for i in range(40)]
+    picks = [pick_search_endpoint(rng, now=t0 + i) for i in range(100)]
     assert max(picks.count(p) for p in set(picks)) <= MAX_SEARCHES_PER_ENGINE_PER_HOUR
     _ENGINE_HITS.clear()
 
@@ -366,7 +366,7 @@ def test_during_a_long_session_visits_to_other_sites_of_that_kind_are_rare():
 def test_ason_long_sessions_sometimes_are_a_duck_ai_chat():
     from legalprivacy.transports import Target
     p = Profile(name="t")
-    assert p.extras.persona == "Ason"
+    assert p.extras.persona == "Default mix"
     r = _app_runner(p, lambda: 0.0)
     lane = r.lanes[0]
     modes = set()

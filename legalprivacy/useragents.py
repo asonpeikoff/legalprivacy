@@ -8,7 +8,7 @@ the newest two or three versions of each browser are the ones most often chosen.
 
 Only real browsers are listed: no command-line or library clients.
 
-Phones: by default noise identities are phones 55% of the time, and phones are an
+Phones: by default noise identities are phones 10% of the time, and phones are an
 iPhone 13 (Safari). Other devices, or a mix of phones, can be chosen in Settings.
 """
 from __future__ import annotations
@@ -43,7 +43,7 @@ def desktop_weights() -> dict:
     return {"desktop-firefox": 0.0, "desktop-chrome": 0.90, "desktop-chromium": 0.10}
 
 
-DEFAULT_MOBILE_SHARE = 0.55
+DEFAULT_MOBILE_SHARE = 0.10
 DEFAULT_DEVICE = "iPhone 13"
 
 # Phones we can emulate. viewport = the page area a person sees in the browser (CSS px).

@@ -27,7 +27,7 @@ RHYTHMS = [
 
 class Household:
     def __init__(self, size: int = 3, salt: str = "", clock=time.time, sample_entry=None,
-                 mobile_share: float = 0.55, device: str = "iPhone 13"):
+                 mobile_share: float = 0.10, device: str = "iPhone 13"):
         self.size = max(2, min(5, int(size)))
         self.salt, self.clock = salt or "default", clock
         self.sample_entry, self.mobile_share, self.device = sample_entry, mobile_share, device

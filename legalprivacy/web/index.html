@@ -600,7 +600,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
 
 <!-- SETTINGS -->
 <section id="t-set" class="tab">
-  <div class="card"><h3>Logo</h3><div class="row"><label class="small" for="logoPick">Header logo</label><select id="logoPick"><option value="">Default</option><option value="01-pop-type">Pop colours</option><option value="02-pop-shadow">Pop, shadowed</option><option value="03-art-deco">Art deco</option><option value="04-painted">Painted</option><option value="05-rope-two-tone">Rope, red and blue</option><option value="06-rope-blue">Rope, blue</option><option value="07-terminal">Terminal</option></select></div></div>
+  <div class="card"><h3>Logo</h3><div class="row"><label class="small" for="logoPick">Header logo</label><select id="logoPick"><option value="">Default: fade through all of them</option><option value="01-pop-type">Pop colours</option><option value="02-pop-shadow">Pop, shadowed</option><option value="03-art-deco">Art deco</option><option value="04-painted">Painted</option><option value="05-rope-two-tone">Rope, red and blue</option><option value="06-rope-blue">Rope, blue</option><option value="07-terminal">Terminal</option></select></div></div>
   <div class="card"><h3>Setup questions</h3>
     <div class="row"><span class="small mute">The questions from first-time setup (how much noise, Tor, start automatically). Your current answers are filled in.</span><span class="sp"></span><button id="sSetup">Review setup questions…</button></div>
   </div>
@@ -612,13 +612,13 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div style="margin-top:10px"><b>How random</b> <span class="small mute">— how much each hour varies around that average</span></div>
     <div class="row"><span>Steady</span><input type="range" id="sRand" min="0" max="100" step="10" value="100" style="flex:1"><span>Random</span></div>
     <div class="small" id="sRandInfo"></div>
-    <div class="small mute" style="margin-top:6px">Even the highest level stays below what gets one address rate-limited: no search engine gets more than 8 of our searches in any hour. More noise makes your real activity harder to pick out, though some argue a lot of extra traffic is a pattern of its own. It's a trade-off; the middle levels are a sensible start.</div>
+    <div class="small mute" style="margin-top:6px">These are averages: in random mode busy hours go well above them. No search engine gets more than 20 of our searches in any hour; above that the searches spread over more engines. More noise makes your real activity harder to pick out, though some argue a lot of extra traffic is a pattern of its own. It's a trade-off; the middle levels are a sensible start.</div>
     <div style="margin-top:10px"><b>Mix of activity</b> <span class="small mute">— what you "do" one thing at a time, like a person: searching, following links, .onion sites. Adds up to 100%; drag one and the others make room. 0% turns that part off</span></div>
     <div id="engines"></div>
     <div style="margin-top:10px"><b>Also running in the background</b> <span class="small mute">— these happen at the same time as the activity above and never take a share from it, just like your computer does lookups and installs while you browse.</span></div>
-    <div class="row">DNS lookups <select id="sDnsAmt" title="Name lookups that happen alongside everything else"><option value="0">Off</option><option value="0.5">Fewer</option><option value="1">Normal</option><option value="2">More</option></select>
+    <div class="row">DNS lookups <select id="sDnsAmt" title="Name lookups that happen alongside everything else"><option value="0">Off</option><option value="1">Fewer</option><option value="2">Normal</option><option value="3">More (recommended)</option><option value="5">Lots</option></select>
       Package installs (pip, npm) <select id="sPkgAmt" title="Real pip and npm downloads in a throwaway folder that is deleted straight after. Sometimes one package, sometimes a whole project's requirements."><option value="0">Off</option><option value="0.04">Rare</option><option value="0.075">Normal</option><option value="0.15">Often</option></select></div>
-    <div class="small mute">Package installs run automatically for the Ason, Data scientist and Developer personas, one package at a time or a whole requirements file at once, and everything downloaded is deleted straight afterwards.</div>
+    <div class="small mute">Package installs run automatically for the Default mix, Data scientist and Developer personas, one package at a time or a whole requirements file at once, and everything downloaded is deleted straight afterwards.</div>
   </div>
   <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-wave"/></svg>DNS lookups</h3>
     <div class="small mute">In Activity and the Live Log each lookup shows the site looked up and which resolver answered, e.g. <code>www.reddit.com [via your normal DNS]</code>.</div>
@@ -648,7 +648,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div id="xMix"></div>
     <div class="small mute" id="xOnionOff">Onion sites join this mix automatically when Tor is on (🧅 Tor tab).</div>
     <div style="margin-top:8px"><b>Phones</b></div>
-    <div class="row">Share of noise that is a phone <input type="number" id="xMobile" min="0" max="100" style="width:70px">% <span class="small mute">(55% recommended, default — most browsing happens on phones)</span></div>
+    <div class="row">Share of noise that is a phone <input type="number" id="xMobile" min="0" max="100" style="width:70px">% <span class="small mute">(10% recommended, default: phones are emulated on this computer, so a site that checks deeply can tell; a few still suggest more than one device)</span></div>
     <div class="row">Phone to emulate <select id="xDevice">
       <option value="iPhone 13">iPhone 13 (default, recommended)</option>
       <option value="iPhone 15">iPhone 15</option>
@@ -662,12 +662,13 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div class="small mute">The user agent is the line every browser sends that says what browser and system it is. Noise that claims a different browser than yours can stand out. Pick how the plain-HTTP noise sets it.</div>
     <div class="small" style="margin-top:8px"><b>Advice</b>
       <ul style="margin:4px 0 0 18px">
-        <li><b>Your own browser's user agent</b> means the noise looks like you, same as your real traffic. This is what we recommend.</li>
+        <li><b>Mix</b> (recommended, default) sends your own browser's user agent most of the time and a random one the rest, so the noise looks like you and also like other machines. It keeps working when your browser itself randomises its user agent with an add-on.</li>
+        <li><b>Your own browser's user agent</b> only means the noise always looks like you, same as your real traffic.</li>
         <li><b>Random</b> changes the browser the noise claims to be every hour or day, drawn from the library below. Good if you want noise to look like a mix of visitors; it adds a second browser on your connection.</li>
         <li><b>One library entry</b> is a single fixed browser. Only pick this for a specific reason, since one fixed browser is an easy pattern.</li>
       </ul></div>
-    <label class="opt"><input type="radio" name="uamode" value="own"> <b>Pin to my own browser's user agent</b> <span class="mute">(recommended, default) — until it's known, the noise rotates</span></label>
-    <label class="opt"><input type="radio" name="uamode" value="mix"> <b>Mix: some real, some random</b> <span class="mute">— about <input type="number" id="uShare" min="0" max="100" step="5" value="70" style="width:64px">% of the noise uses your own browser's user agent, the rest a random one</span></label>
+    <label class="opt"><input type="radio" name="uamode" value="mix"> <b>Mix: mostly mine, some random</b> <span class="mute">(recommended, default) — about <input type="number" id="uShare" min="0" max="100" step="5" value="85" style="width:64px">% of the noise uses your own browser's user agent, the rest a random one</span></label>
+    <label class="opt"><input type="radio" name="uamode" value="own"> <b>Pin to my own browser's user agent</b> <span class="mute">— until it's known, the noise rotates</span></label>
     <label class="opt"><input type="radio" name="uamode" value="rotate-hour"> <b>Random, changing every hour</b></label>
     <label class="opt"><input type="radio" name="uamode" value="rotate-day"> <b>Random, changing every day</b></label>
     <label class="opt"><input type="radio" name="uamode" value="lib"> <b>Pin to one library entry</b> <span class="mute">(not recommended; pick one below)</span></label>
@@ -695,14 +696,14 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div class="small mute">CrUX is Google's list of the sites real Chrome users load most. Its global list holds too much adult and gambling content to use on its own, so it only decides which of the already-filtered Tranco sites come up more often.</div>
     <div class="row">Daily data cap <input type="number" id="eCap" min="0" step="10" style="width:90px"> MB <span class="small mute">(0 = no cap, recommended unless your data is metered)</span></div>
     <div style="margin-top:10px"><b>Persona</b> <span class="small mute">— who the noise mostly looks like</span></div>
-    <div class="row">Persona <select id="pers"><option value="">Nobody in particular (neutral)</option></select>
+    <div class="row">Persona <select id="pers"><option value="Default mix" selected>Default mix (default)</option><option value="">Nobody in particular (neutral)</option></select>
       <span class="small mute">pick the one closest to you</span></div>
     <div class="row">How closely it's followed <input type="range" id="persShare" min="10" max="95" step="5" style="flex:1;max-width:220px"> <b class="small" id="persShareP"></b>
-      <span class="small mute">(90% recommended, default: mostly, not perfectly; the rest is everyday browsing)</span></div>
+      <span class="small mute">(80% recommended, default: mostly, not perfectly; the rest is random)</span></div>
     <div class="small mute" id="persMix"></div>
-    <div class="row">📦 Package installs <select id="ePkg"><option value="auto">Automatic: on for Ason, Data scientist and Developer (recommended, default)</option><option value="on">On</option><option value="off">Off</option></select></div>
+    <div class="row">📦 Package installs <select id="ePkg"><option value="auto">Automatic: on for Default mix, Data scientist and Developer (recommended, default)</option><option value="on">On</option><option value="off">Off</option></select></div>
     <div class="small mute">Real <code>pip install</code>, <code>pip download</code> and <code>pip uninstall</code> of popular packages (and <code>npm</code>, if you have it), the way someone who codes talks to PyPI and npm. Everything happens in legalPrivacy's own separate environment, never in yours: only ready-built packages, nothing is ever run, and what's installed is removed again. The environment is wiped and rebuilt daily.</div>
-    <div style="margin-top:10px"><b>Interests</b> <span class="small mute">— a person has a few steady interests, not random everything</span></div>
+    <div style="margin-top:10px"><b>Interests</b> <span class="small mute">— a person has a few steady interests, not random everything. Only used when Persona is “Nobody in particular”: a persona already sets its own themes, and Allowed themes don't change it. “My own corners” are sites and searches from your own life (your sites and repos, Royal Road, PBS NewsHour, Udemy and the like).</span></div>
     <label class="chk"><input type="checkbox" id="iOn"><span><b>Follow a few themes at a time</b> <span class="mute">(off by default) — a share of visits and searches stays on the active themes, which change every so often</span></span></label>
     <div class="row">Themes at once <select id="iN"></select> · change every <input type="number" id="iDays" min="1" max="365" style="width:70px"> days <span class="small mute">(3 themes, every 10 days recommended)</span></div>
     <div class="row">Share that follows the themes <input type="range" id="iShare" min="0" max="100" step="10" style="flex:1;max-width:220px"> <b class="small" id="iShareP"></b> <span class="small mute">(30% recommended)</span></div>
@@ -717,18 +718,19 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <label class="opt"><input type="radio" name="iact" value="follow"> <b>Mostly when I'm active</b> <span class="mute">— not recommended: after 10 idle minutes most noise waits until you're back, which also shows when you are at the computer and when you are not</span></label>
     <details class="small" style="margin-top:8px"><summary>Advanced: monitoring</summary>
       <label class="chk"><input type="checkbox" id="eMetrics"><span><b>Publish numbers for a monitoring dashboard</b> <span class="mute">(off by default; most people never need this) — for people who already run a tool such as Prometheus or Grafana. It adds a page at <code>/metrics?t=&lt;your dashboard token&gt;</code> with counts like hits and failures. Nothing leaves this computer.</span></span></label></details>
-    <div style="margin-top:8px"><b>Search engines</b> <span class="small mute">— always adds up to 100%. Every engine also has a hard limit of 8 searches an hour.</span></div>
+    <div style="margin-top:8px"><b>Search engines</b> <span class="small mute">— always adds up to 100%. Every engine also has a hard limit of 20 searches an hour.</span></div>
     <div id="eEngines"></div>
     <div class="row"><button id="eEngReset">Back to defaults</button> <span class="small mute">(defaults recommended: mostly Google and DuckDuckGo, like real people)</span></div>
   </div>
   <div class="card"><h3>General</h3>
-    <div class="row">Speed <input type="number" id="sScale" step="0.1" min="0.05" style="width:90px"> <span class="small mute">1.0 = human pace; lower = faster (for testing)</span></div>
     <div class="row">Stop after <input type="number" id="sMaxF" min="1" style="width:90px"> failures per day</div>
     <div class="row">Clearnet proxy <input type="text" id="sProxy" placeholder="optional  http:// or socks5://…" style="flex:1;min-width:220px"></div>
     <label class="chk"><input type="checkbox" id="sClear"><span>Clearnet noise enabled</span></label>
     <label class="chk"><input type="checkbox" id="sAuto"><span>Start noise automatically when legalPrivacy opens</span></label>
     <label class="chk"><input type="checkbox" id="sUpd"><span>Check GitHub for a newer legalPrivacy when it opens, and twice a day (sends nothing about you) <button id="updNow" class="small" type="button">Check now</button> <span class="small mute" id="updInfo"></span></span></label>
-    <label class="chk"><input type="checkbox" id="sClearLogs"><span>Clear the Live Log and Activity each time noise starts <span class="mute">(recommended, default)</span>. They're kept in memory only and always cleared when legalPrivacy quits.</span></label>
+    <label class="chk"><input type="checkbox" id="sClearLogs"><span>Each time noise starts, clear Live Log and Activity entries older than <input type="number" id="sKeepDays" min="0" max="365" style="width:60px"> days <span class="mute">(recommended, default: 7; 0 clears everything)</span>. They're kept in memory only and always cleared when legalPrivacy quits.</span></label>
+    <details style="margin-top:8px"><summary class="small"><b>Testing only</b></summary>
+      <div class="row">Time compression <input type="number" id="sScale" step="0.5" min="0.01" style="width:90px">× <span class="small mute">leave at 1 for real use. Makes every wait this many times shorter, to watch a day's behaviour quickly. It does not change how much noise an hour: the level does.</span></div></details>
   </div>
   <div class="card"><h3>Realism</h3>
     <div class="row">Browse with a real browser
@@ -736,12 +738,12 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
       <span class="small" id="sBrowserInfo"></span></div>
     <div class="small mute">A real Chrome/Edge/Chromium scrolls, pauses to read, moves the mouse, clicks or taps search results and now and then downloads a file (discarded). Plain HTTP can't do any of that and is easier to spot.</div>
     <div class="row">Browser engine <select id="sEngine">
-      <option value="mine">My own Firefox, with my settings, add-ons and bookmarks (recommended, default)</option>
-      <option value="mix">Mix every browser found (the app's own copies)</option>
-      <option value="auto">Match my own browser only</option>
-      <option value="chromium">Chromium / Chrome</option>
-      <option value="firefox">Firefox</option></select></div>
-    <div class="small mute">Each engine has its own network fingerprint. Mixing uses Chrome-style and Firefox-style browsers together, the way many different people browse (each noise identity keeps one browser). Matching yours only makes the noise look like you. Firefox needs a one-time download (<code>python -m playwright install firefox</code>); without it, Chromium is used. Firefox can't emulate phones, so phone visits run as desktop with it.</div>
+      <option value="mine">Your own Firefox, with your add-ons (recommended, default)</option>
+      <option value="mix">The app's own browsers, Chromium and Firefox mixed</option>
+      <option value="auto">The app's own browser, the same kind as yours (Firefox or Chromium)</option>
+      <option value="chromium">The app's own Chromium only</option>
+      <option value="firefox">The app's own Firefox only</option></select></div>
+    <div class="small mute"><b>Your own Firefox</b> is the Firefox installed on this computer, with the profile it opens by default, run on a private copy: your settings, add-ons (fingerprint blockers and user-agent switchers keep working) and bookmarks, never your logins, cookies or history. Other browsers you have are not used. With User agent set to Mix, the part of the noise that doesn't use your own user agent, and phone visits, run in the app's own browsers, so the noise also looks like other machines. If Firefox can't be used, the app's own browsers take over. <b>The app's own browsers</b> are separate copies with a blank profile; they vary canvas, WebGL, audio, fonts and window size themselves. "The same kind as yours" picks Firefox or Chromium from your browser's user agent. Firefox copies need a one-time download (<code>python -m playwright install firefox</code>); without it, Chromium is used. Window size never shows your real screen: it is never maximised.</div>
     <div class="row">Browser window <select id="sWin">
       <option value="hidden">Hidden (recommended, default)</option>
       <option value="offscreen">Real window, off-screen (Windows, macOS and X11 only)</option>
@@ -867,11 +869,11 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
 </section>
 <!-- TOOLS -->
 <section id="t-proof" class="tab vz">
+    <div class="row" style="margin:0 0 10px"><button id="lkRun" class="pri"><svg class="ic sm" aria-hidden="true"><use href="#i-check"/></svg>Run checks</button><span class="small mute" id="lkWhen"></span></div>
   <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-proof"/></svg>Is it working? <details class="why"><summary>ⓘ</summary><div>Each line says what you <b>want</b> to see, what we actually <b>saw</b>, and whether that is working. Nothing here changes your settings. “Run checks” contacts check.torproject.org once directly and once through Tor (only if Tor is on) to compare the two addresses.</div></details></h3>
     <div id="lkHead" class="big" style="margin:4px 0"></div>
     <div class="small mute" style="margin-bottom:8px"><b class="ok">✓</b> working &nbsp; <b class="bad">✗</b> not working &nbsp; <b style="color:var(--tor)">ℹ</b> for your information &nbsp; <b class="mute">?</b> not tested yet</div>
     <div id="lkRows"></div>
-    <div class="row" style="margin-top:8px"><button id="lkRun" class="pri"><svg class="ic sm" aria-hidden="true"><use href="#i-check"/></svg>Run checks</button><span class="small mute" id="lkWhen"></span></div>
   </div>
   <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-proof"/></svg>Is it working? Proof from your own computer <details class="why"><summary>ⓘ</summary><div>
     Every few seconds legalPrivacy looks at which addresses this computer is connected to and which program owns each connection:
@@ -1734,11 +1736,11 @@ let mlT=null;function mlChanged(){clearTimeout(mlT);$('#mNote').textContent='Sav
 
 // user agents
 let UA=null;
-function uaRadioValue(){return document.querySelector('input[name=uamode]:checked')?.value||'own'}
+function uaRadioValue(){return document.querySelector('input[name=uamode]:checked')?.value||'mix'}
 function fillUA(){
   if(!UA)return; const m=UA.mode, ev=UA.rotate_every;
   const v= m==='mix'?'mix':m==='pin'?(UA.pin==='own'?'own':'lib'):(ev==='day'?'rotate-day':'rotate-hour');
-  if(!$('#uShare').matches(':focus'))$('#uShare').value=UA.own_share??70;
+  if(!$('#uShare').matches(':focus'))$('#uShare').value=UA.own_share??85;
   (document.querySelector(`input[name=uamode][value=${v}]`)||{}).checked=true;
   if(!$('#uOwn').matches(':focus'))$('#uOwn').value=UA.own_ua||'';
   $('#uApplies').textContent=UA.applies_to;
@@ -1773,7 +1775,7 @@ function fillSettings(force){
   if(!S||(dirty.set&&!force))return;const p=S.profile;
   const torOn=!!(p.transports.tor&&p.transports.tor.enabled);
   const ENAME={search:'Searches',crawl:'Following links',dns:'DNS lookups',onion:'🧅 Onion sites',packages:'📦 Package installs'};
-  const exP=p.extras||{},pkgOn=exP.packages==='on'||(exP.packages!=='off'&&['Ason','Data scientist','Developer'].includes(exP.persona));
+  const exP=p.extras||{},pkgOn=exP.packages==='on'||(exP.packages!=='off'&&['Default mix','Data scientist','Developer'].includes(exP.persona));
   window._engMix=MixBar($('#engines'),Object.entries(p.engines).filter(([n])=>(n!=='onion'||torOn)&&n!=='dns'&&n!=='packages')
     .map(([n,e])=>({key:n,label:ENAME[n]||n,value:e.enabled?e.budget_per_day:0})));
   {const base=Math.max(1,['search','crawl'].reduce((a,n)=>a+((p.engines[n]&&p.engines[n].enabled)?p.engines[n].budget_per_day:0),0));
@@ -1787,7 +1789,7 @@ function fillSettings(force){
   $('#dShare').value=Math.round((d.system_share??0.5)*100);$('#dSlow').value=d.slow_ms||250;
   dRes=(d.resolvers||[]).map(r=>({...r}));renderDnsTable();$('#dOpen').checked=d.opennic!==false;$('#dQuad9').checked=!!d.quad9;$('#dCustom').value=(d.custom||[]).join(', ');
   $('#dOpenN').textContent=(S.opennic||[]).length;$('#dOpenList').innerHTML=(S.opennic||[]).map(o=>esc(o[1]+' '+o[0]+' ('+(o[2]||'?')+')'+(o[3]?' · '+(o[3]==='none'?'no logs':'anonymized logs')+' · '+(o[4]||''):''))).join('<br>')+'<div style="margin-top:4px">Noise lookups to these servers are ordinary (unencrypted) DNS, like most lookups; the encryption requirement is a quality bar for the servers.</div>';
-  $('#sScale').value=p.realtime_scale;$('#sMaxF').value=p.daily_max_failures;$('#sProxy').value=p.transports.clearnet.proxy||'';
+  $('#sScale').value=Math.round(100/(p.realtime_scale||1))/100;$('#sKeepDays').value=S.app.log_keep_days??7;$('#sMaxF').value=p.daily_max_failures;$('#sProxy').value=p.transports.clearnet.proxy||'';
   $('#sClear').checked=p.transports.clearnet.enabled;loadUA();
   const ex=p.extras||{};const hrs=[...Array(24).keys()].map(h=>`<option value="${h}">${h12(h)}</option>`).join('');
   $('#eFrom').innerHTML=hrs;$('#eTo').innerHTML=hrs;$('#eFrom').value=ex.active_from??8;$('#eTo').value=ex.active_to??23;
@@ -1795,7 +1797,7 @@ function fillSettings(force){
   $('#ePolite').checked=!!ex.polite;$('#eLow').checked=!!ex.low_data;$('#eCap').value=ex.daily_data_mb||0;
   renderEngines(ex.search_engines||{});
   $('#ePkg').value=ex.packages||'auto';
-  $('#persShare').value=Math.round((ex.persona_share??0.9)*100);$('#persShareP').textContent=$('#persShare').value+'%';
+  $('#persShare').value=Math.round((ex.persona_share??0.8)*100);$('#persShareP').textContent=$('#persShare').value+'%';
   $('#persShare').addEventListener('input',()=>{$('#persShareP').textContent=$('#persShare').value+'%'});
   $('#iOn').checked=!!ex.interests;$('#iDays').value=ex.interest_rotate_days||10;
   $('#iShare').value=Math.round((ex.interest_share??0.3)*100);$('#iShareP').textContent=$('#iShare').value+'%';
@@ -1808,8 +1810,8 @@ function fillSettings(force){
     $('#iN').innerHTML=d.themes.map((_,i)=>`<option value="${i+1}">${i+1}</option>`).join('');$('#iN').value=ex.interest_active||3;
     $('#iThemes').innerHTML='Allowed themes: '+d.themes.map(t=>`<label style="margin-right:10px;white-space:nowrap"><input type="checkbox" data-th="${esc(t)}" ${allowed.includes(t)?'checked':''}> ${esc(t)}</label>`).join('');
     $('#iNow').textContent=d.active.length&&!d.persona?('Active right now: '+d.active.join(', ')):'';
-    $('#pers').innerHTML='<option value="">Nobody in particular (neutral)</option>'+Object.keys(d.personas).map(n=>`<option value="${esc(n)}">${esc(n)}${n==='Ason'?' (default)':''}</option>`).join('');
-    $('#pers').value=ex.persona??'Ason';
+    $('#pers').innerHTML='<option value="">Nobody in particular (neutral)</option>'+Object.keys(d.personas).map(n=>`<option value="${esc(n)}">${esc(n)}${n==='Default mix'?' (default)':''}</option>`).join('');
+    $('#pers').value=ex.persona??'Default mix';$('#pers').dataset.ready='1';
     const mixTxt=()=>{const m=d.personas[$('#pers').value];$('#persMix').textContent=m?('Mostly: '+Object.entries(m).map(([k,v])=>`${k} ${Math.round(v*100)}%`).join(' · ')+'. A persona takes the place of rotating Interests.'):''};
     mixTxt();$('#pers').addEventListener('change',mixTxt);
     $('#hNow').textContent=(d.household||[]).length?('Your household right now: '+d.household.join(' · ')):'';
@@ -1824,7 +1826,7 @@ function fillSettings(force){
     {key:'browser',label:'Web pages in a real browser',value:tr.browser??100,hint:'(recommended: most of it — runs pages and scrolls like a person)'},
     {key:'plain',label:'Web pages over plain HTTP',value:tr.plain??0,hint:'(0% recommended — no JavaScript or scrolling; used anyway when no browser is installed)'},
     ...(torOn2?[{key:'onion',label:'Tor .onion sites',value:tr.onion??15,hint:'(about 10–15% recommended)'}]:[])]);
-  $('#xMobile').value=Math.round((tr.mobile_share??0.55)*100);$('#xDevice').value=tr.device||'iPhone 13';
+  $('#xMobile').value=Math.round((tr.mobile_share??0.10)*100);$('#xDevice').value=tr.device||'iPhone 13';
   $('#xDevice').onchange=()=>{dirty.set=true;$('#sSaved').textContent='unsaved changes'};
   $('#sBrowser').value=p.transports.clearnet.browser||'auto';$('#sEngine').value=p.transports.clearnet.browser_engine||'mine';$('#sWin').value=p.transports.clearnet.browser_window||'hidden';$('#sCookies').value=String(p.transports.clearnet.cookie_hours??1);$('#sCookieVary').checked=p.transports.clearnet.cookie_vary!==false;
   const q=p.queries||{};$('#qLive').checked=q.live!==false;$('#qData').checked=q.dataset!==false;$('#qBuiltin').checked=q.builtin!==false;$('#qWords').checked=q.words!==false;$('#sAuto').checked=!!S.app.autostart;$('#sUpd').checked=S.app.update_check!==false;$('#sClearLogs').checked=S.app.clear_logs_on_restart!==false;$('#sPath').textContent=S.config_path;dirty.set=false;
@@ -1837,7 +1839,7 @@ async function saveSettings(auto){
    const dn=parseFloat($('#sDnsAmt').value),pk=parseFloat($('#sPkgAmt').value);
    engines.dns={enabled:dn>0,budget_per_day:Math.max(1,Math.round(dn*base))};engines.packages={enabled:pk>0,budget_per_day:Math.max(1,Math.round(pk*base))}}
   const rnd=parseInt($('#sRand').value||0)/100;
-  try{await api('/api/config',{realtime_scale:parseFloat($('#sScale').value),daily_max_failures:parseInt($('#sMaxF').value),engines,rate:{mode:rnd>0?'random':'steady',level:parseFloat($('#sLevel').value),randomness:rnd},
+  try{await api('/api/config',{realtime_scale:1/Math.max(0.01,parseFloat($('#sScale').value)||1),daily_max_failures:parseInt($('#sMaxF').value),engines,rate:{mode:rnd>0?'random':'steady',level:parseFloat($('#sLevel').value),randomness:rnd},
       accounts:readAcc(),dns:{mode:document.querySelector('input[name=dnsm]:checked').value,system_share:parseInt($('#dShare').value||50)/100,opennic:$('#dOpen').checked,quad9:$('#dQuad9').checked,custom:$('#dCustom').value,slow_ms:parseInt($('#dSlow').value||250),resolvers:readDnsTable()},
       transports:{clearnet:{enabled:$('#sClear').checked,proxy:$('#sProxy').value||null,browser:$('#sBrowser').value,browser_window:$('#sWin').value,browser_engine:$('#sEngine').value,cookie_hours:parseFloat($('#sCookies').value),cookie_vary:$('#sCookieVary').checked}},
       queries:{live:$('#qLive').checked,dataset:$('#qData').checked,builtin:$('#qBuiltin').checked,words:$('#qWords').checked},
@@ -1852,8 +1854,8 @@ async function saveSettings(auto){
               activity:(document.querySelector('input[name=iact]:checked')||{}).value||'off',busy_kbps:parseInt($('#iBusy').value||400),
               metrics:$('#eMetrics').checked,site_list:$('#eSites').value,
               household:$('#hOn').checked,household_size:parseInt($('#hSize').value||3),
-              persona:$('#pers').value,persona_share:parseInt($('#persShare').value||90)/100,packages:$('#ePkg').value}});
-    await api('/api/app',{autostart:$('#sAuto').checked,update_check:$('#sUpd').checked,clear_logs_on_restart:$('#sClearLogs').checked});dirty.set=false;$('#sSaved').textContent='Saved ✓ '+(S&&S.running?(needApply(),'(going live…)'):'');poll()}catch(e){$('#sSaved').textContent='Not saved: '+e.message;if(!auto)toast(e.message,1)}
+              ...($('#pers').dataset.ready?{persona:$('#pers').value}:{}),persona_share:parseInt($('#persShare').value||80)/100,packages:$('#ePkg').value}});
+    await api('/api/app',{autostart:$('#sAuto').checked,update_check:$('#sUpd').checked,clear_logs_on_restart:$('#sClearLogs').checked,log_keep_days:parseInt($('#sKeepDays').value||0)});dirty.set=false;$('#sSaved').textContent='Saved ✓ '+(S&&S.running?(needApply(),'(going live…)'):'');poll()}catch(e){$('#sSaved').textContent='Not saved: '+e.message;if(!auto)toast(e.message,1)}
 }
 // ---------- optional signed-in accounts (Settings → Accounts)
 const ACC=[['google','Google','Gmail inbox, a Google search, YouTube'],['microsoft','Microsoft (Outlook)','Outlook inbox and calendar, Bing, microsoft.com']];
@@ -2214,16 +2216,19 @@ if(wiz){wiz.setAttribute('role','dialog');wiz.setAttribute('aria-modal','true');
 
 function fixWhy(){document.querySelectorAll('details.why>summary:not([data-f])').forEach(s=>{s.dataset.f=1;const d=s.parentNode.querySelector('div');s.innerHTML='<span class="ibtn" aria-hidden="true">i</span>';s.setAttribute('aria-label','More information');if(d)s.title=d.textContent.trim().slice(0,400)})}
 
-// The header shows the plain wordmark, or the traditional logo picked under Settings > Logo.
+// The header fades on its own through the plain wordmark and the traditional logos, or shows the one picked under
+// Settings > Logo.
 (()=>{const box=document.querySelector('.logos'),plain=box&&box.querySelector('img');if(!plain)return;
   const st={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
-  const TRAD=['01-pop-type','02-pop-shadow','03-art-deco','04-painted','05-rope-two-tone','06-rope-blue','07-terminal'];
+  const TRAD=['01-pop-type','02-pop-shadow','03-art-deco','04-painted','05-rope-two-tone','06-rope-blue','07-terminal'],AUTO_MS=9000;
   const T=new URLSearchParams(location.search).get('t')||sessionStorage.getItem('legalprivacy_t')||'';
-  let cur=null;
-  const apply=()=>{const k=st.get('lp_trad');if(cur){cur.remove();cur=null}
-    if(k&&TRAD.includes(k)){cur=document.createElement('img');cur.src='/logo/trad/'+k+'.webp?t='+encodeURIComponent(T);cur.alt='legalPrivacy';cur.className='on';box.appendChild(cur);plain.classList.remove('on')}
-    else plain.classList.add('on')};
+  const by={},img=k=>by[k]||(by[k]=(()=>{const e=document.createElement('img');e.src='/logo/trad/'+k+'.webp?t='+encodeURIComponent(T);e.alt='legalPrivacy';box.appendChild(e);return e})());
+  let i=0,timer=null;
+  const list=()=>{const k=st.get('lp_trad');return k&&TRAD.includes(k)?[img(k)]:[plain].concat(TRAD.map(img))};
+  const show=n=>{const s=list();[...box.children].forEach(x=>x.classList.remove('on'));i=((n%s.length)+s.length)%s.length;s[i].classList.add('on')};
+  const apply=()=>{clearInterval(timer);timer=null;show(0);if(list().length>1)timer=setInterval(()=>{if(!document.hidden)show(i+1)},AUTO_MS)};
   window.lpLogoPick=k=>{st.set('lp_trad',k);apply()};apply()})();
+{const lp=$('#logoPick');if(lp){try{lp.value=localStorage.getItem('lp_trad')||''}catch(e){}lp.onchange=()=>window.lpLogoPick(lp.value)}}
 fixWhy();new MutationObserver(fixWhy).observe(document.body,{childList:true,subtree:true});
 </script>
 <!--NETMAP-->

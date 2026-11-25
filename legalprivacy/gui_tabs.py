@@ -120,7 +120,7 @@ class DashboardTab(Tab):
         self.scale = ttk.Scale(r, from_=1, to=10, variable=self.level, command=self._snap, style="Card.Horizontal.TScale")
         self.scale.pack(side="left", fill="x", expand=True, padx=8)
         nc.lbl(r, "More", True).pack(side="left")
-        tip(self.scale, "Level 1-10. Even the highest level stays under what gets one address rate-limited.")
+        tip(self.scale, "Level 1-10: the average amount. No search engine gets more than 20 of our searches in an hour.")
         self._reg("level", lambda: int(round(self.level.get())), lambda x: (self.level.set(x), self._text()))
         self.rate_msg = nc.note("", muted=True)
         self.scope_msg = nc.note("", muted=True)
@@ -137,11 +137,18 @@ class DashboardTab(Tab):
         self._reg("randomness", lambda: int(round(self.rand.get() / 10) * 10),
                   lambda x: (self.rand.set(x), self.rand_msg.configure(text=F.rand_text(int(x)))))
         self.rand_msg = nc.note("", muted=True)
-        nc.heading("Mix of activity", "always adds up to 100%; drag one and the others make room. 0% turns that part off")
+        nc.heading("Mix of activity", "what you do one thing at a time, like a person: adds up to 100%; drag one and "
+                                      "the others make room. 0% turns that part off")
         self.eng_mix = MixBar(nc.body, app, [], self.app.edited)
         self.eng_mix.pack(fill="x")
         self.eng_note = nc.note("Onion sites join this mix automatically when Tor is on (Tor tab).", pady=(4, 0))
         self._reg("engines_mix", self.eng_mix.values, lambda x: None)
+        nc.heading("Also running in the background", "at the same time as the mix above, never taking a share of it")
+        r = nc.row()
+        nc.lbl(r, "DNS lookups").pack(side="left")
+        self.f_combo(r, "dns_amount", F.DNS_AMOUNTS, 20).pack(side="left", padx=8)
+        nc.lbl(r, "Package installs").pack(side="left", padx=(12, 0))
+        self.f_combo(r, "pkg_amount", F.PKG_AMOUNTS, 10).pack(side="left", padx=8)
 
         # Traffic mix
         tc = Card(f, app, "Traffic mix", "web", help="Ordinary web noise never goes through Tor; .onion noise always "
@@ -163,7 +170,7 @@ class DashboardTab(Tab):
         r = tc.row()
         tc.lbl(r, "Share of noise that is a phone").pack(side="left")
         self.f_spin(r, "mobile_share", 0, 100, 5, 5).pack(side="left", padx=6)
-        tc.lbl(r, "%  (55% recommended: most browsing happens on phones)", True).pack(side="left")
+        tc.lbl(r, "%  (10% recommended: phones are emulated here, so a few is enough)", True).pack(side="left")
         r = tc.row()
         tc.lbl(r, "Phone to emulate").pack(side="left")
         self.f_combo(r, "device", [("iPhone 13", "iPhone 13 (recommended)"), ("iPhone 15", "iPhone 15"),
@@ -183,8 +190,8 @@ class DashboardTab(Tab):
     def load(self, v: dict) -> None:
         super().load(v)
         tor_on = bool(v.get("tor_enabled"))
-        pkg = v.get("packages") == "on" or (v.get("packages") != "off" and v.get("persona") in ("Ason", "Data scientist", "Developer"))
-        names = F.visible_engines(self.app.ctl.profile.engines, tor_on, pkg)
+        pkg = v.get("packages") == "on" or (v.get("packages") != "off" and v.get("persona") in F.TECHY)
+        names = [n for n in F.visible_engines(self.app.ctl.profile.engines, tor_on, pkg) if n not in F.BACKGROUND_ENGINES]
         eng_vals = v.get("engines_mix", {})
         if self._mix_keys.get("eng") != names:
             self._mix_keys["eng"] = names
