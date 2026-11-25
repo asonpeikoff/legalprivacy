@@ -24,7 +24,7 @@ def test_wizard_three_answers_persist_and_tor_defaults_off():
     c = _ctl()
     assert c.first_run
     st = c.wizard({"rate_mode": "random", "level": 3, "tor": "off", "autostart": True})
-    assert not st["first_run"] and st["profile"]["rate"] == {"mode": "random", "level": 3.0, "randomness": 1.0}
+    assert not st["first_run"] and st["profile"]["rate"] == {"mode": "random", "level": 3.0, "randomness": 1.0, "auto_correct": True}
     assert st["profile"]["transports"]["tor"]["enabled"] is False
     c2 = Controller(c.profile_path)                       # reload from disk
     assert c2.app["autostart"] is True and not c2.first_run

@@ -36,6 +36,7 @@ FIELDS: dict[str, tuple[tuple, str]] = {
     "active_hours": (("extras", "active_hours"), "bool"), "active_from": (("extras", "active_from"), "int"),
     "active_to": (("extras", "active_to"), "int"), "browser_dns": (("extras", "browser_dns"), "bool"),
     "dns_bursts": (("extras", "dns_bursts"), "bool"),
+    "auto_correct": (("rate", "auto_correct"), "bool"),
     "duck_chat": (("extras", "duck_chat"), "bool"),
     "typos": (("extras", "typos"), "bool"), "polite": (("extras", "polite"), "bool"),
     "low_data": (("extras", "low_data"), "bool"), "data_cap": (("extras", "daily_data_mb"), "float"),

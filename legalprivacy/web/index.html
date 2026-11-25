@@ -609,6 +609,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div class="row"><span>Less</span><input type="range" id="sLevel" min="1" max="10" step="1" value="5" style="flex:1"><span>More</span></div>
     <div class="note small" id="sLevelInfo"></div>
     <div class="small mute" id="sLevelScope"></div>
+    <label class="chk"><input type="checkbox" id="sAuto"><span><b>Adjust to my rhythm</b> <span class="mute">(recommended) — plans more noise in the hours you are away and less in your busy ones, from what the Proof tab saw of your own traffic, so what an observer sees is about as busy at every hour. Needs a few hours of your traffic recorded.</span></span></label>
     <div style="margin-top:10px"><b>How random</b> <span class="small mute">— how much each hour varies around that average</span></div>
     <div class="row"><span>Steady</span><input type="range" id="sRand" min="0" max="100" step="10" value="100" style="flex:1"><span>Random</span></div>
     <div class="small" id="sRandInfo"></div>
@@ -1246,7 +1247,8 @@ function renderProof(o){
   }else{
     const word={similar:'<b class="ok">Looks like you</b>',somewhat:'<b class="warnc">Somewhat like you</b>',different:'<b class="bad">Noticeably different</b>'}[c.verdict]||'';
     $('#pCmp').innerHTML=`<div class="big">${Math.round((c.score||0)*100)}%</div><div>${word}${c.weakest?` · least similar: ${esc(c.weakest)}`:''}</div>`+
-      (c.metrics||[]).map(m=>`<div class="row" style="margin:4px 0" title="${esc(m.what)}"><span style="width:120px">${esc(m.name)}</span><div class="bar" style="flex:1"><i style="width:${(m.similarity||0)*100}%"></i></div><span style="width:44px;text-align:right" title="${m.similarity==null?'Not enough data yet':''}">${m.similarity==null?'later':Math.round(m.similarity*100)+'%'}</span></div>`).join('')+
+      (c.metrics||[]).map(m=>`<div class="row" style="margin:4px 0" title="${esc(m.what)}"><span style="width:120px">${esc(m.name)}</span><div class="bar" style="flex:1"><i style="width:${(m.similarity||0)*100}%"></i></div><span style="width:44px;text-align:right" title="${m.similarity==null?'Not enough data yet':'Similarity'}">${m.similarity==null?'later':Math.round(m.similarity*100)+'%'}</span><span class="small mute" style="width:150px;text-align:right" title="Difference between the two distributions, and the chance of a gap this big if they were the same (Kolmogorov-Smirnov test; minutes are not independent, so treat p as a rough guide)">${m.similarity==null?'':Math.round((m.difference||0)*100)+'% different · p '+(m.p==null?'—':(m.p<0.001?'<0.001':m.p.toFixed(3)))}</span></div>`).join('')+
+      (c.correction&&c.correction.active?`<div class="small" style="margin-top:6px"><b>Correcting automatically:</b> more noise when you are away, less when you are busy (${c.correction.hours.map(h=>String(h.hour).padStart(2,'0')+':00 ×'+h.gain.toFixed(1)).join(', ')}). Turn off with “Adjust to my rhythm” in Settings.</div>`:'<div class="small mute" style="margin-top:6px">No correction yet: it needs a few hours of your own traffic recorded.</div>')+
       `<div class="small mute">Based on ${c.baseline_active} busy minutes of yours and ${c.noise_active} with noise.</div>`;
   }
   if(c.baseline&&c.baseline.status)$('#pCmp').insertAdjacentHTML('beforeend',`<div class="small ${c.baseline.enough?'mute':'warnc'}" style="margin-top:6px">${esc(c.baseline.status)}</div>`);
@@ -1785,7 +1787,7 @@ function fillSettings(force){
    near($('#sDnsAmt'),dn.enabled?dn.budget_per_day/base:0);near($('#sPkgAmt'),pk.enabled?pk.budget_per_day/base:0)}
   $('#engines').insertAdjacentHTML('beforeend',torOn?'':'<div class="small mute">Onion sites join this mix automatically when Tor is on (🧅 Tor tab).</div>');
   const r=p.rate||{mode:'random',level:5,randomness:1};$('#sLevel').value=r.level;rateInfo('sLevel','sLevelInfo');levelScope();
-  $('#sRand').value=r.mode==='steady'?0:Math.round((r.randomness??1)*100);randInfo();
+  $('#sAuto').checked=r.auto_correct!==false;$('#sRand').value=r.mode==='steady'?0:Math.round((r.randomness??1)*100);randInfo();
   const d=p.dns||{};(document.querySelector(`input[name=dnsm][value=${d.mode||'mix'}]`)||{}).checked=true;
   $('#dShare').value=Math.round((d.system_share??0.5)*100);$('#dSlow').value=d.slow_ms||250;
   dRes=(d.resolvers||[]).map(r=>({...r}));renderDnsTable();$('#dOpen').checked=d.opennic!==false;$('#dQuad9').checked=!!d.quad9;$('#dCustom').value=(d.custom||[]).join(', ');
@@ -1840,7 +1842,7 @@ async function saveSettings(auto){
    const dn=parseFloat($('#sDnsAmt').value),pk=parseFloat($('#sPkgAmt').value);
    engines.dns={enabled:dn>0,budget_per_day:Math.max(1,Math.round(dn*base))};engines.packages={enabled:pk>0,budget_per_day:Math.max(1,Math.round(pk*base))}}
   const rnd=parseInt($('#sRand').value||0)/100;
-  try{await api('/api/config',{realtime_scale:1/Math.max(0.01,parseFloat($('#sScale').value)||1),daily_max_failures:parseInt($('#sMaxF').value),engines,rate:{mode:rnd>0?'random':'steady',level:parseFloat($('#sLevel').value),randomness:rnd},
+  try{await api('/api/config',{realtime_scale:1/Math.max(0.01,parseFloat($('#sScale').value)||1),daily_max_failures:parseInt($('#sMaxF').value),engines,rate:{mode:rnd>0?'random':'steady',level:parseFloat($('#sLevel').value),randomness:rnd,auto_correct:$('#sAuto').checked},
       accounts:readAcc(),dns:{mode:document.querySelector('input[name=dnsm]:checked').value,system_share:parseInt($('#dShare').value||50)/100,opennic:$('#dOpen').checked,quad9:$('#dQuad9').checked,custom:$('#dCustom').value,slow_ms:parseInt($('#dSlow').value||250),resolvers:readDnsTable()},
       transports:{clearnet:{enabled:$('#sClear').checked,proxy:$('#sProxy').value||null,browser:$('#sBrowser').value,browser_window:$('#sWin').value,browser_engine:$('#sEngine').value,cookie_hours:parseFloat($('#sCookies').value),cookie_vary:$('#sCookieVary').checked}},
       queries:{live:$('#qLive').checked,dataset:$('#qData').checked,builtin:$('#qBuiltin').checked,words:$('#qWords').checked},
