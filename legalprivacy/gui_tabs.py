@@ -137,6 +137,9 @@ class DashboardTab(Tab):
         self._reg("randomness", lambda: int(round(self.rand.get() / 10) * 10),
                   lambda x: (self.rand.set(x), self.rand_msg.configure(text=F.rand_text(int(x)))))
         self.rand_msg = nc.note("", muted=True)
+        self.f_check(nc, "auto_correct", "Adjust to my rhythm",
+                     "Recommended. Plans more noise in the hours you are away and less in your busy ones, from what the Proof tab "
+                     "saw of your own traffic, so what an observer sees is about as busy at every hour.")
         nc.heading("Mix of activity", "what you do one thing at a time, like a person: adds up to 100%; drag one and "
                                       "the others make room. 0% turns that part off")
         self.eng_mix = MixBar(nc.body, app, [], self.app.edited)

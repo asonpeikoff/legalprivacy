@@ -183,6 +183,12 @@ class Controller:
         except Exception as exc:
             self.log.error("app", f"Could not read config ({exc}); using defaults.")
 
+    def _planner(self, prof):
+        import random as _r
+        pl = RatePlanner(_r.Random(), prof.rate)
+        pl.gain_fn = self.observer.hour_gain             # the correction toward your own rhythm (Proof tab)
+        return pl
+
     def _fresh_relay_nickname(self) -> None:
         """The relay's public nickname starts as the app's name plus four random characters (so two relays never clash),
         and the old app's name is replaced once. Anything the user chose themselves is left alone."""
@@ -1245,7 +1251,7 @@ class Controller:
             self.runner = Runner(profile=prof, lanes=lanes, wordlist=words, log=self.log,
                                  stop_event=self._stop, sleep_fn=lambda s: self._stop.wait(s),
                                  queries=self._query_source(words), domains=self._domain_pool(_r),
-                                 rate=RatePlanner(_r.Random(), prof.rate),
+                                 rate=self._planner(prof),
                                  dns_plan=self._fresh_dns_plan(),
                                  mix=True, side_streams=("dns", "packages"))
             if prev is not None:                  # request numbers keep counting across restarts
