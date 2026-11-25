@@ -368,9 +368,10 @@ def test_ason_long_sessions_sometimes_are_a_duck_ai_chat():
     p = Profile(name="t")
     assert p.extras.persona == "Default mix"
     r = _app_runner(p, lambda: 0.0)
+    r.rng = random.Random(11)                                     # seeded: the long sessions are drawn at random
     lane = r.lanes[0]
     modes = set()
-    for _ in range(4000):
+    for _ in range(8000):
         lane.linger = None
         r._maybe_linger(lane, "crawl", Target(url="https://example.org/"))
         if lane.linger and lane.linger["url"] == "https://duck.ai/":
