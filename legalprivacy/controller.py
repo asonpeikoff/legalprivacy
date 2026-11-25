@@ -1557,6 +1557,31 @@ class Controller:
                 add(f"Python library: {lib}", "ok", "installed")
             except ImportError:
                 add(f"Python library: {lib}", "fail", "missing — reinstall legalPrivacy")
+        try:                                  # the recommended human-like behaviour switches, each on by default
+            rec = {"extras": {"long_sessions": True, "multi_tab": True, "dns_bursts": True,
+                              "browser_dns": True},
+                   "transports": {"clearnet": {"cookie_hours": 24.0, "cookie_vary": True}},
+                   "identity": {"ua_mode": "mix"}}
+            diff: dict = {}
+            for sect, vals in rec.items():
+                obj = getattr(self.profile, sect)
+                for key, val in vals.items():
+                    if isinstance(val, dict):                      # transports.<name>.<field>
+                        for k2, v2 in val.items():
+                            if getattr(obj[key], k2, v2) != v2:
+                                diff.setdefault(sect, {}).setdefault(key, {})[k2] = v2
+                    elif getattr(obj, key, val) != val:
+                        diff.setdefault(sect, {})[key] = val
+            names = [k for v in diff.values() for k in v]
+            if diff:
+                add("Recommended settings", "warn", "These differ from the recommended human-like defaults: " +
+                    ", ".join(names) + ". Your other choices (sites, personas, limits) are left alone.",
+                    fix={"label": "Use the recommended ones", "config": diff})
+            else:
+                add("Recommended settings", "ok", "The human-like behaviour switches (long sessions, second tab, DNS "
+                    "bursts, cookie lifetime, user agent mix) are all on the recommended values.")
+        except Exception as exc:
+            add("Recommended settings", "info", f"not checked ({exc})")
         try:
             import random as _r
             from .fingerprint_audit import audit_identity
