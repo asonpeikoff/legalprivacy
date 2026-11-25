@@ -95,7 +95,7 @@ def build_lanes(profile: Profile, wordlist: list[str],
             engines=names,
             budgets={n: _budget(n, share) for n in names},
         ))
-        page_engines = [n for n in names if n not in ("dns", "packages")]   # not browser work
+        page_engines = [n for n in names if n not in ("dns", "packages", "files")]   # not browser work
         if plain_transport is not None and page_engines:
             lanes.append(Lane(name="clearnet-plain", transport=plain_transport, engines=page_engines,
                               budgets={n: _budget(n, share) for n in page_engines}))
@@ -764,7 +764,7 @@ class Runner:
         self._hit_seq += 1
         status = f"HTTP {result.status}" if result.status else (result.error or "ERROR")
         shown = (target.url.split("/", 3)[-1] if target.kind == "dns"                # dns: just the name
-                 else target.note if target.kind == "pkg" else target.url)              # pkg: "pip install numpy"
+                 else target.note if target.kind in ("pkg", "upload") else target.url)     # pkg: "pip install numpy"
         rec = {
             "seq": self._hit_seq, "ts": time.time(), "lane": lane.name, "engine": eng_name,
             "url": shown, "status": result.status, "ok": result.ok,
@@ -794,6 +794,8 @@ class Runner:
     def _settle(self, lane: Lane, eng_name: str, target: Target, result: HitResult) -> None:
         """Post-hit bookkeeping: advance the crawl random-walk from fetched HTML."""
         if eng_name == "onion":
+            if result.html and target.kind == "html":
+                self._harvest_onion_files(result.html, target.url)
             nxt = lane.onion_factory.next_from(result.html, target.url) \
                 if lane.onion_factory is not None and result.html else None
             max_depth = self.profile.engines["onion"].max_depth
@@ -836,6 +838,34 @@ class Runner:
             lane.crawl_next = None
             lane.crawl_depth = 0
 
+    def _harvest_onion_files(self, html: str, base: str) -> None:
+        """File links seen on onion pages (images, documents, archives...) become candidates for an onion download."""
+        ex = getattr(self.profile, "extras", None)
+        if ex is None or not ex.file_transfers or ex.low_data:
+            return
+        from .scrape import extract, kind_of
+        got = self.__dict__.setdefault("_onion_files", [])
+        for f in extract(html, base)["files"]:
+            if kind_of(f) in ("images", "documents", "archives", "audio") and ".onion" in f and f not in got:
+                got.append(f)
+        del got[:-60]
+
+    def _files_target(self) -> Target:
+        """A download of a real public file (most often a photo), or now and then an upload of random bytes. Sizes vary a lot."""
+        from . import files as F
+        if self.rng.random() < F.UPLOAD_SHARE:
+            n = F.upload_size(self.rng)
+            return Target(url=F.UP_URL, kind="upload", size=n, timeout=120.0, note=f"upload {F.human(n)} of random bytes")
+        cat = self.__dict__.get("_catalog")
+        if cat is None:
+            cat = self.__dict__["_catalog"] = F.FileCatalog(self.rng)
+        pick = cat.pick(F.DEFAULT_CAP)
+        if pick is None:
+            n = F.upload_size(self.rng)
+            return Target(url=F.UP_URL, kind="upload", size=n, timeout=120.0, note=f"upload {F.human(n)} of random bytes")
+        return Target(url=pick.url, kind="download", size=pick.size, timeout=300.0,
+                      note=f"download {pick.kind} {F.human(pick.size)}")
+
     def _make_target(self, lane: Lane, eng_name: str, identity: Identity) -> Target:
         from .engines import CrawlTargetFactory, DnsNoise, SearchTargetFactory
         words = self.wordlist
@@ -849,6 +879,10 @@ class Runner:
                     return _T(url=retry[0], timeout=60.0, note="retry")
             if lane.onion_next is not None:
                 return lane.onion_next
+            files = self.__dict__.get("_onion_files")
+            if files and self.rng.random() < 0.08:                  # now and then, a file an onion page offered
+                f = files.pop(self.rng.randrange(len(files)))
+                return Target(url=f, kind="download", size=8_000_000, timeout=180.0, note="download from an onion site")
             tor_cfg = self.profile.transports.get("tor")
             if lane.onion_factory is None:
                 lane.onion_factory = OnionTargetFactory(
@@ -860,6 +894,8 @@ class Runner:
                 if not self._onion_is_dead(t.url):
                     return t
             return t
+        if eng_name == "files":
+            return self._files_target()
         if eng_name == "search":
             if lane.follow_next is not None:
                 nxt, lane.follow_next = lane.follow_next, None
