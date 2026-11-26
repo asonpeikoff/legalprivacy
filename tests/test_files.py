@@ -86,7 +86,7 @@ def test_a_download_stops_at_its_cap_and_an_upload_sends_that_many_random_bytes(
 
 def test_file_transfers_are_an_engine_that_can_be_switched_off_and_skips_low_data_mode():
     p = Profile(name="t")
-    assert "files" in p.active_engines("clearnet") and "files" not in p.active_engines("tor")
+    assert "files" in p.active_engines("clearnet") and "files" in p.active_engines("tor")
     apply_overrides(p, {"extras": {"file_transfers": False}})
     assert "files" not in p.active_engines("clearnet")
     apply_overrides(p, {"extras": {"file_transfers": True, "low_data": True}})

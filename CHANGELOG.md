@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Tor downloads, and sessions and identities capped at two hours.** (1) The Tor lane now carries some of the file downloads too (the same real public files, up to 12 MB over Tor, never an upload), picked at random alongside the clearnet ones (about 40% of the file transfers go over Tor when Tor is on) while the onion browsing carries on at the same time, so Tor use looks like browsing plus the odd file fetch. It follows "File transfers" in Settings. (2) **No identity lives longer than two hours**: each one gets a random lifetime of 35 minutes to 2 hours, then it is replaced (a new browser fingerprint, and on Tor a new circuit). (3) **Long sessions** (a page you keep coming back to, or leave open and return to) are capped at two hours in total, including a stretch away followed by coming back; when one ends, or its identity expires, the next visit is as a new identity. (4) Long sessions no longer take over: they always run alongside the shorter ones (the old "mostly on it alone" mode is gone). Tested with a fake clock; not watched live over days.
 - **DuckDuckGo is the main search engine by default.** The default mix is now about 70% DuckDuckGo (plus 2.5% its lite page), 12% Google, 4% each Bing and Brave, 3% Startpage and a trace of Ecosia, Mojeek and Qwant (it was a 35/35 split with Google). It applies to every profile that has not set its own weights in Settings > Search engines (which still wins); the old special case for one persona is gone because the default is now the same.
 
 ## v2.19.1

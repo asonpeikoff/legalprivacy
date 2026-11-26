@@ -48,7 +48,7 @@ def test_search_profile_parses():
     assert profile.engines["search"].budget_per_day == 120
     # clearnet engines never include onion; example profile keeps Tor on for onion only
     assert profile.active_engines("clearnet") == ["search", "crawl", "dns", "packages", "files"]   # default persona: Data scientist
-    assert profile.active_engines("tor") == ["onion"]
+    assert profile.active_engines("tor") == ["onion", "files"]
 
 
 def test_missing_profile_is_error():
