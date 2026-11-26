@@ -106,7 +106,11 @@ def test_install_discards_a_download_whose_checksum_does_not_match():
     fname = f"tor-expert-bundle-{osn}-{arch}-14.0.1.tar.gz"
     payload = b"definitely not the real bundle"
 
+    tm._verify_sums_signature = lambda sums, sig: None          # the signature check has its own tests (test_tor_version.py)
+
     def fake_get(url, timeout=30.0):
+        if url.endswith(".asc"):
+            return b"signature"
         if url.endswith("sha256sums-signed-build.txt"):
             return f"{'0' * 64}  {fname}\n".encode()
         if url.endswith("/14.0.1/"):
