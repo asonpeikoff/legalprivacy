@@ -295,6 +295,10 @@ class SettingsTab(Tab):
         self.f_check(c, "dns_bursts", "Follow lookups with a page's burst of lookups",
                      "Recommended. A real page load asks for its fonts, scripts and other sites a few tens of milliseconds "
                      "apart; single lookups on their own look unlike that.")
+        self.f_check(c, "keep_alive", "Keep it running",
+                     "Recommended. If the noise stops on its own, pauses itself or gets stuck, it is started or woken again "
+                     "within about a minute, so it can run for weeks untouched. A pause you press yourself is never undone, "
+                     "and your daily data limit (if you set one) still holds until midnight.")
         self.f_check(c, "file_transfers", "File transfers",
                      "Recommended. Now and then the noise downloads a real public file and throws it away (mostly photos, sometimes "
                      "a video, zip, document or track) from the Internet Archive's free collections, or uploads a random-sized "
@@ -592,10 +596,6 @@ class SettingsTab(Tab):
     # ── general ────────────────────────────────────────────────────────────
     def build_general(self) -> None:
         c = self.card("general", "General", "set")
-        r = c.row()
-        c.lbl(r, "Stop after").pack(side="left")
-        self.f_spin(r, "max_failures", 1, 100000, 1, 7).pack(side="left", padx=8)
-        c.lbl(r, "failures per day").pack(side="left")
         r = c.row()
         c.lbl(r, "Clearnet proxy").pack(side="left")
         self.f_entry(r, "proxy", 40, "optional: http:// or socks5://…").pack(side="left", padx=8)

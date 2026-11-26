@@ -145,6 +145,6 @@ community-minded counterpart to consuming it.
 - Cadence: lognormal pacing from real browsing distributions; fast/slow
   persona multipliers; burst suppression (min gap per identity).
 - Failure discipline: 403/429/timeout → exponential backoff with jitter,
-  proxy dimming, hard stop at `daily_max_failures`.
+  proxy dimming, no failure limit (failures never stop the run; a keep-alive watchdog wakes a stalled one).
 - Red-team honesty: this mixes ranks, not miracles. Fingerprinting at the
   router or CDN level is out of scope; do not aim this at sites you love.

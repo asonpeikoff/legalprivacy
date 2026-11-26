@@ -153,6 +153,18 @@ class Controller:
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
         self._lock = threading.RLock()
+        self.wanted_running = False                  # set by Start, cleared by Stop: what the keep-alive watchdog keeps true
+        from .keepalive import TICK_SECONDS, KeepAlive
+        self._keepalive = KeepAlive(self)
+
+        def _keepalive_loop() -> None:
+            while True:
+                time.sleep(TICK_SECONDS)
+                try:
+                    self._keepalive.tick()
+                except Exception as exc:
+                    self.log.warn("app", f"Keep-alive check failed: {exc!r}")
+        threading.Thread(target=_keepalive_loop, daemon=True, name="keep-alive").start()
         self.log.info("app", f"legalPrivacy {__version__} on {platform.system()} {platform.release()} "
                              f"(Python {platform.python_version()})")
         self.log.info("app", f"Config: {self.profile_path}")
@@ -1463,6 +1475,7 @@ class Controller:
                                  rate=self._planner(prof),
                                  dns_plan=self._fresh_dns_plan(),
                                  mix=True, side_streams=("dns", "packages", "files"))
+            self.runner.on_tor_trouble = self._tor_trouble
             if prev is not None:                  # request numbers keep counting across restarts
                 self.runner._hit_seq = prev._hit_seq
                 if not clearing:
@@ -1472,6 +1485,7 @@ class Controller:
                     self.runner.hit_log.extend(h for h in prev.hit_log if h.get("ts", 0) >= cut)
             self._thread = threading.Thread(target=self._run_loop, daemon=True, name="legalprivacy-runner")
             self._thread.start()
+            self.wanted_running = True
             self.accounts.start()                 # idle unless an account is signed in AND switched on
             self._note_start(reason)
             self._running_dict = profile_to_dict(prof)
@@ -1685,7 +1699,26 @@ class Controller:
             except Exception:
                 pass
 
+    def restart_for_keepalive(self) -> None:
+        """Stop and start the noise again (the keep-alive watchdog's way of freeing a stuck run), staying 'wanted'."""
+        self.stop()
+        self.start(reason="it looked stuck (keep-alive)")
+
+    def _tor_trouble(self, level: int) -> None:
+        """Many onion visits failed in a row. Level 1: ask Tor for fresh circuits. Level 2: restart Tor, if this app runs it.
+        The noise itself carries on either way (a dead onion site is no reason to stop)."""
+        t = self.tor
+        if t is None:
+            return
+        if level >= 2 and getattr(t, "mode", "") == "managed" and not getattr(t, "share_browser", False):
+            self.log.warn("tor", "Onion visits keep failing: restarting Tor.")
+            t.restart()
+        else:
+            self.log.warn("tor", "Many onion visits failed in a row: asking Tor for fresh circuits.")
+            t.new_identity()
+
     def stop(self, stop_tor: bool = False) -> None:
+        self.wanted_running = False
         self.accounts.stop()
         with self._lock:
             self._stop.set()
