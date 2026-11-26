@@ -35,7 +35,7 @@ def test_long_sessions_are_never_over_two_hours_and_never_take_over():
         r.rate = object()
         lane = r.lanes[0]
         now = 1000.0
-        r.clock = lambda: now
+        r.clock = lambda t=now: t
         for _ in range(300):
             r._maybe_linger(lane, "crawl", Target(url="https://example.org/a"))
             if lane.linger:
