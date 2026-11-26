@@ -15,3 +15,9 @@ def test_a_side_menu_adds_nothing_to_the_scroll_offset_and_the_page_has_room_to_
     window, which put every target below the visible area), and there must be room below the last card."""
     assert "flexDirection==='column'?0:nv.offsetHeight" in HTML
     assert "#shell>main::after{" in HTML
+
+
+def test_the_menu_starts_open_for_everyone_including_people_who_had_hidden_it_before():
+    """The saved menu state lives under a new key, so a menu hidden under the old one opens again; a new visitor gets it open."""
+    assert "K='lp_nav2'" in HTML and "K='lp_nav'" not in HTML
+    assert "if(st.hid)sh.classList.add('hid')" in HTML          # only a state the person saved under the new key hides it
