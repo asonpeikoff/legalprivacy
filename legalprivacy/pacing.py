@@ -125,6 +125,6 @@ class Budget:
         self.history.append(t)
 
     def record_failure(self, t: float) -> None:
-        """Failures don't drain the hit budget, but count toward daily_max_failures."""
+        """Failures don't drain the hit budget and never stop the run (they are only counted for the statistics)."""
         self.failures += 1
         self.history.append(t)

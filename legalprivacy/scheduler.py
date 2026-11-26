@@ -29,7 +29,7 @@ def _onion_offline(result) -> bool:
 
 
 class MaxFailuresExceeded(RuntimeError):
-    """Raised when total failures exceed daily_max_failures."""
+    """Raised when the daily data cap you set is reached (failures never stop the noise: a dead site is not a reason to quit)."""
 
 
 @dataclass
@@ -149,8 +149,12 @@ class Runner:
         self.day = time.localtime().tm_yday
         self.paused = False
         self._hit_seq = 0
-        self.day_failures = 0           # daily failure caps (independent of hourly budget resets)
+        self.day_failures = 0           # counted for the statistics only: failures never pause or stop the noise
         self.day_onion_failures = 0
+        self.last_beat = time.time()    # the main loop's heartbeat, for the keep-alive watchdog
+        self.onion_streak = 0           # onion hits failed in a row (across different sites)
+        self.on_tor_trouble = None      # callback(level): 1 = ask Tor for fresh circuits, 2 = restart Tor
+        self._tor_fix_at: list[float] = []
         self.hour: int | None = None
         self.hour_target = 0.0
         self._pace: tuple[float, float] | None = None   # (min_delay, max_delay) for this hour
@@ -450,6 +454,23 @@ class Runner:
         a, b = int(ex.active_from), int(ex.active_to)
         return (a <= hour < b) if a < b else (hour >= a or hour < b) if a > b else True
 
+    def _onion_trouble(self) -> None:
+        """Many onion hits failing in a row: one dead site is normal (the walk simply moves to another), but a long run of
+        them may mean Tor itself is stuck. Ask for fresh circuits first, then restart Tor if that does not help. Never stops."""
+        self.onion_streak += 1
+        if self.onion_streak < 8 or self.on_tor_trouble is None:
+            return
+        now = self.clock()
+        if self._tor_fix_at and now - self._tor_fix_at[-1] < 600:        # at most one fix every ten minutes
+            return
+        self.onion_streak = 0
+        level = 2 if sum(1 for t in self._tor_fix_at if now - t < 3600) >= 1 else 1
+        self._tor_fix_at = [t for t in self._tor_fix_at if now - t < 3600] + [now]
+        try:
+            self.on_tor_trouble(level)
+        except Exception as exc:
+            self._emit("warn", "scheduler", f"Could not fix Tor: {exc!r}")
+
     def _data_capped(self) -> bool:
         ex = getattr(self.profile, "extras", None)
         return bool(ex and ex.daily_data_mb > 0 and self.bytes_today >= ex.daily_data_mb * 1_000_000)
@@ -700,6 +721,7 @@ class Runner:
         if result.ok:
             budget.record_hit(self.clock())
             if eng_name == "onion":
+                self.onion_streak = 0
                 self._onion_seen_alive(target.url)
                 try:                                       # remember what the site calls itself, for Tor Browser's bookmarks
                     from .onion import learn_title
@@ -734,15 +756,12 @@ class Runner:
         if not result.ok:
             if eng_name == "onion":
                 self.day_onion_failures += 1
+                self._onion_trouble()
             else:
                 self.day_failures += 1
-        total_failures, onion_failures = self.day_failures, self.day_onion_failures
         self._record_hit(lane, eng_name, identity, target, result)
         if self._data_capped():
             raise MaxFailuresExceeded("daily data cap reached")
-        if total_failures > self.profile.daily_max_failures or \
-                onion_failures > self.profile.daily_max_failures * 3:
-            raise MaxFailuresExceeded("daily_max_failures exceeded — stopping run")
         if result.dim_transport and hasattr(lane.transport, "dimmed"):
             lane.transport.dimmed = True
         if wait:
@@ -1127,6 +1146,7 @@ class Runner:
         self._emit("info", "scheduler", "Noise generation started.")
         self._start_side_streams()
         while not self._stopped():
+            self.last_beat = time.time()
             now = time.localtime()
             if now.tm_yday != self.day:
                 self.day = now.tm_yday

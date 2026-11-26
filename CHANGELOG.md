@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **It keeps running: no failure limit, and a watchdog wakes it.** The "daily max failures" limit is gone: failed visits (a dead onion site, no network for a while) never pause or stop the noise any more, and the Settings control for it is removed (an old settings file that still has it loads fine, and it is ignored). Many onion visits failing in a row now make the app ask Tor for fresh circuits, then restart Tor if it still fails (at most once every ten minutes; a Tor that you share with Tor Browser is not restarted); a dead site is simply skipped and another tried, as before. New **Settings > Keep it running** (on by default, web and desktop): a watchdog checks every 30 seconds and (1) starts the noise again if it stopped on its own (at most six times an hour), (2) wakes it if it paused itself, and (3) restarts it if its main loop has not moved for 20 minutes (after the computer wakes from sleep it waits two minutes before judging). It never undoes a pause you pressed, never restarts after you pressed Stop, and respects your daily data limit (which ends at midnight). Turn the option off and a pause stays a pause. Tested with stand-ins for the run and the clock (a real week-long run was not tried).
 - **Fix: hiding the menu (☰) no longer breaks the page.** The content was squeezed into a zero-width column and every word wrapped one letter per line; it now uses the full width. Checked in a browser (content 32 px wide before, full width after) and pinned by a test.
 
 ## v2.19.0

@@ -705,6 +705,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div class="row">from <select id="eFrom"></select> to <select id="eTo"></select> <span class="small mute">your local time</span></div>
     <label class="chk"><input type="checkbox" id="eDns"><span><b>Look sites up like a browser does</b> <span class="mute">(recommended, on) — also asks for IPv6 (AAAA) and HTTPS records, not just the address</span></span></label>
     <label class="chk"><input type="checkbox" id="eDnsBurst"><span><b>Follow lookups with a page's burst of lookups</b> <span class="mute">(recommended, on) — a real page load asks for its fonts, scripts and other sites a few tens of milliseconds apart; single lookups on their own look unlike that</span></span></label>
+    <label class="chk"><input type="checkbox" id="eKeep"><span><b>Keep it running</b> <span class="mute">(on by default) — if the noise stops on its own, pauses itself or gets stuck, it is started or woken again within about a minute, so it can run for weeks untouched. A pause you press yourself is never undone, and your daily data limit (if you set one) still holds until midnight.</span></span></label>
     <label class="chk"><input type="checkbox" id="eFiles"><span><b>File transfers</b> <span class="mute">(on by default) — now and then the noise downloads a real public file and throws it away (mostly photos; sometimes a video, a zip, a document or a track) from the Internet Archive's free collections, or uploads a random-sized block of random bytes to a speed-test server (never anything of yours). Sizes vary a lot and each download is capped at 20 MB. Skipped in low-data mode; with Tor on, it also takes files that onion pages offer.</span></span></label>
     <label class="chk"><input type="checkbox" id="eDuckChat"><span><b>Chat noise on duck.ai</b> <span class="mute">(off by default) — now and then, in a long session, the real-browser lane has a short made-up chat there: one topic, one to four messages of different lengths, typed like a person, with its reply read. The questions come from the same topics as the searches and never from you. <b>Switching this on accepts duck.ai's terms screen for you</b> (its Privacy Policy and Terms of Service), and duck.ai may limit or block automated use.</span></span></label>
     <label class="chk"><input type="checkbox" id="eLong"><span><b>Long sessions</b> <span class="mute">(on by default) — now and then the noise keeps going back to one page for half an hour or more, or leaves it open for a few hours as if you stepped away, then comes back to it. People do this with things they care about.</span></span></label>
@@ -742,7 +743,6 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div class="row"><button id="eEngReset">Back to defaults</button> <span class="small mute">(defaults recommended: mostly Google and DuckDuckGo, like real people)</span></div>
   </div>
   <div class="card"><h3>General</h3>
-    <div class="row">Stop after <input type="number" id="sMaxF" min="1" style="width:90px"> failures per day</div>
     <div class="row">Clearnet proxy <input type="text" id="sProxy" placeholder="optional  http:// or socks5://…" style="flex:1;min-width:220px"></div>
     <label class="chk"><input type="checkbox" id="sClear"><span>Clearnet noise enabled</span></label>
     <label class="chk"><input type="checkbox" id="sAuto"><span>Start noise automatically when legalPrivacy opens</span></label>
@@ -1879,11 +1879,11 @@ function fillSettings(force){
   $('#dShare').value=Math.round((d.system_share??0.5)*100);$('#dSlow').value=d.slow_ms||250;
   dRes=(d.resolvers||[]).map(r=>({...r}));renderDnsTable();$('#dOpen').checked=d.opennic!==false;$('#dQuad9').checked=!!d.quad9;$('#dCustom').value=(d.custom||[]).join(', ');
   $('#dOpenN').textContent=(S.opennic||[]).length;$('#dOpenList').innerHTML=(S.opennic||[]).map(o=>esc(o[1]+' '+o[0]+' ('+(o[2]||'?')+')'+(o[3]?' · '+(o[3]==='none'?'no logs':'anonymized logs')+' · '+(o[4]||''):''))).join('<br>')+'<div style="margin-top:4px">Noise lookups to these servers are ordinary (unencrypted) DNS, like most lookups; the encryption requirement is a quality bar for the servers.</div>';
-  $('#sScale').value=Math.round(100/(p.realtime_scale||1))/100;$('#sKeepDays').value=S.app.log_keep_days??7;$('#sMaxF').value=p.daily_max_failures;$('#sProxy').value=p.transports.clearnet.proxy||'';
+  $('#sScale').value=Math.round(100/(p.realtime_scale||1))/100;$('#sKeepDays').value=S.app.log_keep_days??7;$('#sProxy').value=p.transports.clearnet.proxy||'';
   $('#sClear').checked=p.transports.clearnet.enabled;loadUA();
   const ex=p.extras||{};const hrs=[...Array(24).keys()].map(h=>`<option value="${h}">${h12(h)}</option>`).join('');
   $('#eFrom').innerHTML=hrs;$('#eTo').innerHTML=hrs;$('#eFrom').value=ex.active_from??8;$('#eTo').value=ex.active_to??23;
-  $('#eHours').checked=!!ex.active_hours;$('#eDuckChat').checked=!!ex.duck_chat;$('#eFiles').checked=ex.file_transfers!==false;$('#eDns').checked=ex.browser_dns!==false;$('#eDnsBurst').checked=ex.dns_bursts!==false;$('#eTypos').checked=!!ex.typos;$('#eLong').checked=ex.long_sessions!==false;
+  $('#eHours').checked=!!ex.active_hours;$('#eDuckChat').checked=!!ex.duck_chat;$('#eFiles').checked=ex.file_transfers!==false;$('#eKeep').checked=ex.keep_alive!==false;$('#eDns').checked=ex.browser_dns!==false;$('#eDnsBurst').checked=ex.dns_bursts!==false;$('#eTypos').checked=!!ex.typos;$('#eLong').checked=ex.long_sessions!==false;
   $('#ePolite').checked=!!ex.polite;$('#eLow').checked=!!ex.low_data;$('#eCap').value=ex.daily_data_mb||0;
   renderEngines(ex.search_engines||{});
   $('#ePkg').value=ex.packages||'auto';
@@ -1929,14 +1929,14 @@ async function saveSettings(auto){
    const dn=parseFloat($('#sDnsAmt').value),pk=parseFloat($('#sPkgAmt').value);
    engines.dns={enabled:dn>0,budget_per_day:Math.max(1,Math.round(dn*base))};engines.packages={enabled:pk>0,budget_per_day:Math.max(1,Math.round(pk*base))}}
   const rnd=parseInt($('#sRand').value||0)/100;
-  try{await api('/api/config',{realtime_scale:1/Math.max(0.01,parseFloat($('#sScale').value)||1),daily_max_failures:parseInt($('#sMaxF').value),engines,rate:{mode:rnd>0?'random':'steady',level:parseFloat($('#sLevel').value),randomness:rnd,auto_correct:$('#sAuto').checked},
+  try{await api('/api/config',{realtime_scale:1/Math.max(0.01,parseFloat($('#sScale').value)||1),engines,rate:{mode:rnd>0?'random':'steady',level:parseFloat($('#sLevel').value),randomness:rnd,auto_correct:$('#sAuto').checked},
       accounts:readAcc(),dns:{mode:document.querySelector('input[name=dnsm]:checked').value,system_share:parseInt($('#dShare').value||50)/100,opennic:$('#dOpen').checked,quad9:$('#dQuad9').checked,custom:$('#dCustom').value,slow_ms:parseInt($('#dSlow').value||250),resolvers:readDnsTable()},
       transports:{clearnet:{enabled:$('#sClear').checked,proxy:$('#sProxy').value||null,browser:$('#sBrowser').value,browser_window:$('#sWin').value,browser_engine:$('#sEngine').value,cookie_hours:parseFloat($('#sCookies').value),cookie_vary:$('#sCookieVary').checked}},
       queries:{live:$('#qLive').checked,dataset:$('#qData').checked,builtin:$('#qBuiltin').checked,words:$('#qWords').checked},
       traffic:{pattern:(document.querySelector('input[name=xpat]:checked')||{}).value||'drift',...(()=>{const m=window._trMix.values();return {browser:m.browser,plain:m.plain,onion:m.onion??window._trOnion}})(),
                mobile_share:parseInt($('#xMobile').value||0)/100,device:$('#xDevice').value},
       extras:{active_hours:$('#eHours').checked,active_from:parseInt($('#eFrom').value),active_to:parseInt($('#eTo').value),
-              browser_dns:$('#eDns').checked,duck_chat:$('#eDuckChat').checked,file_transfers:$('#eFiles').checked,dns_bursts:$('#eDnsBurst').checked,typos:$('#eTypos').checked,long_sessions:$('#eLong').checked,polite:$('#ePolite').checked,low_data:$('#eLow').checked,
+              browser_dns:$('#eDns').checked,duck_chat:$('#eDuckChat').checked,file_transfers:$('#eFiles').checked,keep_alive:$('#eKeep').checked,dns_bursts:$('#eDnsBurst').checked,typos:$('#eTypos').checked,long_sessions:$('#eLong').checked,polite:$('#ePolite').checked,low_data:$('#eLow').checked,
               daily_data_mb:parseFloat($('#eCap').value||0),search_engines:engWeights(),
               interests:$('#iOn').checked,interest_active:parseInt($('#iN').value||3),interest_rotate_days:parseInt($('#iDays').value||10),
               interest_share:parseInt($('#iShare').value||30)/100,

@@ -246,6 +246,7 @@ class ExtrasConfig:
     interest_active: int = 3      # how many themes at once
     interest_rotate_days: int = 10
     interest_share: float = 0.3   # share of visits and searches that follow the themes
+    keep_alive: bool = True       # wake the noise if it stops or pauses itself, or gets stuck (a pause you asked for is left alone)
     file_transfers: bool = True   # now and then download a real file (photo, video, zip...) and throw it away, or upload random bytes
     duck_chat: bool = False       # short made-up chats on duck.ai (accepts duck.ai's terms for you: off until you switch it on)
     multi_tab: bool = True        # now and then open a link in a second tab, read the first, then glance at it
@@ -396,7 +397,7 @@ class Profile:
         "tor": TransportConfig(enabled=False, socks=DEFAULT_TOR_SOCKS, control=DEFAULT_TOR_CONTROL),
     })
     relay: RelayConfig = field(default_factory=RelayConfig)
-    daily_max_failures: int = 30
+    daily_max_failures: int = 30        # no longer used: failures never pause or stop the noise (kept so old settings files still load)
     queries: QuerySources = field(default_factory=lambda: QuerySources())
     rate: RateConfig = field(default_factory=lambda: RateConfig())
     dns: DnsConfig = field(default_factory=lambda: DnsConfig())
@@ -561,7 +562,7 @@ def apply_overrides(profile: Profile, raw: dict[str, Any]) -> Profile:
             household=bool(m.get("household")), household_size=int(m.get("household_size") or 3),
             persona=_persona_name(m.get("persona")), persona_share=float(m.get("persona_share", 0.8)),
             packages=str(m.get("packages") or "auto"))
-        for _k, _d in (("long_sessions", True), ("multi_tab", True), ("duck_chat", False), ("file_transfers", True)):    # fields the call above does not take
+        for _k, _d in (("long_sessions", True), ("multi_tab", True), ("duck_chat", False), ("file_transfers", True), ("keep_alive", True)):    # fields the call above does not take
             setattr(profile.extras, _k, bool(m.get(_k, _d)))
         if (profile.extras.interests or profile.extras.household) and not profile.extras.interest_salt:
             import secrets as _s
