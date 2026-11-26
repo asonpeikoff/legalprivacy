@@ -38,6 +38,7 @@ FIELDS: dict[str, tuple[tuple, str]] = {
     "dns_bursts": (("extras", "dns_bursts"), "bool"),
     "auto_correct": (("rate", "auto_correct"), "bool"),
     "duck_chat": (("extras", "duck_chat"), "bool"),
+    "duck_images": (("extras", "duck_images"), "bool"),
     "file_transfers": (("extras", "file_transfers"), "bool"),
     "keep_alive": (("extras", "keep_alive"), "bool"),
     "typos": (("extras", "typos"), "bool"), "polite": (("extras", "polite"), "bool"),

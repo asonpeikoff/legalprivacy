@@ -1009,7 +1009,7 @@ class Runner:
 
     # For the default persona, a share of the long sessions (both kinds) are a chat on duck.ai.
     DUCK_AI_URL = "https://duck.ai/"
-    DUCK_AI_CHANCE = 0.2
+    DUCK_AI_CHANCE = 0.55           # a long session is on duck.ai this often: the chat noise is meant to be a heavy user
 
     def _away_detour_gap(self) -> float:
         """While stepped away, the odd thing still happens (a mail check, a quick lookup), about every 10-40 min."""
@@ -1062,13 +1062,14 @@ class Runner:
                 note = "still working on the same page"
                 lg["next_at"] = now + self.rng.uniform(120, 600) * scale
             ex = getattr(self.profile, "extras", None)
-            if lg.get("chat") and ex is not None and getattr(ex, "duck_chat", False) and lg.get("chats", 0) < 2 \
-                    and self.rng.random() < (0.9 if not lg.get("chats") else 0.3):
+            if lg.get("chat") and ex is not None and getattr(ex, "duck_chat", False) and lg.get("chats", 0) < 6 \
+                    and self.rng.random() < (0.95 if not lg.get("chats") else 0.7):
                 from .narrative import chat_script
                 lg["chats"] = lg.get("chats", 0) + 1
                 topic = self._chat_topic()
                 return lane, lg["engine"], Target(url=lg["url"], timeout=60.0, note=f"chat about {topic}", role="chat",
-                                                  script=chat_script(self.rng, topic), accept_terms=True)
+                                                  script=chat_script(self.rng, topic), accept_terms=True,
+                                                  images=bool(getattr(ex, "duck_images", False)))
             return lane, lg["engine"], Target(url=lg["url"], timeout=60.0 if lg["engine"] == "onion" else 25.0,
                                               note=note, role="linger", dwell=self.rng.uniform(60, 300) * scale)
         return None

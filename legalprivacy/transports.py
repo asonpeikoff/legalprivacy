@@ -35,6 +35,7 @@ class Target:
     dwell: float | None = None    # seconds a person would spend on this page (sessions)
     script: list[str] | None = None   # role 'chat': the messages to send, one after another
     size: int = 0                 # download: stop after this many bytes; upload: how many random bytes to send
+    images: bool = False          # role 'chat': now and then attach a made-up picture through the page's file button
     accept_terms: bool = False    # role 'chat': the user switched chat noise on, which accepts the site's terms
 
     @property

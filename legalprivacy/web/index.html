@@ -380,8 +380,8 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
 .flash{animation:flash 1.2s ease-out}@keyframes flash{0%{box-shadow:0 0 0 3px var(--acc)}100%{box-shadow:none}}
 @media(min-width:861px){.burger{display:inline-flex}#shell.hid{grid-template-columns:minmax(0,1fr)}#shell.hid>nav{display:none}#shell.slim>nav .sub{display:none!important}}
 @media(max-width:860px){#shell>nav .sub{display:none!important}}
-@media (prefers-color-scheme:dark){:root:not([data-theme=light]) .logos img,:root:not([data-theme=light]) .logos video{background:#fff}}
-:root[data-theme=dark] .logos img,:root[data-theme=dark] .logos video{background:#fff}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]) .logos img:not(.egg),:root:not([data-theme=light]) .logos video:not(.egg){background:#fff}}
+:root[data-theme=dark] .logos img:not(.egg),:root[data-theme=dark] .logos video:not(.egg){background:#fff}
 </style>
 </head>
 <body class="loading">
@@ -710,7 +710,8 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <label class="chk"><input type="checkbox" id="eDnsBurst"><span><b>Follow lookups with a page's burst of lookups</b> <span class="mute">(recommended, on) — a real page load asks for its fonts, scripts and other sites a few tens of milliseconds apart; single lookups on their own look unlike that</span></span></label>
     <label class="chk"><input type="checkbox" id="eKeep"><span><b>Keep it running</b> <span class="mute">(on by default) — if the noise stops on its own, pauses itself or gets stuck, it is started or woken again within about a minute, so it can run for weeks untouched. A pause you press yourself is never undone, and your daily data limit (if you set one) still holds until midnight.</span></span></label>
     <label class="chk"><input type="checkbox" id="eFiles"><span><b>File transfers</b> <span class="mute">(on by default) — now and then the noise downloads a real public file and throws it away (mostly photos; sometimes a video, a zip, a document or a track) from the Internet Archive's free collections, or uploads a random-sized block of random bytes to a speed-test server (never anything of yours). Sizes vary a lot and each download is capped at 20 MB. Skipped in low-data mode; with Tor on, it also takes files that onion pages offer.</span></span></label>
-    <label class="chk"><input type="checkbox" id="eDuckChat"><span><b>Chat noise on duck.ai</b> <span class="mute">(off by default) — now and then, in a long session, the real-browser lane has a short made-up chat there: one topic, one to four messages of different lengths, typed like a person, with its reply read. The questions come from the same topics as the searches and never from you. <b>Switching this on accepts duck.ai's terms screen for you</b> (its Privacy Policy and Terms of Service), and duck.ai may limit or block automated use.</span></span></label>
+    <label class="chk"><input type="checkbox" id="eDuckChat"><span><b>Chat noise on duck.ai</b> <span class="mute">(on by default) — often, in a long session, the real-browser lane has a made-up chat there: one topic, one to four messages of different lengths, typed like a person, with its reply read, and several chats in a long session. The questions come from the same topics as the searches and never from you. <b>This accepts duck.ai's terms screen for you</b> (its Privacy Policy and Terms of Service), and duck.ai may limit or block automated use. Switch it off here if you do not want that.</span></span></label>
+    <label class="chk"><input type="checkbox" id="eDuckImg"><span><b>Pictures in the duck.ai chats</b> <span class="mute">(on by default) — in some chats a made-up picture is attached through the page's own file button and asked about. The picture is built in memory (a gradient with shapes and grain); nothing of yours is read or sent. If the page has no file button, no picture is sent.</span></span></label>
     <label class="chk"><input type="checkbox" id="eLong"><span><b>Long sessions</b> <span class="mute">(on by default) — now and then the noise keeps going back to one page for half an hour or more, or leaves it open for a few hours as if you stepped away, then comes back to it. People do this with things they care about.</span></span></label>
     <label class="chk"><input type="checkbox" id="eTypos"><span><b>More typos in searches</b> <span class="mute">(off by default) — a few searches always have a small slip; this makes it about 1 in 9</span></span></label>
     <label class="chk"><input type="checkbox" id="ePolite"><span><b>Polite mode</b> <span class="mute">(off by default) — never the same site twice within a minute</span></span></label>
@@ -1886,7 +1887,7 @@ function fillSettings(force){
   $('#sClear').checked=p.transports.clearnet.enabled;loadUA();
   const ex=p.extras||{};const hrs=[...Array(24).keys()].map(h=>`<option value="${h}">${h12(h)}</option>`).join('');
   $('#eFrom').innerHTML=hrs;$('#eTo').innerHTML=hrs;$('#eFrom').value=ex.active_from??8;$('#eTo').value=ex.active_to??23;
-  $('#eHours').checked=!!ex.active_hours;$('#eDuckChat').checked=!!ex.duck_chat;$('#eFiles').checked=ex.file_transfers!==false;$('#eKeep').checked=ex.keep_alive!==false;$('#eDns').checked=ex.browser_dns!==false;$('#eDnsBurst').checked=ex.dns_bursts!==false;$('#eTypos').checked=!!ex.typos;$('#eLong').checked=ex.long_sessions!==false;
+  $('#eHours').checked=!!ex.active_hours;$('#eDuckChat').checked=ex.duck_chat!==false;$('#eDuckImg').checked=ex.duck_images!==false;$('#eFiles').checked=ex.file_transfers!==false;$('#eKeep').checked=ex.keep_alive!==false;$('#eDns').checked=ex.browser_dns!==false;$('#eDnsBurst').checked=ex.dns_bursts!==false;$('#eTypos').checked=!!ex.typos;$('#eLong').checked=ex.long_sessions!==false;
   $('#ePolite').checked=!!ex.polite;$('#eLow').checked=!!ex.low_data;$('#eCap').value=ex.daily_data_mb||0;
   renderEngines(ex.search_engines||{});
   $('#ePkg').value=ex.packages||'auto';
@@ -1939,7 +1940,7 @@ async function saveSettings(auto){
       traffic:{pattern:(document.querySelector('input[name=xpat]:checked')||{}).value||'drift',...(()=>{const m=window._trMix.values();return {browser:m.browser,plain:m.plain,onion:m.onion??window._trOnion}})(),
                mobile_share:parseInt($('#xMobile').value||0)/100,device:$('#xDevice').value},
       extras:{active_hours:$('#eHours').checked,active_from:parseInt($('#eFrom').value),active_to:parseInt($('#eTo').value),
-              browser_dns:$('#eDns').checked,duck_chat:$('#eDuckChat').checked,file_transfers:$('#eFiles').checked,keep_alive:$('#eKeep').checked,dns_bursts:$('#eDnsBurst').checked,typos:$('#eTypos').checked,long_sessions:$('#eLong').checked,polite:$('#ePolite').checked,low_data:$('#eLow').checked,
+              browser_dns:$('#eDns').checked,duck_chat:$('#eDuckChat').checked,duck_images:$('#eDuckImg').checked,file_transfers:$('#eFiles').checked,keep_alive:$('#eKeep').checked,dns_bursts:$('#eDnsBurst').checked,typos:$('#eTypos').checked,long_sessions:$('#eLong').checked,polite:$('#ePolite').checked,low_data:$('#eLow').checked,
               daily_data_mb:parseFloat($('#eCap').value||0),search_engines:engWeights(),
               interests:$('#iOn').checked,interest_active:parseInt($('#iN').value||3),interest_rotate_days:parseInt($('#iDays').value||10),
               interest_share:parseInt($('#iShare').value||30)/100,
@@ -2357,7 +2358,7 @@ function fixWhy(){document.querySelectorAll('details.why>summary:not([data-f])')
   const EGG=['00-classic-1','00-classic-2','00-classic-3','00-classic-4','00-classic-5','00-classic-6','01-green-animated.mp4','02-green-supine-skirt','03-green-supine-pants','04-green-supine-sheer','05-green-prone-skirt','06-green-prone-pants','07-green-kneel','08-green-wink','09-green-back','10-purple-supine','11-purple-prone','12-purple-kneel','13-purple-wink','14-pink-prone','15-pink-back','16-yellow-back','17-purple-back','18-purple-anim-white.mp4','19-purple-anim-grey.mp4','20-purple-anim-dark-a.mp4','21-purple-anim-dark-b.mp4','22-purple-anim-duo.mp4'];
   const T=new URLSearchParams(location.search).get('t')||sessionStorage.getItem('legalprivacy_t')||'';
   const media=(grp,n)=>{const v=n.endsWith('.mp4'),e=document.createElement(v?'video':'img');e.src='/logo/'+grp+'/'+(v?n:n+'.webp')+'?t='+encodeURIComponent(T);
-    e.alt='legalPrivacy';if(v){e.muted=true;e.loop=true;e.autoplay=true;e.playsInline=true;e.setAttribute('aria-hidden','true')}box.appendChild(e);return e};
+    e.alt='legalPrivacy';if(grp==='egg')e.classList.add('egg');if(v){e.muted=true;e.loop=true;e.autoplay=true;e.playsInline=true;e.setAttribute('aria-hidden','true')}box.appendChild(e);return e};
   const made={};const get=(g,n)=>made[g+n]||(made[g+n]=n==='05-rope-two-tone'&&g==='trad'?base:media(g,n));
   let on=st.get('lp_egg')==='1',i=0,clicks=[],keys=[];
   const mode=()=>st.get('lp_logo_follow')==='1';

@@ -310,10 +310,14 @@ class SettingsTab(Tab):
                      "block of random bytes to a speed-test server (never anything of yours). Each download is capped at 20 MB. "
                      "Skipped in low-data mode.")
         self.f_check(c, "duck_chat", "Chat noise on duck.ai",
-                     "Off by default. Now and then, in a long session, the real-browser lane has a short made-up chat on duck.ai "
-                     "(one topic, one to four messages of different lengths, typed like a person). The questions never come from "
-                     "you. Switching it on accepts duck.ai's terms screen for you (its Privacy Policy and Terms of Service), and "
-                     "duck.ai may limit or block automated use.")
+                     "On by default. Often, in a long session, the real-browser lane has a made-up chat on duck.ai (one topic, "
+                     "one to four messages of different lengths, typed like a person; several chats in a long session). The "
+                     "questions never come from you. It accepts duck.ai's terms screen for you (its Privacy Policy and Terms of "
+                     "Service), and duck.ai may limit or block automated use. Switch it off if you do not want that.")
+        self.f_check(c, "duck_images", "Pictures in the duck.ai chats",
+                     "On by default. In some chats a made-up picture (a gradient with shapes and grain, built in memory) is "
+                     "attached through the page's own file button and asked about. Nothing of yours is read or sent; if the page "
+                     "has no file button, no picture is sent.")
         self.f_check(c, "typos", "More typos in searches", "Off by default. A few searches always have a small slip; this "
                                                             "makes it about 1 in 9.")
         self.f_check(c, "polite", "Polite mode", "Off by default. Never the same site twice within a minute.")
