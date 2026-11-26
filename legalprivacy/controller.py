@@ -175,6 +175,8 @@ class Controller:
         self._stop = threading.Event()
         self._lock = threading.RLock()
         self.wanted_running = False                  # set by Start, cleared by Stop: what the keep-alive watchdog keeps true
+        from .autoinstall import Installer
+        self.installer = Installer(self.log)          # installs a missing noise browser by itself (see autoinstall.py)
         from .keepalive import TICK_SECONDS, KeepAlive
         self._keepalive = KeepAlive(self)
 
@@ -1355,6 +1357,8 @@ class Controller:
                     on_event=lambda lvl, msg: self.log.add(lvl, "browser", msg),
                     alt_factory=lambda: self._own_browsers_transport(stop))
             self.log.info("browser", f"Using the app's own browsers instead of your Firefox: {why}.")
+            if why.startswith("the 'selenium' package") and not getattr(sys, "frozen", False):
+                self.installer.ensure("selenium", self._after_install)       # then your own Firefox can be used
         return self._own_browsers_transport(stop)
 
     def _own_browsers_transport(self, stop: threading.Event):
@@ -1362,9 +1366,11 @@ class Controller:
         cfg = self.profile.transports["clearnet"]
         info = self.browser_info()
         if not info["active"]:
+            if info["detail"].startswith("No Chrome, Edge"):
+                self.installer.ensure("chromium", self._after_install)       # no browser at all: fetch Playwright's
             if cfg.browser == "on":
                 self.log.warn("browser", f"Real-browser mode is on but unavailable: {info['detail']}. "
-                                         "Using plain HTTP instead.")
+                                         "Using plain HTTP instead until a browser is installed.")
             return None
         from .browser import BrowserTransport, MixedBrowserTransport, find_playwright_firefox
         mix = cfg.browser_engine in ("mix", "mine")
@@ -1390,8 +1396,10 @@ class Controller:
         ff = make("firefox") if find_playwright_firefox() else None
         from . import useragents as _ua
         _ua.set_firefox_engine(ff is not None)          # Firefox leads when it is there; none claim it when it isn't
+        if ff is None:
+            self.installer.ensure("firefox", self._after_install)            # the mix wants a second browser: fetch it
         self.log.info("browser", "Mixing browsers: Chromium" + (" and Firefox." if ff else
-                      " only (Firefox isn't installed for the noise browser: run python -m playwright install firefox)."))
+                      " only for now (Firefox for the noise browser is being installed)."))
         return MixedBrowserTransport(make("chromium"), ff)
 
     def _interest_share(self) -> float:
@@ -1418,8 +1426,9 @@ class Controller:
         if want == "auto":
             want = "firefox" if "Firefox/" in self.profile.identity.own_ua else "chromium"
         if want == "firefox" and not find_playwright_firefox():
-            self.log.warn("browser", "Firefox engine wanted, but Playwright's Firefox isn't installed "
-                                     "(run: python -m playwright install firefox). Using Chromium.")
+            self.installer.ensure("firefox", self._after_install)
+            self.log.warn("browser", "Firefox engine wanted, but Playwright's Firefox isn't installed: installing it now. "
+                                     "Using Chromium until then.")
             return "chromium"
         return want
 
@@ -1743,6 +1752,14 @@ class Controller:
         if DNS_OPTIONS["encrypted"]:
             ips = [i for i in ips if i in DOT_HOSTS] or list(DOT_HOSTS)
         return ips
+
+    def _after_install(self, ok: bool) -> None:
+        """A browser or package was just installed: restart the noise once so it is used."""
+        if ok and self.running and self.wanted_running:
+            try:
+                self.restart_for_keepalive()
+            except Exception as exc:
+                self.log.warn("browser", f"Could not restart after the install: {exc}")
 
     def restart_for_keepalive(self) -> None:
         """Stop and start the noise again (the keep-alive watchdog's way of freeing a stuck run), staying 'wanted'."""
