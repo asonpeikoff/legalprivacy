@@ -43,6 +43,7 @@ class Lane:
     pacer: Pacer | None = None
     hits_by_identity: int = 0
     ident_limit: int = 0                      # visits before the next new identity, drawn at random each time
+    ident_expires: float = 0.0                # the identity is never kept past this time (at most two hours), drawn at random
     consecutive_failures: int = 0
     crawl_factory: object | None = None
     crawl_next: Target | None = None
@@ -597,7 +598,11 @@ class Runner:
         """
         base = getattr(lane.transport, "identities_per_circuit", None) or 10
         limit = getattr(lane, "ident_limit", None) or base
-        if lane.identity is None or lane.hits_by_identity >= limit:
+        now = self.clock()
+        aged = lane.identity is not None and lane.ident_expires and now >= lane.ident_expires
+        if aged:
+            lane.linger = None            # a session ends with its identity: nothing goes on for more than two hours
+        if lane.identity is None or lane.hits_by_identity >= limit or aged:
             # A new identity after a random number of visits, usually a handful and now and then more (log-normal, median
             # about 40% of the configured number), instead of every Nth visit exactly: a fixed count is itself a pattern.
             lane.ident_limit = max(1, round(base * self.rng.lognormvariate(-0.9, 0.7)))
@@ -610,6 +615,7 @@ class Runner:
             lane.pacer.sleep_fn = self.sleep_fn
             self._apply_pace(lane.pacer)
             lane.hits_by_identity = 0
+            lane.ident_expires = now + self.rng.uniform(35, 120) * 60 * self.profile.realtime_scale
             renew = getattr(lane.transport, "renew_circuits", None)
             if renew is not None:
                 renew()
@@ -869,16 +875,20 @@ class Runner:
                 got.append(f)
         del got[:-60]
 
-    def _files_target(self) -> Target:
-        """A download of a real public file (most often a photo), or now and then an upload of random bytes. Sizes vary a lot."""
+    def _files_target(self, over_tor: bool = False) -> Target:
+        """A download of a real public file (most often a photo), or now and then an upload of random bytes. Sizes vary a lot.
+        Over Tor: downloads only, and smaller ones (Tor is slow), so it also looks like someone fetching files on Tor."""
         from . import files as F
-        if self.rng.random() < F.UPLOAD_SHARE:
-            n = F.upload_size(self.rng)
-            return Target(url=F.UP_URL, kind="upload", size=n, timeout=120.0, note=f"upload {F.human(n)} of random bytes")
         cat = self.__dict__.get("_catalog")
         if cat is None:
             cat = self.__dict__["_catalog"] = F.FileCatalog(self.rng)
-        pick = cat.pick(F.DEFAULT_CAP)
+        if over_tor:
+            pick = cat.pick(12_000_000)
+            if pick is None:                      # nothing found right now: look at the site the files come from instead
+                return Target(url="https://archive.org/", timeout=60.0, note="visit archive.org over Tor")
+            return Target(url=pick.url, kind="download", size=pick.size, timeout=300.0,
+                          note=f"download {pick.kind} {F.human(pick.size)} over Tor")
+        pick = None if self.rng.random() < F.UPLOAD_SHARE else cat.pick(F.DEFAULT_CAP)
         if pick is None:
             n = F.upload_size(self.rng)
             return Target(url=F.UP_URL, kind="upload", size=n, timeout=120.0, note=f"upload {F.human(n)} of random bytes")
@@ -914,7 +924,7 @@ class Runner:
                     return t
             return t
         if eng_name == "files":
-            return self._files_target()
+            return self._files_target(over_tor=lane.name == "tor")
         if eng_name == "search":
             if lane.follow_next is not None:
                 nxt, lane.follow_next = lane.follow_next, None
@@ -1009,8 +1019,11 @@ class Runner:
     EXCLUSIVE_CHANCE = 0.12
     OTHER_SITE_CHANCE_10MIN = 0.15
 
+    MAX_SESSION_S = 2 * 3600.0             # no session (and no identity) goes on longer than this
+
     def _exclusive(self) -> bool:
-        return self.rng.random() < self.EXCLUSIVE_CHANCE * self.rng.uniform(0.5, 1.5)
+        """Long sessions never take over: they run alongside the shorter ones (the page is revisited on its own schedule)."""
+        return False
 
     def _other_site_gap(self) -> float:
         mean_s = -600.0 / math.log(1.0 - self.OTHER_SITE_CHANCE_10MIN)            # about 61 minutes
@@ -1029,7 +1042,8 @@ class Runner:
             if not lg or not lane.open:
                 continue
             if lg["mode"] == "work" and now >= lg["until"]:
-                lane.linger = None                         # finished with it
+                lane.linger = None                         # finished with it: the next visit is as someone new
+                lane.identity = None
                 continue
             due = now >= (lg["until"] if lg["mode"] == "away" else lg["next_at"])
             if not due or lane.budgets[lg["engine"]].exhausted:
@@ -1037,7 +1051,9 @@ class Runner:
             scale = self.profile.realtime_scale
             if lg["mode"] == "away":                       # back at the computer: carry on with the same page
                 note = "back after being away, same page"
-                lane.linger = {**lg, "mode": "work", "until": now + self.rng.uniform(600, 2400) * scale,
+                lane.linger = {**lg, "mode": "work",
+                               "until": min(now + self.rng.uniform(600, 2400) * scale,
+                                            lg.get("started", now) + self.MAX_SESSION_S * scale),
                                "next_at": now + self.rng.uniform(120, 600) * scale,
                                "other_at": now + self._other_site_gap()}
             else:
@@ -1081,15 +1097,17 @@ class Runner:
             hours = self.rng.uniform(0.5, 2.0)
             excl = self._exclusive()
             lane.linger = {"mode": "away", "url": target.url, "engine": eng_name, "exclusive": excl, "chat": chat,
+                           "started": now,
                            "until": now + hours * 3600 * scale, "next_at": 0.0,
                            "other_at": now + self._away_detour_gap()}
             self._emit("info", lane.name, f"Long session: left a page open for about {hours:.1f} h to come back to "
                                           + ("(stepped away: a little other activity continues meanwhile)."
                                              if excl else "(other activity carries on as usual)."))
         elif r < 0.11:
-            minutes = min(180.0, max(15.0, self.rng.lognormvariate(3.7, 0.6)))    # typically ~40 minutes
+            minutes = min(self.MAX_SESSION_S / 60, max(15.0, self.rng.lognormvariate(3.7, 0.6)))   # typically ~40; never over 2 h
             excl = self._exclusive()
             lane.linger = {"mode": "work", "url": target.url, "engine": eng_name, "exclusive": excl, "chat": chat,
+                           "started": now,
                            "until": now + minutes * 60 * scale, "next_at": now + self.rng.uniform(120, 600) * scale,
                            "other_at": now + self._other_site_gap()}
             self._emit("info", lane.name, f"Long session: keeps coming back to the same page for about "
@@ -1107,7 +1125,9 @@ class Runner:
             if not lanes:
                 self.sleep_fn(5.0)
                 continue
-            lane = lanes[0]
+            tor = [ln for ln in lanes if ln.name == "tor"]
+            rest = [ln for ln in lanes if ln.name != "tor"]
+            lane = self.rng.choice(tor) if tor and (not rest or self.rng.random() < 0.4) else rest[0]
             budget = lane.budgets[eng_name]
             # spread what's left of this hour's allowance over what's left of the hour, irregularly
             seconds_left = max(30.0, self._hour_end - self.clock())
@@ -1115,9 +1135,10 @@ class Runner:
             self.sleep_fn(min(gap, seconds_left) * self.profile.realtime_scale)
             if self._stopped() or self.paused:
                 continue
-            target = self._make_target(lane, eng_name, lane.identity)
+            ident = lane.identity or self._identity_pacer_for(lane)[0]
+            target = self._make_target(lane, eng_name, ident)
             try:
-                result = self._probe(lane, lane.identity, target)
+                result = self._probe(lane, ident, target)
             except Exception as exc:                       # a side stream must never take the app down
                 result = HitResult(None, error=f"{type(exc).__name__}: {exc}")
             with self._rec_lock:

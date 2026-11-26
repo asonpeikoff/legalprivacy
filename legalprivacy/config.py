@@ -418,7 +418,9 @@ class Profile:
             return [n for n in on if n != "onion"]
         if transport == "tor":
             tor = self.transports.get("tor")
-            return ["onion"] if tor and tor.onion and "onion" in on else []
+            if not (tor and tor.onion and "onion" in on):
+                return []
+            return ["onion"] + (["files"] if "files" in on else [])      # Tor also carries some of the file downloads
         return []
 
     def packages_on(self) -> bool:
