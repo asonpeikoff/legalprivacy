@@ -272,6 +272,19 @@ def test_headless_without_a_browser_uses_plain_http():
     assert a.counts["visit"] >= 1
 
 
+def test_browser_lane_never_opens_private_addresses(monkeypatch):
+    opened = []
+    monkeypatch.setattr(RA, "browser_visit", lambda b, u, timeout=45.0: opened.append(u) or (True, ""))
+    a = RA.Agent({"dry_run": True}, browser="/bin/chromium", sleep=lambda s: None)
+    a.browser_share = 1.0
+    a._browse("http://192.168.1.1/admin")
+    a._browse("http://localhost:8080/")
+    assert opened == []                                            # refused, then the (dry) HTTP lane handled them
+    monkeypatch.setattr(RA, "host_is_safe", lambda h: True)
+    a._browse("https://public.example.org/")
+    assert opened == ["https://public.example.org/"]
+
+
 def test_probe_reports_machine(monkeypatch):
     monkeypatch.setattr(RA, "find_browser", lambda *a: None)
     p = RA.probe()
