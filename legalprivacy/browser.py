@@ -751,20 +751,26 @@ class BrowserTransport(Transport):
                 res = HitResult(200, "")
                 res.detail, res.final_url, res.load_ms = "chat not started: its terms screen needs your OK", page.url, 0.0
                 return res
-            sent = 0
+            sent = pics = 0
             for i, msg in enumerate(target.script or []):
                 if self._stopped():
                     break
                 driver.pause(lognormal_clipped(self.rng, 2.0 if i == 0 else 4.0, 0.5, 0.8, 15))     # think about what to ask
                 box = page.locator("textarea").first
                 box.click()
+                if target.images and i > 0 and self.rng.random() < 0.3 and self._attach_picture(page):
+                    from .chatpics import PICTURE_QUESTIONS
+                    msg = self.rng.choice(PICTURE_QUESTIONS)               # a question about the picture just attached
+                    pics += 1
+                    box = page.locator("textarea").first
+                    box.click()
                 self._type_like_a_person(page, msg, sc)
                 page.keyboard.press("Enter")
                 sent += 1
                 self._wait_for_reply(page, sc)
                 driver.pause(lognormal_clipped(self.rng, 6.0, 0.6, 2.0, 40))                          # read the answer
             res = HitResult(200, "")
-            res.detail = f"chat: {sent} message{'s' if sent != 1 else ''}"
+            res.detail = f"chat: {sent} message{'s' if sent != 1 else ''}" + (f", {pics} with a picture" if pics else "")
             res.final_url, res.load_ms = page.url, (time.time() - t0) * 1000.0
             res.on_page_s = time.time() - t0
             res.bytes = 0
@@ -774,6 +780,21 @@ class BrowserTransport(Transport):
 
     def _stopped(self) -> bool:
         return bool(self.stop_event is not None and self.stop_event.is_set())
+
+    def _attach_picture(self, page) -> bool:
+        """Attach a made-up picture through the page's own file button, if it has one (nothing is invented if it does not:
+        no file input, no picture). The picture is built in memory (chatpics.py); nothing of yours is read."""
+        try:
+            fin = page.locator("input[type=file]")
+            if not fin.count():
+                return False
+            from .chatpics import make_png
+            fin.first.set_input_files({"name": f"IMG_{self.rng.randrange(1000, 9999)}.png", "mimeType": "image/png",
+                                       "buffer": make_png(self.rng)})
+            page.wait_for_timeout(int(self.rng.uniform(900, 2200) * max(self.scale(), 0.05)))      # the preview appears
+            return True
+        except Exception:
+            return False
 
     def _consent(self, page, accept: bool) -> bool:
         """True when nothing blocks the chat (or the terms screen was accepted because the user said so)."""

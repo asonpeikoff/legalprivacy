@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **duck.ai chat noise is a heavy user, with pictures; Easter egg logos lose their white box.** (1) "Chat noise on duck.ai" is now **on by default** (switch it off in Settings; it accepts duck.ai's terms screen for you, as the setting says), a long session is on duck.ai far more often (55% of the time a session of that kind starts, up from 20%), and up to six chats happen in one session (up from two). (2) New "Pictures in the duck.ai chats" (on by default): in some chats a made-up picture is attached through the page's own file button and asked about. The picture is a PNG built in memory (a gradient with shapes and grain, tens to a few hundred kilobytes, a different size each time); nothing of yours is read or sent, and if the page has no file button, no picture is sent. Tested with a stand-in page (the real duck.ai needs its terms accepted in a real browser, and I could not drive it from my sandbox, so the live page, and whether its chat takes picture attachments, are untested). (3) Fix: in dark mode the Easter egg logos had a white box the size of the logo behind them; only the traditional logos get it now.
+
 ## v2.20.1
 
 - **The menu starts open.** It now opens for everyone, including people who had hidden it earlier (the saved state moved to a new key, so an old "hidden" no longer applies); hide it again with the ☰ button and it stays hidden.
