@@ -126,10 +126,12 @@ profile:
 request. Contributing bandwidth back keeps Tor fast for everyone and is the
 community-minded counterpart to consuming it.
 
-> Accuracy note: Tor has no "DNS node" role — arbitrary DNS queries cannot be
-> relayed. The community-minded equivalent of "a DNS node" is exactly this
-> non-exit (middle/bridge) relay: it carries the network's traffic — including
-> every end-to-end DNS lookup that exits do perform on behalf of clients.
+> Accuracy note: Tor has no "DNS node" role: only exit relays resolve names for
+> other people. A middle/bridge relay carries the traffic (including the DNS
+> requests on their way to an exit) but resolves nothing. The "DNS helper" mode
+> is an exit whose policy allows only port 53 of two Quad9 addresses (it answers
+> RESOLVE requests, exits nothing else). With no web ports it gets no Exit flag,
+> so few clients choose it; real but modest help. Practice mode by default.
 
 ## Stealth / traffic strategies
 

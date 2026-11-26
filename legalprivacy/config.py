@@ -126,7 +126,7 @@ def valid_exclude_entry(entry: str) -> bool:
 @dataclass
 class RelayConfig:
     enabled: bool = False
-    mode: str = "middle"              # middle | bridge — NEVER an exit
+    mode: str = "middle"              # middle | bridge | dns (an exit that only does DNS) — never a general exit
     nickname: str = "legalprivacy"
     contact: str | None = None
     bandwidth_rate: str = "5Mbit"
@@ -140,10 +140,10 @@ class RelayConfig:
 
     def validate(self) -> None:
         from .relay import RelayConfigError
-        if self.mode not in ("middle", "bridge"):
+        if self.mode not in ("middle", "bridge", "dns"):
             raise ConfigError(
-                "contribute.relay.mode must be 'middle' or 'bridge'; "
-                "legalPrivacy v2 never runs an exit node"
+                "contribute.relay.mode must be 'middle', 'bridge' or 'dns' (a DNS-only helper); "
+                "legalPrivacy never runs a general exit node"
             )
         try:             # one set of rules (including the line-break checks) for every way a torrc is made
             self.spec().validate()
@@ -172,7 +172,8 @@ RECOMMENDED_RESOLVERS = [
 @dataclass
 class DnsConfig:
     """Which resolver the DNS noise uses. See legalprivacy/dnsplan.py."""
-    mode: str = "mix"             # mix (default: blocks on your normal DNS + the resolver table) | system | secure
+    mode: str = "secure"          # secure (default: only the resolver table) | mix (blocks on your normal DNS + the table) | system
+    encrypted: bool = True        # DNS over TLS (port 853, certificate checked, never plain text) to the secure resolvers
     resolvers: list[dict] = field(default_factory=lambda: [dict(r) for r in RECOMMENDED_RESOLVERS])
     slow_ms: int = 250            # a primary slower than this counts as "not working fast"
     opennic: bool = False         # extra: the whole OpenNIC no-log directory as primaries

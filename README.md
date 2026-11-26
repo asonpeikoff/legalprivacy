@@ -452,7 +452,15 @@ skipped for a while; this is normal and doesn't mean Tor is broken.
 Snowflake client configuration with `legalprivacy relay gen-client --type snowflake`.
 
 **Contribute to Tor** with `legalprivacy relay gen`, which writes a middle-relay or bridge
-configuration. It never runs an exit.
+configuration, or with `--dns` a **DNS helper**: an exit relay that does only DNS (it answers other Tor
+users' name lookups, and its exit policy lets out nothing except port 53 of two Quad9 addresses, so it cannot
+be used to reach a website). Tor gives no "Exit" label to a relay that allows no web ports, so fewer people
+pick it than a normal exit; it helps, modestly. It never runs a general exit. In the app it is a choice on the
+Tor tab (starts in practice mode, nothing published; going public asks you to confirm).
+
+**DNS security.** The DNS noise goes to secure resolvers only, over TLS (DNS over TLS, port 853, the
+certificate checked, never plain text; Settings > DNS lookups has a switch). For onion visits the name is
+always looked up by Tor, never by your own DNS, and the Tor client refuses answers that point inside your network.
 
 ## Tor DNS and relays (Tor DNS is off by default; the relay starts in practice mode)
 

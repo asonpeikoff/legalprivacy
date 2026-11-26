@@ -11,7 +11,7 @@ from typing import Any
 # key -> (path into the profile, kind). Kinds: bool int float str  pct (profile 0..1, shown 0..100)
 # optstr (None shown as "")  csv ("a, b" <-> list)  lines ("a\nb" <-> list)  raw (kept as it is)
 FIELDS: dict[str, tuple[tuple, str]] = {
-    "dns_mode": (("dns", "mode"), "str"), "dns_share": (("dns", "system_share"), "pct"),
+    "dns_mode": (("dns", "mode"), "str"), "dns_encrypted": (("dns", "encrypted"), "bool"), "dns_share": (("dns", "system_share"), "pct"),
     "dns_slow": (("dns", "slow_ms"), "int"), "dns_opennic": (("dns", "opennic"), "bool"),
     "dns_quad9": (("dns", "quad9"), "bool"), "dns_custom": (("dns", "custom"), "csv"),
     "dns_resolvers": (("dns", "resolvers"), "raw"),

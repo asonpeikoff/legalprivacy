@@ -1973,7 +1973,7 @@ class Controller:
             add(f"Source: {f['name']}", st, f"{f['count']:,} items" + (" (stale)" if f["stale"] and f["count"] else "")
                 + (f" — {f['error']}" if f["error"] else ""))
         if self.profile.relay.enabled:
-            add("Relay contribution", "info", f"{self.profile.relay.mode} relay '{self.profile.relay.nickname}' (never an exit)")
+            add("Relay contribution", "info", f"{self.profile.relay.mode} relay '{self.profile.relay.nickname}' (never a general exit)")
         try:
             import psutil  # noqa: F401
             add("Connection watching (Proof tab)", "ok", "available")

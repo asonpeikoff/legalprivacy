@@ -97,7 +97,7 @@ def test_governmental_names_are_found_without_catching_ordinary_words(tmp_path):
 def test_dns_defaults_lean_on_normal_dns_and_do_more_lookups():
     from legalprivacy.config import Profile
     p = Profile(name="d")
-    assert p.dns.mode == "mix" and p.dns.system_share == 0.85
+    assert p.dns.mode == "secure" and p.dns.encrypted and p.dns.system_share == 0.85
     assert p.engines["dns"].budget_per_day > p.engines["search"].budget_per_day
 
 

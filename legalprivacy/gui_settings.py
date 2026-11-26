@@ -78,6 +78,11 @@ class SettingsTab(Tab):
     def build_dns(self) -> None:
         c = self.card("dns", "DNS lookups", "web")
         c.note("In Activity and the Live Log each lookup shows the site looked up and which resolver answered.")
+        self.f_check(c, "dns_encrypted", "Encrypt the DNS lookups (DNS over TLS)",
+                     "Recommended (maximum DNS security). Lookups to the secure resolvers go over TLS on port 853 with the "
+                     "resolver's certificate checked, never in plain text; a resolver that cannot do that is swapped for one "
+                     "that can (Quad9 or Cloudflare, both validate DNSSEC). Onion visits never use your own DNS at all: the "
+                     "name is looked up by Tor.")
         self.f_radios(c, "dns_mode", [
             ("system", "Your normal DNS", "Whatever your router, ISP, VPN or system already uses, so the noise lands exactly "
                                           "where your real lookups do."),

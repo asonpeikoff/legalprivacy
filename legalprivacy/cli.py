@@ -236,18 +236,19 @@ def cmd_doctor(args: argparse.Namespace) -> int:
 
 def cmd_relay(args: argparse.Namespace) -> int:
     if args.relay_command == "gen":
-        spec = RelaySpec(mode="bridge" if args.bridge else "middle",
+        spec = RelaySpec(mode="dns" if args.dns else "bridge" if args.bridge else "middle",
                          nickname=args.nickname or "legalprivacy",
                          contact=args.contact,
                          bandwidth_rate=args.bandwidth)
         torrc = generate_torrc(spec)
         with open(args.out, "w", encoding="utf-8") as fh:
             fh.write(torrc)
-        warnings = warn_if_exit_requested(torrc)
+        warnings = [] if spec.mode == "dns" else warn_if_exit_requested(torrc)
         for w in warnings:
             print(w, file=sys.stderr)
         print(f"wrote {args.out}: {spec.mode} relay '{spec.nickname}', "
-              f"rate {spec.bandwidth_rate}, exit policy reject-all")
+              f"rate {spec.bandwidth_rate}, exit policy "
+              + ("DNS only (port 53 of two Quad9 addresses)" if spec.mode == "dns" else "reject-all"))
         return 0
     if args.relay_command == "bridges":
         from pathlib import Path
@@ -310,9 +311,11 @@ def main(argv: list[str] | None = None) -> int:
 
     p_relay = sub.add_parser("relay", help="community relay and bridge management")
     relay_sub = p_relay.add_subparsers(dest="relay_command", required=True)
-    p_gen = relay_sub.add_parser("gen", help="generate a non-exit relay torrc")
+    p_gen = relay_sub.add_parser("gen", help="generate a relay torrc (middle, bridge or DNS helper)")
     p_gen.add_argument("--bridge", action="store_true",
                        help="bridge instead of middle relay")
+    p_gen.add_argument("--dns", action="store_true",
+                       help="DNS helper: an exit that does only DNS (port 53 of two Quad9 addresses, nothing else)")
     p_gen.add_argument("--nickname", help="relay nickname (1-19 alnum)")
     p_gen.add_argument("--contact", help="contact email")
     p_gen.add_argument("--bandwidth", default="5Mbit")
