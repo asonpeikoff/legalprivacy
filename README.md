@@ -477,6 +477,24 @@ Tor lane for noise, which stays onion-only.
 - Router and firewall notes are in the card. See also the Tor Project's relay documentation, https://community.torproject.org/relay/.
 - Not tested here: joining the real Tor network as a public relay (this was developed where Tor could not connect out), and Windows and macOS.
 
+## Remote machines (optional, over SSH)
+
+The **Remote** tab (web dashboard and desktop app) runs the same kind of noise on other computers you log in to over SSH: page visits, searches, DNS lookups and downloads from *their* network, each machine with its own random identities, rhythm, daily peak, budgets and sites.
+
+**Only add computers you own or are authorised to use.** The app asks you to confirm that, and the API refuses without it.
+
+| Step | What happens |
+|---|---|
+| Add | `user@host` or `user@host:port`, plus a private-key path (preferred; passphrase optional) or a password. Passwords stay in memory while the app runs; they are never saved, logged or shown. A key path is saved, never the key. |
+| Test connection | Connects, shows the host key fingerprint the first time and sends nothing until you confirm it (a changed key is refused). Reports the system, Python and any headless browser found. |
+| Start | Copies one small stdlib-only file (`remoteagent.py`) and a settings file into `~/.cache/legalprivacy` (Windows: `%LOCALAPPDATA%\legalprivacy`), runs it over SSH and streams its log back. |
+| Stop | Ends the runner. It also ends by itself if the connection drops, and Panic or quitting the app stops all of them. |
+| Remove | Stops it and deletes the folder it created (needs the password or key to be available). |
+
+Needs `pip install legalprivacy[remote]` (installs `paramiko`) on the computer running the app, and **Python 3 on the remote machine**; no root, no display and no service there. With a headless Chromium, Chrome or Firefox installed, some visits use it; otherwise everything is plain HTTP. Downloads are read and thrown away (never written to disk), links found on visited pages are used, and you may add your own `https://` addresses. The runner only connects to public internet addresses, never to private, loopback or link-local ones.
+
+Tested: Linux, against a real SSH server (paramiko's server side, on loopback) with the real runner. Windows OpenSSH/PowerShell commands are built from documented behaviour and only exercised against a fake machine. The headless-browser flags are standard but not exercised against a real browser in the tests.
+
 ## Privacy
 
 - The live log and Activity are kept in memory only and cleared when the app quits; no log file

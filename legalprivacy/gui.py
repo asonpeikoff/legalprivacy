@@ -127,11 +127,12 @@ def build_app_class():
 
     from . import gui_theme as T
     from .gui_more import HealthTab, HelpTab, MLTab, MyListTab, ToolsTab
+    from .gui_remote import RemoteTab
     from .gui_security import SecurityTab
     from .gui_settings import SettingsTab
     from .gui_tabs import ActivityTab, DashboardTab, LogTab, ProofTab, TorTab
 
-    TABS = [DashboardTab, ActivityTab, LogTab, TorTab, SettingsTab, MyListTab, MLTab, ProofTab, SecurityTab, ToolsTab,
+    TABS = [DashboardTab, ActivityTab, LogTab, TorTab, RemoteTab, SettingsTab, MyListTab, MLTab, ProofTab, SecurityTab, ToolsTab,
             HealthTab, HelpTab]
 
     class App:

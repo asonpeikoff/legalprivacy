@@ -817,6 +817,12 @@ class HelpTab(Tab):
                 ("Tor (optional).", "Off by default. With Tor on, legalPrivacy can visit .onion sites through its own private "
                                     "Tor, which it downloads, checks and starts for you. Many .onion sites are offline at any "
                                     "moment; those are skipped for a while, which is normal."),
+                ("Remote machines.", "The Remote tab runs the noise on other computers you own or are authorised to use, over SSH "
+                                     "(user@host[:port] with a password or a private key). The app copies one small file into "
+                                     "~/.cache/legalprivacy on that machine, runs it, shows its log, and deletes it when you remove "
+                                     "the machine. Needs paramiko here and Python 3 there; no root and no display. The first time, "
+                                     "you must confirm the machine's host key fingerprint; a changed key is refused. Passwords are "
+                                     "kept in memory only."),
                 ("Contribute to Tor.", "“legalprivacy relay gen” writes a middle-relay or bridge configuration; it never runs "
                                        "an exit. The Tor tab has two optional cards, both off by default: Tor DNS (Tor answers "
                                        "A, AAAA and PTR lookups on a local port; exit relays resolve the names, so it is slower "
