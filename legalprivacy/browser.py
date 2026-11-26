@@ -297,6 +297,13 @@ class BrowserTransport(Transport):
         self._pw = sync_playwright().start()
         args = ["--disable-blink-features=AutomationControlled", "--no-default-browser-check",
                 "--no-first-run", "--disable-background-networking"]
+        args.append("--log-level=3")                       # the browser's own console chatter (dbus, update checks) stays out of ours
+        exe = os.path.basename(str(self.executable or "")).lower()
+        if "chromium" in exe or "headless" in exe:
+            # A Chromium build has no Google API key, so its Safe Browsing list update is answered with HTTP 400 and
+            # retried again and again ("returned a 400 during update request"). Harmless, and Google Chrome / Edge / Brave
+            # (which have a key) are left alone because their update is what a real browser does.
+            args.append("--safebrowsing-disable-auto-update")
         if self.offscreen:                                 # a real window, placed where no screen is
             args += ["--window-position=-32000,-32000", "--window-size=1366,850"]
         if getenv("NO_SANDBOX") == "1" or (hasattr(os, "geteuid") and os.geteuid() == 0):

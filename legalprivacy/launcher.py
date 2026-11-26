@@ -27,6 +27,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--port", type=int, help="dashboard port (default 8765)")
     ap.add_argument("--profile", help="use this profile YAML instead of the saved config")
     ap.add_argument("--url", action="store_true", help="print the dashboard link and exit")
+    ap.add_argument("--service", action="store_true",
+                    help="run as a service: no window, starts the noise by itself, keeps going (see --install-service)")
+    ap.add_argument("--install-service", action="store_true",
+                    help="write the unit file that starts the service at login/boot and restarts it, then print what to run")
     args = ap.parse_args(argv)
     if args.url:
         import yaml
@@ -44,6 +48,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     from .paths import ensure_utf8_console
     ensure_utf8_console()
+    if args.install_service:
+        from .service import install_service
+        return install_service()
+    if args.service:
+        from .service import run_service
+        return run_service(args.profile, args.port)
     if args.text:
         return _text_menu()
     try:

@@ -165,6 +165,11 @@ class Controller:
                 except Exception as exc:
                     self.log.warn("app", f"Keep-alive check failed: {exc!r}")
         threading.Thread(target=_keepalive_loop, daemon=True, name="keep-alive").start()
+        from .spray import Spray
+        self.spray = Spray(self.feeds, lambda: {"on": self.profile.extras.spray, "level": self.profile.extras.spray_level},
+                           lambda: bool(self.running and not (self.runner and self.runner.paused)),
+                           self._spray_resolvers, log=self.log)
+        threading.Thread(target=lambda: self.spray.loop(lambda: False), daemon=True, name="spray").start()
         self.log.info("app", f"legalPrivacy {__version__} on {platform.system()} {platform.release()} "
                              f"(Python {platform.python_version()})")
         self.log.info("app", f"Config: {self.profile_path}")
@@ -1699,6 +1704,19 @@ class Controller:
             except Exception:
                 pass
 
+    def _spray_resolvers(self) -> list[str]:
+        """Where Spray and Pray sends: this computer's own resolvers in "your normal DNS" mode, otherwise the secure resolvers
+        (the ones that can do DNS over TLS when encryption is on)."""
+        from . import dnsplan
+        from .engines import DNS_OPTIONS, DOT_HOSTS
+        dns = self.profile.dns
+        if dns.mode == "system":
+            return dnsplan.system_resolvers()
+        ips = [r["ip"] for r in dns.resolvers if r.get("enabled", True) and r.get("ip")] or ["9.9.9.9"]
+        if DNS_OPTIONS["encrypted"]:
+            ips = [i for i in ips if i in DOT_HOSTS] or list(DOT_HOSTS)
+        return ips
+
     def restart_for_keepalive(self) -> None:
         """Stop and start the noise again (the keep-alive watchdog's way of freeing a stuck run), staying 'wanted'."""
         self.stop()
@@ -1809,6 +1827,7 @@ class Controller:
         if not self.running:
             stats["paused"] = False
         return {
+            "spray": self.spray.state(),
             "version": __version__, "first_run": self.first_run, "running": self.running,
             "paused": stats.get("paused", False), "uptime": stats.get("uptime", 0) if self.running else 0,
             "current": stats.get("current") if self.running else None,
