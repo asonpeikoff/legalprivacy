@@ -41,6 +41,7 @@ FIELDS: dict[str, tuple[tuple, str]] = {
     "duck_images": (("extras", "duck_images"), "bool"),
     "file_transfers": (("extras", "file_transfers"), "bool"),
     "keep_alive": (("extras", "keep_alive"), "bool"),
+    "spray": (("extras", "spray"), "bool"), "spray_level": (("extras", "spray_level"), "str"),
     "typos": (("extras", "typos"), "bool"), "polite": (("extras", "polite"), "bool"),
     "low_data": (("extras", "low_data"), "bool"), "data_cap": (("extras", "daily_data_mb"), "float"),
     "site_list": (("extras", "site_list"), "str"), "persona": (("extras", "persona"), "str"),

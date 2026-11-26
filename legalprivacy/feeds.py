@@ -41,6 +41,11 @@ NEWS_FEEDS = [f"https://feeds.bbci.co.uk/news/{p}rss.xml" for p in
 TRANCO_URL = "https://tranco-list.eu/top-1m.csv.zip"
 DENY_URL = "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews-gambling-porn/hosts"
 CRUX_URL = "https://raw.githubusercontent.com/zakird/crux-top-lists/main/data/global/current.csv.gz"
+SPRAY_URLS = {   # big public lists of domains (checked to exist): OpenDNS top and random 10,000, and a top-million list
+    "opendns_top": "https://raw.githubusercontent.com/opendns/public-domain-lists/master/opendns-top-domains.txt",
+    "opendns_random": "https://raw.githubusercontent.com/opendns/public-domain-lists/master/opendns-random-domains.txt",
+    "top_million": "https://raw.githubusercontent.com/zer0h/top-1000000-domains/master/top-1000000-domains",
+}
 OPENNIC_URL = "https://servers.opennic.org/"     # the public server table (features + Pass/Fail)
 DS_ROWS = "https://datasets-server.huggingface.co/rows"
 DATASETS = [  # (dataset, config, split, field, conservative max row index)
@@ -49,7 +54,7 @@ DATASETS = [  # (dataset, config, split, field, conservative max row index)
 ]
 # A shipped snapshot (data/feeds/snapshot.json.gz) means users never need to fetch these.
 # If they opt in to auto-refresh, sources are re-fetched only this rarely.
-TTL = {k: 90 * 86400 for k in ("trends", "wiki", "news", "dataset", "tranco", "deny", "opennic", "crux")}
+TTL = {k: 90 * 86400 for k in ("trends", "wiki", "news", "dataset", "tranco", "deny", "opennic", "crux", "spray")}
 _SKIP_WIKI = re.compile(r"^(Main_Page|Special:|Wikipedia:|Portal:|File:|Help:|Category:|Template:|Talk:|User:|-$)")
 
 
@@ -86,7 +91,7 @@ class FeedStore:
         self.fetchers: dict[str, Callable[[], list]] = fetchers or {
             "deny": self._fetch_deny, "trends": self._fetch_trends, "wiki": self._fetch_wiki,
             "news": self._fetch_news, "dataset": self._fetch_dataset, "tranco": self._fetch_tranco,
-            "opennic": self._fetch_opennic, "crux": self._fetch_crux}
+            "opennic": self._fetch_opennic, "crux": self._fetch_crux, "spray": self._fetch_spray}
         self.refreshing = False
         self._load()
 
@@ -255,6 +260,31 @@ class FeedStore:
         import gzip as _gz
         raw = _gz.decompress(_get(CRUX_URL, timeout=120).content).decode("utf-8", "replace")
         return parse_crux(raw, self.denylist())
+
+    def _fetch_spray(self, tail_keep: int = 90_000, common_top: int = 30_000) -> list[str]:
+        """Domains for Spray and Pray: 'c|name' (common: OpenDNS top 10,000 and the first 30,000 of a top-million list) and
+        't|name' (a long tail: OpenDNS random 10,000 and a random sample of the rest of the million). Same safety filter as
+        every other list."""
+        import random as _r
+        deny = self.denylist()
+
+        def lines(key: str, timeout: int = 120) -> list[str]:
+            return [ln.strip().lower() for ln in _get(SPRAY_URLS[key], timeout=timeout).text.splitlines() if ln.strip()]
+        common = [d for d in lines("opendns_top") if safe_domain(d, deny)]
+        million = lines("top_million")
+        common += [d for d in million[:common_top] if safe_domain(d, deny)]
+        tail = [d for d in lines("opendns_random") if safe_domain(d, deny)]
+        rest = million[common_top:]
+        _r.Random().shuffle(rest)
+        tail += [d for d in rest[: tail_keep * 2] if safe_domain(d, deny)][:tail_keep]
+        seen: set[str] = set()
+        out: list[str] = []
+        for tag, pool in (("c", common), ("t", tail)):
+            for d in pool:
+                if d not in seen:
+                    seen.add(d)
+                    out.append(f"{tag}|{d}")
+        return out
 
     def _fetch_opennic(self) -> list[str]:
         return parse_opennic_servers(_get(OPENNIC_URL, timeout=40).text)

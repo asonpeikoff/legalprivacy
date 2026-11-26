@@ -300,6 +300,15 @@ class SettingsTab(Tab):
         self.f_check(c, "dns_bursts", "Follow lookups with a page's burst of lookups",
                      "Recommended. A real page load asks for its fonts, scripts and other sites a few tens of milliseconds "
                      "apart; single lookups on their own look unlike that.")
+        self.f_check(c, "spray", "Spray and Pray",
+                     "Off until you switch it on. Everything else stays the same; this adds one more layer: bursts of fast DNS "
+                     "lookups (names only, no page is loaded) for hundreds to thousands of different domains a minute, mostly "
+                     "popular sites with a long tail of random ones, from big public lists that pass the same safety filter as "
+                     "the rest of the app. It follows your DNS settings (encrypted by default) and slows down if the resolver "
+                     "stops answering. It runs only while the noise runs.")
+        self.f_radios(c, "spray_level", [("low", "Spray: low", "about 25 lookups a second"),
+                                         ("medium", "Spray: medium", "about 120 lookups a second"),
+                                         ("high", "Spray: high", "about 400 lookups a second")])
         self.f_check(c, "keep_alive", "Keep it running",
                      "Recommended. If the noise stops on its own, pauses itself or gets stuck, it is started or woken again "
                      "within about a minute, so it can run for weeks untouched. A pause you press yourself is never undone, "
