@@ -377,7 +377,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
 #shell>nav .sub a{padding:4px 10px;font-size:12.5px;color:var(--mute);text-decoration:none;border-radius:6px;cursor:pointer}
 #shell>nav .sub a:hover{background:var(--code);color:var(--ink)}
 .flash{animation:flash 1.2s ease-out}@keyframes flash{0%{box-shadow:0 0 0 3px var(--acc)}100%{box-shadow:none}}
-@media(min-width:861px){.burger{display:inline-flex}#shell.hid{grid-template-columns:0 minmax(0,1fr)}#shell.hid>nav{display:none}#shell.slim>nav .sub{display:none!important}}
+@media(min-width:861px){.burger{display:inline-flex}#shell.hid{grid-template-columns:minmax(0,1fr)}#shell.hid>nav{display:none}#shell.slim>nav .sub{display:none!important}}
 @media(max-width:860px){#shell>nav .sub{display:none!important}}
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]) .logos img,:root:not([data-theme=light]) .logos video{background:#fff}}
 :root[data-theme=dark] .logos img,:root[data-theme=dark] .logos video{background:#fff}

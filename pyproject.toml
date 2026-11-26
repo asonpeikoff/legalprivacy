@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "legalprivacy"
-version = "2.18.0"
+version = "2.19.0"
 description = "legalPrivacy — privacy noise generator with optional Tor/onion mode, a local dashboard, and community relay contribution"
 requires-python = ">=3.10"
 dependencies = [
