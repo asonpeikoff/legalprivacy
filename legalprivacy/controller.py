@@ -49,7 +49,7 @@ def wipe_old_log_files() -> None:
             pass
 
 
-APP_DEFAULTS = {"migrated_ason": False, "migrated_share": False, "migrated_tb_lane": False, "migrated_cookie_day": False, "observe": True, "update_check": True, "autostart": True, "open_browser": True, "port": 8765, "intensity": "normal",
+APP_DEFAULTS = {"migrated_ason": False, "migrated_share": False, "migrated_tb_lane": False, "migrated_cookie_day": False, "observe": True, "update_check": True, "auto_update": True, "autostart": True, "open_browser": True, "port": 8765, "intensity": "normal",
                 "auto_refresh_sources": False,   # off: use the snapshot shipped with the app (no lookups)
                 "ml_auto": False, "ml_history": [],
                 "clear_logs_on_restart": True,   # on start, clear Live Log and Activity entries older than…
@@ -345,7 +345,7 @@ class Controller:
         return self.apply_config(json.loads(p.read_text(encoding="utf-8")))
 
     def update_app(self, raw: dict[str, Any]) -> None:
-        for k in ("autostart", "open_browser", "auto_refresh_sources", "ml_auto", "observe", "clear_logs_on_restart", "update_check"):
+        for k in ("autostart", "open_browser", "auto_refresh_sources", "ml_auto", "observe", "clear_logs_on_restart", "update_check", "auto_update"):
             if k in raw:
                 self.app[k] = bool(raw[k])
         if "log_keep_days" in raw:
@@ -1092,10 +1092,20 @@ class Controller:
     def update_watch(self) -> None:
         """Ask GitHub once at start-up and then twice a day."""
         def loop():
+            from . import selfupdate
+            time.sleep(600)                                   # not while everything is starting
             while True:
                 if self.app.get("update_check", True):
                     self.update_check()
-                time.sleep(43200)
+                try:
+                    selfupdate.run_once(self, __version__)    # the downloaded program keeps itself on the newest release
+                except Exception as exc:
+                    self.log.info("app", f"Self-update check failed: {exc!r}")
+                try:
+                    self.tor_manager().refresh_if_newer()     # and so does the Tor the app runs
+                except Exception as exc:
+                    self.log.info("tor", f"Tor update check failed: {exc!r}")
+                time.sleep(21600)
         threading.Thread(target=loop, daemon=True, name="update-watch").start()
 
     # ── Tor Browser (for your own private browsing) ──────────────────────────

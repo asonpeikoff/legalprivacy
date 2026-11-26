@@ -753,6 +753,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div class="row">Clearnet proxy <input type="text" id="sProxy" placeholder="optional  http:// or socks5://…" style="flex:1;min-width:220px"></div>
     <label class="chk"><input type="checkbox" id="sClear"><span>Clearnet noise enabled</span></label>
     <label class="chk"><input type="checkbox" id="sAuto"><span>Start noise automatically when legalPrivacy opens</span></label>
+    <label class="chk"><input type="checkbox" id="sAutoUpd"><span><b>Keep legalPrivacy up to date by itself</b> (on by default) — the downloaded Linux program checks GitHub every six hours and, when a newer release exists, downloads it, checks its SHA-256 against the digest GitHub publishes for that file, swaps it in (the old one is kept as <code>.previous</code>) and restarts on it. The Tor the app runs is kept current the same way (signature checked). It is off for pip and git copies, which keep the update notice.</span></label>
     <label class="chk"><input type="checkbox" id="sUpd"><span>Check GitHub for a newer legalPrivacy when it opens, and twice a day (sends nothing about you) <button id="updNow" class="small" type="button">Check now</button> <span class="small mute" id="updInfo"></span></span></label>
     <label class="chk"><input type="checkbox" id="sClearLogs"><span>Each time noise starts, clear Live Log and Activity entries older than <input type="number" id="sKeepDays" min="0" max="365" style="width:60px"> days <span class="mute">(recommended, default: 7; 0 clears everything)</span>. They're kept in memory only and always cleared when legalPrivacy quits.</span></label>
     <details style="margin-top:8px"><summary class="small"><b>Testing only</b></summary>
@@ -1884,7 +1885,7 @@ function fillSettings(force){
    near($('#sDnsAmt'),dn.enabled?dn.budget_per_day/base:0);near($('#sPkgAmt'),pk.enabled?pk.budget_per_day/base:0)}
   $('#engines').insertAdjacentHTML('beforeend',torOn?'':'<div class="small mute">Onion sites join this mix automatically when Tor is on (🧅 Tor tab).</div>');
   const r=p.rate||{mode:'random',level:5,randomness:1};$('#sLevel').value=r.level;rateInfo('sLevel','sLevelInfo');levelScope();
-  $('#sAuto').checked=r.auto_correct!==false;$('#sRand').value=r.mode==='steady'?0:Math.round((r.randomness??1)*100);randInfo();
+  $('#sAutoUpd').checked=S.app.auto_update!==false;$('#sAuto').checked=r.auto_correct!==false;$('#sRand').value=r.mode==='steady'?0:Math.round((r.randomness??1)*100);randInfo();
   const d=p.dns||{};(document.querySelector(`input[name=dnsm][value=${d.mode||'secure'}]`)||{}).checked=true;$('#dEnc').checked=d.encrypted!==false;
   $('#dShare').value=Math.round((d.system_share??0.5)*100);$('#dSlow').value=d.slow_ms||250;
   dRes=(d.resolvers||[]).map(r=>({...r}));renderDnsTable();$('#dOpen').checked=d.opennic!==false;$('#dQuad9').checked=!!d.quad9;$('#dCustom').value=(d.custom||[]).join(', ');
@@ -1955,7 +1956,7 @@ async function saveSettings(auto){
               metrics:$('#eMetrics').checked,site_list:$('#eSites').value,
               household:$('#hOn').checked,household_size:parseInt($('#hSize').value||3),
               ...($('#pers').dataset.ready?{persona:$('#pers').value}:{}),persona_share:parseInt($('#persShare').value||80)/100,packages:$('#ePkg').value}});
-    await api('/api/app',{autostart:$('#sAuto').checked,update_check:$('#sUpd').checked,clear_logs_on_restart:$('#sClearLogs').checked,log_keep_days:parseInt($('#sKeepDays').value||0)});dirty.set=false;$('#sSaved').textContent='Saved ✓ '+(S&&S.running?(needApply(),'(going live…)'):'');poll()}catch(e){$('#sSaved').textContent='Not saved: '+e.message;if(!auto)toast(e.message,1)}
+    await api('/api/app',{autostart:$('#sAuto').checked,update_check:$('#sUpd').checked,auto_update:$('#sAutoUpd').checked,clear_logs_on_restart:$('#sClearLogs').checked,log_keep_days:parseInt($('#sKeepDays').value||0)});dirty.set=false;$('#sSaved').textContent='Saved ✓ '+(S&&S.running?(needApply(),'(going live…)'):'');poll()}catch(e){$('#sSaved').textContent='Not saved: '+e.message;if(!auto)toast(e.message,1)}
 }
 // ---------- optional signed-in accounts (Settings → Accounts)
 const ACC=[['google','Google','Gmail inbox, a Google search, YouTube'],['microsoft','Microsoft (Outlook)','Outlook inbox and calendar, Bing, microsoft.com']];

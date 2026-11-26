@@ -363,6 +363,20 @@ class TorManager:
             self.binary = find_tor_binary()
             if not self.binary:
                 raise RuntimeError("Tor installation did not produce a usable binary.")
+        own = tor_dir() / "bundle" / "tor" / _EXE
+        if self.auto_install and Path(self.binary) != own:
+            # The Tor on this computer (a distribution package, Tor Browser's copy) is usually behind. The app runs its own
+            # up-to-date Tor, installed with the signature checked; the other one is only used if that is impossible.
+            self.log.info("tor", "Installing the app's own current Tor (the one on this computer may be out of date)…")
+            self.state = "installing"
+            try:
+                self._install()
+                self.binary = find_tor_binary()
+            except Exception as exc:
+                self.alert = (f"Could not install the current official Tor ({exc}); using the Tor already on this computer, "
+                              "which may be out of date.")
+                self.log.warn("tor", self.alert)
+            self.state = "starting"
         self._maybe_update_bundle()
         if self.exclude_gov_names:
             from . import relayfilter
@@ -734,6 +748,34 @@ class TorManager:
         except TB.TorBrowserError as exc:
             raise RuntimeError(f"the signature on Tor's checksum file could not be verified ({exc})") from exc
         self.log.info("tor", "Signature on the checksum file verified (Tor Browser Developers key).")
+
+    def refresh_if_newer(self) -> bool:
+        """While Tor runs: if a newer official Tor exists, install it (checked) and restart Tor on it. True if it did."""
+        own = tor_dir() / "bundle" / "tor" / _EXE
+        if not self.auto_install or self.mode != "managed" or self.state != "ready" or self._upgrading:
+            return False
+        if not self.binary or Path(self.binary) != own:
+            return False
+        key = platform_key()
+        if not key:
+            return False
+        ver, _ = self._pick_bundle(*key)
+        have = self.bundle_version()
+        if have is not None and _version_key(ver) <= _version_key(have):
+            return False
+        self.log.info("tor", f"A newer Tor is out ({have or 'unknown'} -> {ver}). Installing it and restarting Tor on it.")
+        with self._lock:
+            self._upgrading = True
+        try:
+            self._install()
+            self.binary = find_tor_binary()
+            self.restart()
+            return True
+        except Exception as exc:
+            self.log.warn("tor", f"Could not update Tor: {exc}")
+            return False
+        finally:
+            self._upgrading = False
 
     def _install(self) -> None:
         key = platform_key()
