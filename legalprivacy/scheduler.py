@@ -462,10 +462,10 @@ class Runner:
         """Many onion hits failing in a row: one dead site is normal (the walk simply moves to another), but a long run of
         them may mean Tor itself is stuck. Ask for fresh circuits first, then restart Tor if that does not help. Never stops."""
         self.onion_streak += 1
-        if self.onion_streak < 8 or self.on_tor_trouble is None:
+        if self.onion_streak < 4 or self.on_tor_trouble is None:
             return
         now = self.clock()
-        if self._tor_fix_at and now - self._tor_fix_at[-1] < 600:        # at most one fix every ten minutes
+        if self._tor_fix_at and now - self._tor_fix_at[-1] < 300:        # at most one fix every five minutes
             return
         self.onion_streak = 0
         level = 2 if sum(1 for t in self._tor_fix_at if now - t < 3600) >= 1 else 1
