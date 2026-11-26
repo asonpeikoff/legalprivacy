@@ -20,6 +20,7 @@ FIELDS: dict[str, tuple[tuple, str]] = {
     "engine": (("transports", "clearnet", "browser_engine"), "str"),
     "cookie_vary": (("transports", "clearnet", "cookie_vary"), "bool"),
     "proxy": (("transports", "clearnet", "proxy"), "optstr"),
+    "firefox_path": (("transports", "clearnet", "firefox_path"), "str"),
     "clearnet_enabled": (("transports", "clearnet", "enabled"), "bool"),
     "tor_enabled": (("transports", "tor", "enabled"), "bool"), "tor_onion": (("transports", "tor", "onion"), "bool"),
     "tor_onion_browser": (("transports", "tor", "onion_browser"), "bool"),

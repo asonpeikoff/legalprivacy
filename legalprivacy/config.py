@@ -65,6 +65,7 @@ class TransportConfig:
                                       # only where the system allows it) | visible (watch it work)
     browser_visible: bool = False     # derived from browser_window (kept for older settings files)
     browser_offscreen: bool = False   # derived from browser_window
+    firefox_path: str = ""            # clearnet: where your own Firefox is, if the app cannot find it by itself ("" = find it)
     browser_engine: str = "mine"      # clearnet: mine (default: your own Firefox, on a copy of your profile; else mix) | mix | auto | chromium | firefox
     cookie_hours: float = 24.0        # clearnet: keep browser cookies this long (a day: consent choices and 'returning visitor' state, like a real user), then start fresh (0 = never keep)
     cookie_vary: bool = True          # clearnet: each jar lives 60-140% of cookie_hours, so wipes aren't on a fixed beat
@@ -96,6 +97,8 @@ class TransportConfig:
             raise ConfigError(f"transport '{name}': browser must be auto, on or off")
         if self.browser_window not in ("hidden", "offscreen", "visible"):
             raise ConfigError(f"transport '{name}': browser_window must be hidden, offscreen or visible")
+        if self.firefox_path and not os.path.isfile(os.path.expanduser(self.firefox_path)):
+            raise ConfigError(f"transport '{name}': the Firefox path you gave does not exist: {self.firefox_path}")
         if self.browser_engine not in ("mine", "mix", "auto", "chromium", "firefox"):
             raise ConfigError(f"transport '{name}': browser_engine must be mine, mix, auto, chromium or firefox")
         if self.bridge_mode not in ("off", "obfs4", "snowflake", "meek", "custom"):

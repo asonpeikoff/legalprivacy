@@ -1026,6 +1026,7 @@ class Controller:
         d = tm.snapshot()
         d["enabled"] = self._tor_cfg().enabled
         d["circuits"] = tm.circuits()
+        d["version_status"], d["alert"] = tm.version_status, tm.alert
         d["selftest"] = getattr(self, "tor_test", None)
         d["dns_test"] = getattr(self, "_dns_test", None)
         return d
@@ -1345,7 +1346,7 @@ class Controller:
             return None
         if cfg.browser_engine == "mine":                 # your own Firefox, on a copy of your settings and add-ons
             from . import realfirefox as RF
-            ok, why = RF.support()
+            ok, why = RF.support(cfg.firefox_path)
             if ok:
                 from . import useragents as _ua
                 _ua.set_firefox_engine(None)

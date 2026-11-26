@@ -176,6 +176,10 @@ class TorManager:
         self.bootstrap_pct = 0
         self.bootstrap_summary = ""
         self.version: str | None = None
+        self.version_status: str | None = None   # Tor's own verdict on its version: recommended | new | old | unrecommended | obsolete...
+        self.alert: str | None = None            # shown in red until the problem is gone (an obsolete Tor, a failed update)
+        self._version_checked = False
+        self._upgrading = False
         self.binary: str | None = None
         self.pid: int | None = None
         self.started_at: float | None = None
@@ -213,6 +217,7 @@ class TorManager:
                 return
             self._stop_evt.clear()
             self.error = None
+            self._version_checked = False
             self._worker = threading.Thread(target=self._bring_up, daemon=True, name="tor-start")
             self._worker.start()
 
@@ -585,7 +590,62 @@ class TorManager:
         if ctrl:
             ctrl.close()
 
+    # Tor's own word for each version: it compares itself with the list the directory authorities publish.
+    GOOD_VERSION = ("recommended", "new", "new in series")
+
+    def _check_version(self, c: TorControl) -> None:
+        """Once per start: ask Tor whether its version is still supported. An obsolete Tor is not acceptable: say so loudly,
+        install the current official Tor (its signature checked) and restart on it."""
+        if self._version_checked:
+            return
+        self._version_checked = True
+        try:
+            status = (c.getinfo("status/version/current") or "").strip().lower()
+        except TorControlError:
+            return
+        self.version_status = status
+        if status in self.GOOD_VERSION or not status:
+            self.alert = None
+            return
+        own = tor_dir() / "bundle" / "tor" / _EXE
+        using_own = bool(self.binary) and Path(self.binary) == own
+        why = (f"The Tor in use ({self.version or 'unknown version'}) is {status}: the Tor network no longer fully supports it, "
+               "which can make onion visits fail even though Tor says it is connected.")
+        if self.mode != "managed" or not self.auto_install or using_own:
+            self.alert = why + (" This is the newest official Tor the app can install, so the Tor network itself may be "
+                                "changing: check torproject.org." if using_own else
+                                " Update it, or let the app run its own verified Tor (Tor tab).")
+            self.log.error("tor", "PANIC: " + self.alert)
+            return
+        self.alert = why + " Installing the current official Tor now (its signature is checked)."
+        self.log.error("tor", "PANIC: " + self.alert)
+        self._upgrade_tor()
+
+    def _upgrade_tor(self) -> None:
+        with self._lock:
+            if self._upgrading:
+                return
+            self._upgrading = True
+
+        def run() -> None:
+            try:
+                self._install()                                   # official bundle: signature and checksum checked
+                self.binary = find_tor_binary()                   # the app's own copy comes first from now on
+                self.log.info("tor", "The current Tor is installed and verified. Restarting Tor on it.")
+                self.alert = "Tor was out of date; it is being replaced with the current official version and restarted."
+                self.restart()
+            except Exception as exc:
+                self.alert = (f"Tor is out of date and the update failed: {exc}. Fix that (for example install GnuPG, "
+                              "or check the network) and restart Tor; the app tries again in six hours.")
+                self.log.error("tor", "PANIC: " + self.alert)
+                threading.Timer(6 * 3600, lambda: setattr(self, "_version_checked", False)).start()
+            finally:
+                self._upgrading = False
+        threading.Thread(target=run, daemon=True, name="tor-upgrade").start()
+
     def _poll(self, c: TorControl) -> None:
+        if self.state == "ready":
+            self._check_version(c)
         phase = c.getinfo("status/bootstrap-phase")
         m = re.search(r"PROGRESS=(\d+)", phase)
         if m and self.mode == "managed":
@@ -659,6 +719,22 @@ class TorManager:
         except Exception as exc:                  # offline or the site is down: carry on with what is installed
             self.log.info("tor", f"Couldn't check for a newer Tor ({exc}); using the installed one.")
 
+    def _verify_sums_signature(self, sums: bytes, sig: bytes) -> None:
+        """The checksum file must carry a valid OpenPGP signature from the Tor Browser Developers key (the fingerprint is
+        pinned in torbrowser.py); then the bundle's checksum is checked against it. No GnuPG, no valid signature: no install."""
+        import tempfile
+
+        from . import torbrowser as TB
+        try:
+            key = TB._http_get(TB.KEY_URL)
+            with tempfile.TemporaryDirectory(prefix="lp-tor-") as d:
+                (Path(d) / "sums").write_bytes(sums)
+                (Path(d) / "sums.asc").write_bytes(sig)
+                TB.verify_signature(Path(d) / "sums", Path(d) / "sums.asc", key)
+        except TB.TorBrowserError as exc:
+            raise RuntimeError(f"the signature on Tor's checksum file could not be verified ({exc})") from exc
+        self.log.info("tor", "Signature on the checksum file verified (Tor Browser Developers key).")
+
     def _install(self) -> None:
         key = platform_key()
         if not key:
@@ -668,7 +744,9 @@ class TorManager:
         self.install_progress = 0.02
         self.log.info("tor", f"Looking up latest Tor Expert Bundle for {osn}-{arch}…")
         ver, fname = self._pick_bundle(osn, arch)
-        sums = _http_get(f"{DIST_BASE}{ver}/sha256sums-signed-build.txt").decode()
+        sums_raw = _http_get(f"{DIST_BASE}{ver}/sha256sums-signed-build.txt")
+        self._verify_sums_signature(sums_raw, _http_get(f"{DIST_BASE}{ver}/sha256sums-signed-build.txt.asc"))
+        sums = sums_raw.decode()
         want = next((ln.split()[0] for ln in sums.splitlines() if ln.strip().endswith(fname)), None)
         if not want:
             raise RuntimeError(f"No published checksum for {fname}; refusing to install")

@@ -432,7 +432,8 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
 <!-- DASHBOARD -->
 <section id="t-dash" class="tab on">
   <div id="banner" class="banner"></div>
-  <div id="recBar" class="banner warn" hidden><span class="bi">⚠</span><span id="recTx"></span><small><button id="recGo" class="small">Use the built-in bridges</button></small></div>
+  <div id="torAlert" class="note bad" role="alert" hidden style="margin:8px 16px"></div>
+<div id="recBar" class="banner warn" hidden><span class="bi">⚠</span><span id="recTx"></span><small><button id="recGo" class="small">Use the built-in bridges</button></small></div>
   <div id="dashNote"></div>
   <div id="updBar" class="banner warn" hidden><span class="bi">⬆</span><span id="updTx"></span><small><button id="updGo" class="small">Check again</button></small></div>
   <div class="card" id="quick">
@@ -768,6 +769,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
       <option value="auto">The app's own browser, the same kind as yours (Firefox or Chromium)</option>
       <option value="chromium">The app's own Chromium only</option>
       <option value="firefox">The app's own Firefox only</option></select></div>
+    <div class="row">Firefox path <input type="text" id="sFxPath" size="46" placeholder="only if the app cannot find your Firefox: the full path to firefox" title="Leave empty to let the app find it"></div>
     <div class="small mute"><b>Your own Firefox</b> is the Firefox installed on this computer, with the profile it opens by default, run on a private copy: your settings, add-ons (fingerprint blockers and user-agent switchers keep working) and bookmarks, never your logins, cookies or history. Other browsers you have are not used. With User agent set to Mix, the part of the noise that doesn't use your own user agent, and phone visits, run in the app's own browsers, so the noise also looks like other machines. If Firefox can't be used, the app's own browsers take over. <b>The app's own browsers</b> are separate copies with a blank profile; they vary canvas, WebGL, audio, fonts and window size themselves. "The same kind as yours" picks Firefox or Chromium from your browser's user agent. Firefox copies need a one-time download (<code>python -m playwright install firefox</code>); without it, Chromium is used. Window size never shows your real screen: it is never maximised.</div>
     <div class="row">Browser window <select id="sWin">
       <option value="hidden">Hidden (recommended, default)</option>
@@ -1474,6 +1476,7 @@ $('#nudgeRows').onclick=async e=>{const b=e.target.closest('button[data-n]');if(
   catch(err){toast(err.message||'Could not nudge the mix',true)}
   finally{nudging=false;renderNudge()}};
 function render(){
+  try{const ta=$('#torAlert'),al=S&&S.tor&&S.tor.alert;if(ta){ta.hidden=!al;ta.innerHTML=al?'<b>⚠ Tor problem.</b> '+esc(al):''}}catch(e){}
   try{const sp=(S&&S.spray)||{};const el=$('#sprayStat');if(el)el.textContent=sp.on?(sp.sent?`${sp.sent.toLocaleString()} lookups sent so far (${sp.per_second}/s on average, ${sp.answered.toLocaleString()} answered, ${sp.domains.toLocaleString()} domains${sp.slowed<1?', slowed to '+Math.round(sp.slowed*100)+'%':''})`:'waiting for the noise to run…'):''}catch(e){}
   const s=S; if(!s)return;
   renderNudge();
@@ -1925,7 +1928,7 @@ function fillSettings(force){
     ...(torOn2?[{key:'onion',label:'Tor .onion sites',value:tr.onion??15,hint:'(about 10–15% recommended)'}]:[])]);
   $('#xMobile').value=Math.round((tr.mobile_share??0.10)*100);$('#xDevice').value=tr.device||'iPhone 13';
   $('#xDevice').onchange=()=>{dirty.set=true;$('#sSaved').textContent='unsaved changes'};
-  $('#sBrowser').value=p.transports.clearnet.browser||'auto';$('#sEngine').value=p.transports.clearnet.browser_engine||'mine';$('#sWin').value=p.transports.clearnet.browser_window||'hidden';$('#sCookies').value=String(p.transports.clearnet.cookie_hours??1);$('#sCookieVary').checked=p.transports.clearnet.cookie_vary!==false;
+  $('#sBrowser').value=p.transports.clearnet.browser||'auto';$('#sEngine').value=p.transports.clearnet.browser_engine||'mine';$('#sFxPath').value=p.transports.clearnet.firefox_path||'';$('#sWin').value=p.transports.clearnet.browser_window||'hidden';$('#sCookies').value=String(p.transports.clearnet.cookie_hours??1);$('#sCookieVary').checked=p.transports.clearnet.cookie_vary!==false;
   const q=p.queries||{};$('#qLive').checked=q.live!==false;$('#qData').checked=q.dataset!==false;$('#qBuiltin').checked=q.builtin!==false;$('#qWords').checked=q.words!==false;$('#sAuto').checked=!!S.app.autostart;$('#sUpd').checked=S.app.update_check!==false;$('#sClearLogs').checked=S.app.clear_logs_on_restart!==false;$('#sPath').textContent=S.config_path;dirty.set=false;
   fillAcc(p);
   $$('#t-set input').forEach(i=>i.oninput=()=>{dirty.set=true;$('#sSaved').textContent='unsaved changes'});
@@ -1938,7 +1941,7 @@ async function saveSettings(auto){
   const rnd=parseInt($('#sRand').value||0)/100;
   try{await api('/api/config',{realtime_scale:1/Math.max(0.01,parseFloat($('#sScale').value)||1),engines,rate:{mode:rnd>0?'random':'steady',level:parseFloat($('#sLevel').value),randomness:rnd,auto_correct:$('#sAuto').checked},
       accounts:readAcc(),dns:{mode:document.querySelector('input[name=dnsm]:checked').value,encrypted:$('#dEnc').checked,system_share:parseInt($('#dShare').value||50)/100,opennic:$('#dOpen').checked,quad9:$('#dQuad9').checked,custom:$('#dCustom').value,slow_ms:parseInt($('#dSlow').value||250),resolvers:readDnsTable()},
-      transports:{clearnet:{enabled:$('#sClear').checked,proxy:$('#sProxy').value||null,browser:$('#sBrowser').value,browser_window:$('#sWin').value,browser_engine:$('#sEngine').value,cookie_hours:parseFloat($('#sCookies').value),cookie_vary:$('#sCookieVary').checked}},
+      transports:{clearnet:{enabled:$('#sClear').checked,firefox_path:$('#sFxPath').value.trim(),proxy:$('#sProxy').value||null,browser:$('#sBrowser').value,browser_window:$('#sWin').value,browser_engine:$('#sEngine').value,cookie_hours:parseFloat($('#sCookies').value),cookie_vary:$('#sCookieVary').checked}},
       queries:{live:$('#qLive').checked,dataset:$('#qData').checked,builtin:$('#qBuiltin').checked,words:$('#qWords').checked},
       traffic:{pattern:(document.querySelector('input[name=xpat]:checked')||{}).value||'drift',...(()=>{const m=window._trMix.values();return {browser:m.browser,plain:m.plain,onion:m.onion??window._trOnion}})(),
                mobile_share:parseInt($('#xMobile').value||0)/100,device:$('#xDevice').value},

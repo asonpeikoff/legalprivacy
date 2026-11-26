@@ -617,6 +617,9 @@ class SettingsTab(Tab):
         r = c.row()
         c.lbl(r, "Clearnet proxy").pack(side="left")
         self.f_entry(r, "proxy", 40, "optional: http:// or socks5://…").pack(side="left", padx=8)
+        r = c.row()
+        c.lbl(r, "Firefox path").pack(side="left")
+        self.f_entry(r, "firefox_path", 46, "only if the app cannot find your Firefox: the full path to firefox").pack(side="left", padx=8)
         self.f_check(c, "clearnet_enabled", "Clearnet noise enabled")
         self.f_check(c, "autostart", "Start the noise by itself when this app opens")
         self.f_check(c, "clear_logs_on_restart", "Each time noise starts, clear old Live Log and Activity entries",
