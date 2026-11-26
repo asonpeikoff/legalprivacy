@@ -762,7 +762,7 @@ def test_security_tab_builds_and_shows_state(env):
     ctl = Controller(str(env.tmp / "p.yaml"))
     app = gui.build_app_class()(root, ctl, 0)
     try:
-        tab = next(t for t in app.tabs if t.title == "Security")
+        tab = next(t for t in app.tabs if t.title == "Antivirus")
         idx = app.tabs.index(tab)
         app.nb.select(idx)
         env.seed_db()

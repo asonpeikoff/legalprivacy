@@ -54,16 +54,17 @@ def test_a_long_session_on_duck_ai_becomes_a_chat_only_when_chat_noise_is_on():
         p.extras.duck_chat = duck_chat
         r = Runner(profile=p, lanes=[ln], wordlist=["alpha"], clock=lambda: 1000.0, sleep_fn=lambda s: None,
                    probe_fn=lambda l, i, t: HitResult(200, ""))
+        r.rng = random.Random(4)                                  # seeded: the chat is chosen at random
         ln.linger = {"mode": "work", "url": "https://duck.ai/", "engine": "crawl", "exclusive": False, "chat": True,
                      "until": 1e9, "next_at": 0.0, "other_at": 1e9}
         return r, ln
     r, ln = lane_with(True)
     ln.budgets["crawl"].spent = 0
-    got = [r._linger_due([]) for _ in range(6)]
+    got = [r._linger_due([]) for _ in range(30)]
     chats = [g[2] for g in got if g and g[2].role == "chat"]
     assert chats and all(c.script and c.accept_terms for c in chats) and len(chats) <= 2
     r, ln = lane_with(False)
-    assert all(g is None or g[2].role != "chat" for g in [r._linger_due([]) for _ in range(6)])
+    assert all(g is None or g[2].role != "chat" for g in [r._linger_due([]) for _ in range(30)])
 
 
 def test_chat_noise_and_the_other_extras_switches_survive_a_settings_change():

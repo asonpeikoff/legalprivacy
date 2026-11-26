@@ -13,7 +13,10 @@ from PyInstaller.utils.hooks import collect_all
 
 pw_datas, pw_binaries, pw_hidden = collect_all('playwright')
 
+from PyInstaller.utils.hooks import collect_submodules
+
 block_cipher = None
+all_legalprivacy = collect_submodules('legalprivacy')      # every module, however lazily imported
 
 a = Analysis(
     ['legalprivacy_entry.py'],
@@ -56,7 +59,7 @@ a = Analysis(
         'idna',
         'certifi',
         'socks',
-    ] + pw_hidden,
+    ] + all_legalprivacy + pw_hidden,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

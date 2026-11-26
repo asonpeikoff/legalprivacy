@@ -5,4 +5,4 @@ per-identity consistent fingerprints, human-cadence pacing, and an optional
 community middle-relay contribution (never an exit).
 """
 
-__version__ = "2.17.0"
+__version__ = "2.18.0"

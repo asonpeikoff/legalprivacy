@@ -50,6 +50,20 @@ def make_logo(tk, size: int, bg: str, fg: str):
     return img
 
 
+KONAMI = ["up", "up", "down", "down", "left", "right", "left", "right", "b", "a"]
+
+
+# the traditional header logos the Settings > Logo card offers: (id, label, packaged PNG). "" is the fixed default.
+TRAD_LOGOS = [("", "Red, white and blue (default)", "logo_trad.png"),
+              ("01-pop-type", "Pop colours", "logo_trad_01-pop-type.png"),
+              ("04-painted", "Painted", "logo_trad_04-painted.png"),
+              ("07-terminal", "Terminal", "logo_trad_07-terminal.png"),
+              ("02-pop-shadow", "Pop, shadowed", "logo_trad_02-pop-shadow.png")]
+
+
+def _egg_file() -> Path:
+    from .paths import app_dir
+    return app_dir() / "logo_egg"
 
 
 def load_logo(tk, name: str, subsample: int = 1):
@@ -152,9 +166,18 @@ def build_app_class():
             self.logo_big = load_logo(tk, "favicon.png", 1) or load_logo(tk, "icon.png", 1) or make_logo(tk, 64, "#1d2733", "#4cc07d")
             self.logo_small = (load_logo(tk, "logo.png", 1 if self.scale >= 2 else 2)
                                or make_logo(tk, 28 * self.scale, "#1d2733", "#4cc07d"))
+            self.logo_alt = load_logo(tk, "logo_alt.png", 1 if self.scale >= 2 else 2)     # shown on every other tab
+            # The header shows the red, white and blue logo. The Konami code, or three quick clicks on the logo, swaps it for the
+            # other versions (which then follow the tab and switch when clicked); the Konami code again undoes it.
             sub = 1 if self.scale >= 2 else 2
-            self.logo_trad = load_logo(tk, "logo_trad.png", sub)       # the plain wordmark
-            if self.logo_trad:
+            self.logo_trad = load_logo(tk, "logo_trad.png", sub)
+            self.logos = [lg for lg in [self.logo_small, self.logo_alt]
+                          + [load_logo(tk, f"logo_v{k}.png", sub) for k in range(1, 7)] if lg]
+            self.trad_images = {k: (self.logo_trad if k == "" else load_logo(tk, f, sub)) for k, _l, f in TRAD_LOGOS}
+            self.trad_images = {k: v for k, v in self.trad_images.items() if v}
+            self._egg = _egg_file().exists() and bool(self.logo_trad)
+            self._logo_i, self._logo_clicks, self._logo_keys = 0, [], []
+            if self.logo_trad and not self._egg:
                 self.logo_small = self.logo_trad
             self._logo_now = self.logo_small
             try:
@@ -248,6 +271,8 @@ def build_app_class():
             hd.columnconfigure(6, weight=1)
             self.logo_lbl = ttk.Label(hd, image=self.logo_small, style="Header.TLabel")
             self.logo_lbl.grid(row=0, column=0, padx=(0, 10))
+            self.logo_lbl.bind("<Button-1>", self._logo_click)
+            r.bind_all("<Key>", self._logo_key, add="+")
             if not (getattr(self, "logo_trad", None) or len(getattr(self, "logos", [])) > 1):
                 # no logo image could be loaded: show the name as text. (Every logo version already spells it out,
                 # so with an image the plain-text name beside it would just say the same thing twice.)
@@ -343,10 +368,70 @@ def build_app_class():
             except tk.TclError:
                 pass
 
+        def _show_logo(self, i: int) -> None:
+            if not getattr(self, "logo_trad", None):
+                return
+            if not self._egg:
+                self._logo_now = self._chosen_trad(i)
+            else:
+                self._logo_i = i % len(self.logos)
+                self._logo_now = self.logos[self._logo_i]
+            self.logo_lbl.configure(image=self._logo_now)
+
+        def _chosen_trad(self, tab_index: int = 0):
+            """The traditional logo to show: the one picked in Settings > Logo, or (if "change as I change tabs" is on) the
+            next one in the list for each tab. The red, white and blue one is the default."""
+            p = load_prefs()
+            keys = [k for k, _l, _f in TRAD_LOGOS if k in self.trad_images]
+            if p.get("logo_follow") and keys:
+                return self.trad_images[keys[tab_index % len(keys)]]
+            return self.trad_images.get(p.get("logo", ""), self.logo_trad)
+
+        def set_logo(self, name: str, follow: bool) -> None:
+            p = load_prefs()
+            p["logo"], p["logo_follow"] = name, bool(follow)
+            save_prefs(p)
+            try:
+                self._show_logo(self.nb.index(self.nb.select()))
+            except (tk.TclError, AttributeError):
+                self._show_logo(0)
+
+        def _toggle_logo_egg(self) -> None:
+            self._egg = not self._egg
+            f = _egg_file()
+            try:
+                f.parent.mkdir(parents=True, exist_ok=True)
+                f.write_text("1") if self._egg else f.unlink(missing_ok=True)
+            except OSError:
+                pass
+            self._show_logo(0)
+
+        def _logo_click(self, _e=None) -> None:
+            """One click switches the version while the egg is on; three quick clicks turn the egg on or off."""
+            import time as _t
+            now = _t.time()
+            self._logo_clicks = [c for c in self._logo_clicks if now - c < 0.9] + [now]
+            if len(self._logo_clicks) >= 3:
+                self._logo_clicks = []
+                self._toggle_logo_egg()
+            elif self._egg:
+                self._show_logo(self._logo_i + 1)
+
+        def _logo_key(self, e) -> None:
+            if e.widget.winfo_class() in ("Entry", "TEntry", "Text", "TCombobox", "Spinbox", "TSpinbox"):
+                return
+            self._logo_keys = (self._logo_keys + [e.keysym.lower()])[-len(KONAMI):]
+            if self._logo_keys == KONAMI:
+                self._logo_keys = []
+                self._toggle_logo_egg()
+
         def _tab_changed(self) -> None:
             if getattr(self, "_compact_tabs", False):
                 self._fit_tabs()
-            return
+            try:                                           # the header logo follows the tab: each tab shows the next version
+                self._show_logo(self.nb.index(self.nb.select()))
+            except (tk.TclError, AttributeError):
+                pass
             try:
                 self.current_tab().on_show()
             except (tk.TclError, IndexError):

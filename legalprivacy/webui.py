@@ -183,7 +183,7 @@ class UIServer:
                                        "form-action 'none'"})
                 if not self._auth(q):
                     return self._json({"error": "unauthorized"}, 401)
-                if re.fullmatch(r"/logo/(trad)/[a-z0-9-]+\.(webp|mp4)", u.path):       # the header logos
+                if re.fullmatch(r"/logo/(trad|egg)/[a-z0-9-]+\.(webp|mp4)", u.path):       # the header logos
                     f = Path(__file__).parent / "web" / "logos" / u.path[len("/logo/"):]
                     if f.is_file():
                         return self._send(200, f.read_bytes(), "video/mp4" if f.suffix == ".mp4" else "image/webp")
@@ -198,6 +198,13 @@ class UIServer:
                         return self._json(ctl.torbrowser_state())
                     if u.path == "/api/defaults":
                         return self._json(ctl.defaults_info())
+                    if u.path == "/api/map/info":
+                        return self._json(ctl.map_info((q.get("ip") or [""])[0], (q.get("name") or [""])[0],
+                                                       (q.get("kind") or [""])[0]))
+                    if u.path == "/api/scrape":
+                        return self._json(ctl.scrape_state())
+                    if u.path == "/api/proxies":
+                        return self._json(ctl.proxy_state())
                     if u.path == "/api/accounts":
                         return self._json(ctl.accounts.status())
                     if u.path == "/api/activity":
@@ -378,6 +385,16 @@ class UIServer:
                         return self._json(ctl.mylist_save(body))
                     elif path == "/api/mylist/bookmarks":
                         return self._json(ctl.mylist_bookmarks(body.get("urls")))
+                    elif path == "/api/map/block":
+                        return self._json(ctl.map_block(str(body.get("host", "")), str(body.get("mode", ""))))
+                    elif path == "/api/scrape/start":
+                        return self._json(ctl.scrape_start(body))
+                    elif path == "/api/scrape/stop":
+                        return self._json(ctl.scrape_stop())
+                    elif path == "/api/proxies/refresh":
+                        return self._json(ctl.proxy_refresh())
+                    elif path == "/api/proxies/source":
+                        return self._json(ctl.proxy_source(str(body.get("action", "")), str(body.get("url", ""))))
                     elif path == "/api/mylist/recording":
                         return self._json(ctl.mylist_from_recording())
                     elif path == "/api/mylist/scan":

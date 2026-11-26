@@ -51,6 +51,7 @@ class SettingsTab(Tab):
         self.build_realism()
         self.build_accounts()
         self.build_general()
+        self.build_logo()
         self.build_panic()
         for label, key in SECTIONS:
             b = app.btn(nav, label, None, "seg", lambda k=key: self.sf.scroll_to(self.cards[k]))
@@ -294,6 +295,11 @@ class SettingsTab(Tab):
         self.f_check(c, "dns_bursts", "Follow lookups with a page's burst of lookups",
                      "Recommended. A real page load asks for its fonts, scripts and other sites a few tens of milliseconds "
                      "apart; single lookups on their own look unlike that.")
+        self.f_check(c, "file_transfers", "File transfers",
+                     "Recommended. Now and then the noise downloads a real public file and throws it away (mostly photos, sometimes "
+                     "a video, zip, document or track) from the Internet Archive's free collections, or uploads a random-sized "
+                     "block of random bytes to a speed-test server (never anything of yours). Each download is capped at 20 MB. "
+                     "Skipped in low-data mode.")
         self.f_check(c, "duck_chat", "Chat noise on duck.ai",
                      "Off by default. Now and then, in a long session, the real-browser lane has a short made-up chat on duck.ai "
                      "(one topic, one to four messages of different lengths, typed like a person). The questions never come from "
@@ -610,6 +616,26 @@ class SettingsTab(Tab):
         self.f_check(c, "observe", "Watch this computer's connection counts for the Proof tab",
                      "Local only; never leaves this computer.")
         self.path_note = c.note("", pady=(6, 0))
+
+    # ── logo ───────────────────────────────────────────────────────────────
+    def build_logo(self) -> None:
+        from .gui import TRAD_LOGOS, load_prefs
+        c = self.card("logo", "Logo", "set")
+        p = load_prefs()
+        labels = {k: lab for k, lab, _f in TRAD_LOGOS}
+        r = c.row()
+        c.lbl(r, "Header logo").pack(side="left")
+        self.logo_pick = tk.StringVar(value=labels.get(p.get("logo", ""), labels[""]))
+        self.logo_follow = tk.BooleanVar(value=bool(p.get("logo_follow")))
+        box = ttk.Combobox(r, textvariable=self.logo_pick, values=[lab for _k, lab, _f in TRAD_LOGOS], state="readonly", width=30)
+        box.pack(side="left", padx=8)
+
+        def apply(_e=None) -> None:
+            key = next((k for k, lab, _f in TRAD_LOGOS if lab == self.logo_pick.get()), "")
+            self.app.set_logo(key, self.logo_follow.get())
+        box.bind("<<ComboboxSelected>>", apply)
+        ttk.Checkbutton(c.body, text="Change the logo as I change tabs", variable=self.logo_follow, command=apply).pack(
+            anchor="w", pady=(4, 0))
 
     # ── panic ──────────────────────────────────────────────────────────────
     def build_panic(self) -> None:

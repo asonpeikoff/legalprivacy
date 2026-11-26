@@ -122,6 +122,12 @@ class Controller:
             noise_requests=self._requests_in_minute,
             tor_pid=lambda: (self.tor.pid if self.tor else None),
             path=app_dir() / "observe.json")
+        try:
+            self.feeds.set_user_block(set(self.blocked()))
+        except Exception:
+            pass
+        from .proxies import ProxyManager
+        self.proxies = ProxyManager(app_dir() / "proxies.json")       # tested free proxies, for jobs the user starts
         from .har import HarStore
         self.har = HarStore(app_dir() / "har.json")      # derived counts from an imported browser recording
         self._hist_cache: tuple | None = None            # (read at, [(time, site)]) for the baseline fallback
@@ -691,6 +697,152 @@ class Controller:
         res = top_sites(time.time() - days * 86400, denylist=self.feeds.denylist())
         self.log.info("mylist", f"Scanned browser history (last {days:g} days): {len(res['sites'])} sites found.")
         return res
+
+    # ── network map: click a node ──────────────────────────────────────────
+    def _blocked_file(self) -> Path:
+        return app_dir() / "blocked.json"
+
+    def blocked(self) -> dict[str, float]:
+        """host -> expiry (0 = until removed). Expired entries are dropped."""
+        try:
+            data = json.loads(self._blocked_file().read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            data = {}
+        now = time.time()
+        return {h: float(t) for h, t in data.items() if isinstance(h, str) and (float(t) == 0 or float(t) > now)}
+
+    def _apply_blocks(self, blocks: dict[str, float]) -> None:
+        try:
+            self._blocked_file().write_text(json.dumps(blocks), encoding="utf-8")
+        except OSError:
+            pass
+        self.feeds.set_user_block(set(blocks))
+
+    @staticmethod
+    def _firewall_commands(ip: str) -> list[dict]:
+        return [
+            {"name": "nftables (Linux)", "add": f"sudo nft add rule inet filter output ip daddr {ip} drop",
+             "note": "Needs an existing `inet filter output` chain; list rules with `sudo nft -a list ruleset` to remove it."},
+            {"name": "iptables (Linux)", "add": f"sudo iptables -I OUTPUT -d {ip} -j DROP", "remove": f"sudo iptables -D OUTPUT -d {ip} -j DROP"},
+            {"name": "ufw (Linux)", "add": f"sudo ufw deny out to {ip}", "remove": f"sudo ufw delete deny out to {ip}"},
+            {"name": "Windows (administrator)", "add": f'netsh advfirewall firewall add rule name="Block {ip}" dir=out action=block remoteip={ip}',
+             "remove": f'netsh advfirewall firewall delete rule name="Block {ip}"'},
+        ]
+
+    def map_info(self, ip: str, name: str = "", kind: str = "") -> dict:
+        """What a node on the map is, as far as this computer can tell. The reverse lookup is a normal DNS question and is
+        made only because the person clicked Info."""
+        import ipaddress
+        try:
+            addr = ipaddress.ip_address(ip)
+        except ValueError:
+            raise ConfigError("That is not an address.") from None
+        rdns = ""
+        out: list[str] = []
+
+        def ask() -> None:
+            try:
+                out.append(socket.gethostbyaddr(str(addr))[0])
+            except OSError:
+                pass
+        t = threading.Thread(target=ask, daemon=True)
+        t.start()
+        t.join(3.0)
+        rdns = out[0] if out else ""
+        host = (name or "").split("/")[0].removeprefix("www.")
+        blocks = self.blocked()
+        return {"ip": str(addr), "name": name, "kind": kind, "rdns": rdns, "private": addr.is_private,
+                "blocked": host in blocks, "block_host": host if host and host != str(addr) else "",
+                "whois": f"https://bgp.he.net/ip/{addr}", "firewall": self._firewall_commands(str(addr))}
+
+    def map_block(self, host: str, mode: str) -> dict:
+        """Tell the noise to leave a site alone (temporarily for a day, or until removed), or undo that. This is the app's own
+        deny list; it cannot block your other programs (that is the firewall, which needs administrator rights: map_info
+        gives the commands to copy)."""
+        host = (host or "").strip().lower().removeprefix("www.")
+        if not re.fullmatch(r"[a-z0-9]([a-z0-9.-]*[a-z0-9])?", host) or "." not in host or re.fullmatch(r"[0-9.]+", host):
+            raise ConfigError("Only a site name can be blocked this way. For an address, use the firewall commands.")
+        blocks = self.blocked()
+        if mode == "temporary":
+            blocks[host] = time.time() + 86400
+        elif mode == "permanent":
+            blocks[host] = 0.0
+        elif mode == "unblock":
+            blocks.pop(host, None)
+        else:
+            raise ConfigError("mode must be temporary, permanent or unblock")
+        self._apply_blocks(blocks)
+        self.log.info("tools", f"{'Unblocked' if mode == 'unblock' else 'Blocked'} {host} for the noise ({mode}).")
+        return {"blocked": sorted(blocks)}
+
+    # ── scraping jobs (Tools) ──────────────────────────────────────────────
+    def scrape_state(self) -> dict:
+        job = getattr(self, "_scrape", None)
+        return {"job": dict(job.status) if job else None, "kinds": ["tables", "images", "video", "audio", "documents", "archives"],
+                "proxies": len(self.proxies.good()), "folder": str(app_dir() / "scrapes")}
+
+    def scrape_start(self, body: dict) -> dict:
+        """Start one polite crawl of a site the user named. Tables become CSV; images, video, audio, documents and archives are
+        saved. It follows robots.txt, waits a random few seconds, and can mix in visits to unrelated popular sites."""
+        from .scrape import ALL_KINDS, USER_AGENT, ScrapeJob
+        job = getattr(self, "_scrape", None)
+        if job and job.status["running"]:
+            raise ConfigError("A scrape is already running. Stop it first.")
+        url = str(body.get("url", "")).strip()
+        kinds = [k for k in (body.get("kinds") or ALL_KINDS) if k in ALL_KINDS]
+        proxy = None
+        if body.get("use_proxy"):
+            proxy = self.proxies.pick()
+            if proxy is None:
+                raise ConfigError("No tested proxies yet. Fetch and test some on this tab first, or turn the proxy off.")
+        host = re.sub(r"[^a-z0-9.-]+", "-", (url.split("//", 1)[-1].split("/", 1)[0] or "site").lower())[:40]
+        out = app_dir() / "scrapes" / f"{time.strftime('%Y%m%d-%H%M%S')}-{host}"
+        pool = list(self.feeds.items("tranco")[:400]) or ["wikipedia.org", "bbc.com", "nytimes.com"]
+
+        def noise() -> None:
+            import requests
+            site = random.choice(pool)
+            requests.get(f"https://{site}/", timeout=10, headers={"User-Agent": USER_AGENT},
+                         proxies={"http": proxy, "https": proxy} if proxy else None).close()
+        try:
+            self._scrape = ScrapeJob(
+                url, out, kinds=kinds, depth=int(body.get("depth", 1)), max_pages=int(body.get("max_pages", 20)),
+                delay=float(body.get("delay", 2.0)), max_mb=float(body.get("max_mb", 200)),
+                same_site=body.get("same_site", True) is not False, respect_robots=body.get("respect_robots", True) is not False,
+                mix_noise=body.get("mix_noise", True) is not False, proxy=proxy, noise_fn=noise)
+        except (ValueError, TypeError) as exc:
+            raise ConfigError(str(exc)) from None
+        threading.Thread(target=self._scrape.run, daemon=True, name="scrape").start()
+        self.log.info("tools", f"Scraping {url} into {out}" + (" through a tested proxy." if proxy else "."))
+        return self.scrape_state()
+
+    def scrape_stop(self) -> dict:
+        job = getattr(self, "_scrape", None)
+        if job:
+            job.stop.set()
+        return self.scrape_state()
+
+    def proxy_state(self) -> dict:
+        return self.proxies.state()
+
+    def proxy_refresh(self) -> dict:
+        """Fetch the proxy lists and test candidates in the background; poll proxy_state for progress."""
+        if not self.proxies.progress["running"]:
+            threading.Thread(target=self.proxies.refresh, daemon=True, name="proxy-refresh").start()
+            self.log.info("tools", "Testing free proxies from the lists (slow and dead ones are thrown out).")
+        return self.proxies.state()
+
+    def proxy_source(self, action: str, url: str) -> dict:
+        try:
+            if action == "add":
+                self.proxies.add_source(str(url).strip())
+            elif action == "remove":
+                self.proxies.remove_source(str(url))
+            else:
+                raise ConfigError("action must be add or remove")
+        except ValueError as exc:
+            raise ConfigError(str(exc)) from None
+        return self.proxies.state()
 
     def mylist_from_recording(self) -> dict:
         """Your habits from the browser recording you imported: the sites you load most, safety-filtered, in the same
@@ -1310,7 +1462,7 @@ class Controller:
                                  queries=self._query_source(words), domains=self._domain_pool(_r),
                                  rate=self._planner(prof),
                                  dns_plan=self._fresh_dns_plan(),
-                                 mix=True, side_streams=("dns", "packages"))
+                                 mix=True, side_streams=("dns", "packages", "files"))
             if prev is not None:                  # request numbers keep counting across restarts
                 self.runner._hit_seq = prev._hit_seq
                 if not clearing:

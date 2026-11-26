@@ -518,6 +518,45 @@ class ToolsTab(Tab):
         c.note("Downloads about 10 MB and uploads 2 MB once, over the normal internet (not Tor), through your clearnet proxy if "
                "you set one. Runs only when you click.")
         self.speed = self._tool(c, "Run speed test", self.speedtest)
+        c = add_card(self, app, "Scrape a site")
+        c.note("A polite spider for jobs you start. Tables become CSV files; images, video, audio, documents and archives are "
+               "saved to a folder. It follows robots.txt, stays on the site, waits a random few seconds between requests, and can "
+               "mix in visits to unrelated popular sites. It reads only what a visitor can see: no logins.")
+        self.sc_url = tk.StringVar()
+        r = c.row()
+        ttk.Entry(r, textvariable=self.sc_url).pack(side="left", fill="x", expand=True)
+        r = c.row()
+        self.sc_kinds = {k: tk.BooleanVar(value=k in ("tables", "images", "documents"))
+                         for k in ("tables", "images", "video", "audio", "documents", "archives")}
+        for k, v in self.sc_kinds.items():
+            ttk.Checkbutton(r, text=k.capitalize(), variable=v).pack(side="left", padx=(0, 8))
+        r = c.row()
+        self.sc_mix, self.sc_proxy = tk.BooleanVar(value=True), tk.BooleanVar(value=False)
+        ttk.Checkbutton(r, text="Mix in noise", variable=self.sc_mix).pack(side="left", padx=(0, 8))
+        ttk.Checkbutton(r, text="Through a tested proxy", variable=self.sc_proxy).pack(side="left", padx=(0, 8))
+        self.sc = self._tool(c, "Start", self.scrape_run)
+        self.app.btn(c.row(), "Stop", "stop", "secondary", lambda: self.app.work(self.app.ctl.scrape_stop, lambda d: None, lambda e: None)).pack(side="left")
+        c = add_card(self, app, "Block a site for the noise")
+        c.note("The web dashboard's network map lets you click a bubble; here you type the site or address. Blocking a site "
+               "tells the noise to leave it alone (for a day, or until you unblock it). It cannot block your other programs: for "
+               "that, type an IP address and use Info for firewall commands to copy (they need administrator rights).")
+        self.blk_host = tk.StringVar()
+        r = c.row()
+        ttk.Entry(r, textvariable=self.blk_host).pack(side="left", fill="x", expand=True)
+        self.blk = self._tool(c, "Block for a day", lambda: self.block_run("temporary"))
+        r = c.row()
+        self.app.btn(r, "Block always", None, "secondary", lambda: self.block_run("permanent")).pack(side="left", padx=(0, 6))
+        self.app.btn(r, "Unblock", None, "ghost", lambda: self.block_run("unblock")).pack(side="left", padx=(0, 6))
+        self.app.btn(r, "Info and firewall commands", None, "ghost", self.block_info).pack(side="left")
+        c = add_card(self, app, "Proxies (tested)")
+        c.note("Pulls free proxy lists from public GitHub files (and any page you add), tests every candidate through a real "
+               "HTTPS request and throws out the slow, dead, wrong-answer and transparent ones. Used only for jobs you start, "
+               "such as scraping, never for the noise or for logins: free proxies are run by strangers and can read plain traffic.")
+        self.prox = self._tool(c, "Fetch and test", self.proxies_run)
+        r = c.row()
+        self.prox_url = tk.StringVar()
+        ttk.Entry(r, textvariable=self.prox_url, width=48).pack(side="left", fill="x", expand=True)
+        self.app.btn(r, "Add source", "play", "secondary", self.proxies_add).pack(side="left", padx=6)
         c = add_card(self, app, "How much data will this use?", "act")
         c.note("A rough estimate from your current settings (amount, mix, real browser, low-data mode, active hours, cap). Real pages vary a lot.")
         self.est = self._tool(c, "Estimate", self.estimate)
@@ -572,6 +611,66 @@ class ToolsTab(Tab):
             out.btn.state(["!disabled"])
             self._text(out, str(e))
         self.app.work(fn, done, fail)
+
+    @staticmethod
+    def _proxy_text(d: dict) -> str:
+        p = d.get("progress") or {}
+        head = (f"Testing… {p.get('tested')}/{p.get('total')}: {p.get('kept')} kept, {p.get('thrown_out')} thrown out"
+                if p.get("running") else f"{d.get('kept', 0)} working proxies kept (each answers within {d.get('max_ms')} ms).")
+        fast = "\n".join(f"  {r['proxy']}  {r['ms']} ms" for r in (d.get("fastest") or [])[:10])
+        src = "\n".join(f"  {s['name']}: " + (s["error"] if s.get("error") else ("not read yet" if s.get("found") is None
+                                                                                  else f"{s['found']} found"))
+                        for s in d.get("sources") or [])
+        return head + ("\n" + fast if fast else "") + "\nSources:\n" + src
+
+    @staticmethod
+    def _scrape_text(d: dict) -> str:
+        j = d.get("job")
+        if not j:
+            return f"Saved under {d.get('folder')}. {d.get('proxies', 0)} tested proxies available."
+        return (f"{'Running' if j['running'] else 'Finished'}: {j['pages']} pages, {j['tables']} tables, {j['files']} files "
+                f"({j['bytes'] / 1e6:.1f} MB), {j['noise']} noise visits.\nFolder: {j['folder']}"
+                + (f"\n{len(j['errors'])} problems, e.g. {j['errors'][0]}" if j["errors"] else ""))
+
+    def scrape_run(self) -> None:
+        def poll(d=None):
+            d = d or self.app.ctl.scrape_state()
+            self._text(self.sc, self._scrape_text(d))
+            if (d.get("job") or {}).get("running"):
+                self.after(1500, poll)
+        body = {"url": self.sc_url.get().strip(), "kinds": [k for k, v in self.sc_kinds.items() if v.get()],
+                "mix_noise": self.sc_mix.get(), "use_proxy": self.sc_proxy.get()}
+        self.app.work(lambda: self.app.ctl.scrape_start(body), lambda d: poll(d), lambda e: self._text(self.sc, str(e)))
+
+    def block_run(self, mode: str) -> None:
+        host = self.blk_host.get().strip()
+        self.app.work(lambda: self.app.ctl.map_block(host, mode),
+                      lambda d: self._text(self.blk, "Blocked for the noise: " + (", ".join(d["blocked"]) or "nothing")),
+                      lambda e: self._text(self.blk, str(e)))
+
+    def block_info(self) -> None:
+        def show(d: dict) -> str:
+            lines = [f"Address {d['ip']}" + (f", reverse name {d['rdns']}" if d.get("rdns") else ", no reverse name"),
+                     "Who owns it: " + d["whois"], "Run one of these in a terminal as administrator:"]
+            for f in d["firewall"]:
+                lines.append(f"  {f['name']}: {f['add']}" + (f"   (undo: {f['remove']})" if f.get("remove") else ""))
+            return "\n".join(lines)
+        self.app.work(lambda: self.app.ctl.map_info(self.blk_host.get().strip()),
+                      lambda d: self._text(self.blk, show(d)), lambda e: self._text(self.blk, str(e)))
+
+    def proxies_run(self) -> None:
+        def poll(d=None):
+            d = d or self.app.ctl.proxy_state()
+            self._text(self.prox, self._proxy_text(d))
+            if (d.get("progress") or {}).get("running"):
+                self.after(1500, poll)
+        self.app.work(self.app.ctl.proxy_refresh, lambda d: poll(d), lambda e: self._text(self.prox, str(e)))
+
+    def proxies_add(self) -> None:
+        url = self.prox_url.get().strip()
+        self.app.work(lambda: self.app.ctl.proxy_source("add", url),
+                      lambda d: (self.prox_url.set(""), self._text(self.prox, self._proxy_text(d))),
+                      lambda e: self._text(self.prox, str(e)))
 
     def estimate(self) -> None:
         self._run(self.est, self.app.ctl.estimate, lambda d: self._text(self.est, F.estimate_text(d)))
@@ -730,7 +829,7 @@ class HelpTab(Tab):
                                        "and is a deliberate, narrow use of exits for DNS only) and Contribute to Tor: run a "
                                        "relay (a middle relay or bridge as a separate Tor program; start with Practice mode, "
                                        "which publishes nothing). A relay is not an exit and does not provide DNS."),
-                ("Antivirus (optional).", "The Security tab manages the ClamAV you installed yourself, offline-first. Only "
+                ("Antivirus (optional).", "The Antivirus tab manages the ClamAV you installed yourself, offline-first. Only "
                                           "freshclam, the signature updater, ever contacts the internet, and only when you press "
                                           "Update and confirm. Scans use clamscan with this app's own signature folder, with "
                                           "the network removed where the system allows (Linux) and the scanner watched for any "

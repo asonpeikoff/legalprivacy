@@ -353,7 +353,7 @@ def test_window_builds_polls_and_saves_a_change(tk_app):
     app = tk_app
     app.pump_for(1.6)
     assert [t.title for t in app.tabs] == ["Dashboard", "Activity", "Live Log", "Tor", "Remote", "Settings", "My List", "ML",
-                                           "Proof", "Security", "Tools", "Health", "Help"]
+                                           "Proof", "Antivirus", "Tools", "Health", "Help"]
     assert app.state.get("version") and app.status_var.get() == "Stopped"
     assert str(app.b_start.cget("state")) != "disabled" and "disabled" in app.b_stop.state()
     assert "Applying" not in app.set_chip.cget("text")
@@ -409,9 +409,30 @@ def test_the_traffic_mix_bar_adds_up_to_100_and_saves(tk_app):
     assert abs(sum(eng.values().values()) - 100) < 0.2
 
 
-def test_the_header_shows_the_plain_wordmark(tk_app):
+def test_logo_easter_egg_needs_something_a_normal_user_would_not_do(tk_app, tmp_path, monkeypatch):
+    from legalprivacy import gui
+    f = tmp_path / "logo_egg"
+    monkeypatch.setattr(gui, "_egg_file", lambda: f)
     app = tk_app
-    assert app._logo_now is app.logo_trad or app.logo_trad is None
+    app._egg = False
+    app._show_logo(0)
+    assert app._logo_now is app.logo_trad                       # the plain wordmark by default
+    for _ in range(2):
+        app._logo_click()
+    assert not app._egg                                         # two clicks are nothing special
+    app._logo_click()
+    assert app._egg and f.exists() and app._logo_now is app.logos[0]
+    app._logo_click()
+    assert app._logo_now is app.logos[1]                        # now clicking switches versions
+    app._show_logo(3)
+    assert app._logo_now is app.logos[3]                        # and tabs pick their own
+    app._logo_keys = gui.KONAMI[:-1]
+
+    class Ev:
+        keysym, widget = "a", app.root
+
+    app._logo_key(Ev)                                           # the Konami code undoes it
+    assert not app._egg and not f.exists() and app._logo_now is app.logo_trad
 
 
 def test_nudge_buttons_move_the_mix_and_save_it(tk_app):
@@ -452,3 +473,14 @@ def test_tor_tab_has_the_tor_browser_card_like_the_web_dashboard(tk_app, monkeyp
     # sharing the app's Tor is a saved setting, like the web dashboard's tickbox
     from legalprivacy import gui_fields as F
     assert F.FIELDS["tor_share_browser"][0] == ("transports", "tor", "share_browser")
+
+
+def test_trad_logo_choices_are_packaged():
+    """Every logo Settings > Logo offers has its PNG in the package, and the first (the default) is the fixed one."""
+    from pathlib import Path
+
+    from legalprivacy import gui
+    assert gui.TRAD_LOGOS[0][0] == "" and gui.TRAD_LOGOS[0][2] == "logo_trad.png"
+    web = Path(gui.__file__).parent / "web"
+    for _key, _label, fname in gui.TRAD_LOGOS:
+        assert (web / fname).is_file(), fname

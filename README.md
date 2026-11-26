@@ -41,6 +41,15 @@ existing settings, start-up commands (`cricket`, `cricket-launch`) and `CRICKET_
 | <img src="docs/screenshots/amount.png" alt="Amount of noise: a 1 to 10 slider, randomness, the mix of activity and background lookups and installs" width="440"><br><sub>How much noise, how random, and the mix</sub> | <img src="docs/screenshots/dns.png" alt="DNS settings: normal, secure or mix, with the resolver table and live checks" width="440"><br><sub>DNS: your resolvers, checked live</sub> |
 | <img src="docs/screenshots/bridges.png" alt="Tor bridges: built-in obfs4, Snowflake and meek, or your own" width="440"><br><sub>Tor bridges</sub> | |
 
+### Newer features
+
+| | |
+|---|---|
+| <img src="docs/screenshots/proof-pvalues-correction.png" alt="The Proof card: 67 percent, four rhythm comparisons each with its percent difference and p-value, and the hours the app is correcting" width="440"><br><sub>Proof: each rhythm comparison shows percent different and a p-value, and "Adjust to my rhythm" lists the hours it is changing. (Demo data.)</sub> | <img src="docs/screenshots/health-recommended.png" alt="Health tab: checks for the recommended settings, identity consistency, Tor, DNS, sources" width="440"><br><sub>Health: recommended settings, identity consistency and one-click fixes.</sub> |
+| <img src="docs/screenshots/menu-settings-cards.png" alt="Side menu with Settings open and its cards listed underneath" width="440"><br><sub>Side menu: a tab's cards are listed under it; ☰ hides the menu, Collapse keeps the icons.</sub> | <img src="docs/screenshots/tools-two-columns.png" alt="Tools tab in two columns: privacy check, DNS leak check, speed test, data estimate, MAC address, password generator" width="440"><br><sub>Tools in two compact columns, with a password generator.</sub> |
+| <img src="docs/screenshots/help-sections.png" alt="Help tab as expandable sections, About at the bottom" width="440"><br><sub>Help as expandable sections, About included.</sub> | <img src="docs/screenshots/menu-dashboard.png" alt="The dashboard with the red, white and blue logo and the grouped side menu" width="440"><br><sub>The dashboard with the red, white and blue logo and the grouped menu.</sub> |
+
+
 ## Quick start
 
 | You have | Do this |

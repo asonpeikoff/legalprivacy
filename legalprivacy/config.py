@@ -246,6 +246,7 @@ class ExtrasConfig:
     interest_active: int = 3      # how many themes at once
     interest_rotate_days: int = 10
     interest_share: float = 0.3   # share of visits and searches that follow the themes
+    file_transfers: bool = True   # now and then download a real file (photo, video, zip...) and throw it away, or upload random bytes
     duck_chat: bool = False       # short made-up chats on duck.ai (accepts duck.ai's terms for you: off until you switch it on)
     multi_tab: bool = True        # now and then open a link in a second tab, read the first, then glance at it
     long_sessions: bool = True    # now and then stay on one page a long time, or leave it open for hours and come back
@@ -388,6 +389,7 @@ class Profile:
         "dns": EngineConfig(budget_per_day=480),     # 3x searches + link-following ("More")
         "onion": EngineConfig(budget_per_day=40, max_depth=3),
         "packages": EngineConfig(budget_per_day=28),
+        "files": EngineConfig(budget_per_day=10),
     })
     transports: dict[str, TransportConfig] = field(default_factory=lambda: {
         "clearnet": TransportConfig(),
@@ -407,7 +409,8 @@ class Profile:
 
     def active_engines(self, transport: str) -> list[str]:
         """Engines a lane runs. Onion is Tor-only; clearnet engines never run over Tor."""
-        on = [n for n, e in self.engines.items() if e.enabled and (n != "packages" or self.packages_on())]
+        on = [n for n, e in self.engines.items() if e.enabled and (n != "packages" or self.packages_on())
+              and (n != "files" or (self.extras.file_transfers and not self.extras.low_data))]
         if transport == "tor":
             on = [n for n in on if n != "packages"]           # package installs never go over Tor
         if transport == "clearnet":
@@ -558,7 +561,7 @@ def apply_overrides(profile: Profile, raw: dict[str, Any]) -> Profile:
             household=bool(m.get("household")), household_size=int(m.get("household_size") or 3),
             persona=_persona_name(m.get("persona")), persona_share=float(m.get("persona_share", 0.8)),
             packages=str(m.get("packages") or "auto"))
-        for _k, _d in (("long_sessions", True), ("multi_tab", True), ("duck_chat", False)):    # fields the call above does not take
+        for _k, _d in (("long_sessions", True), ("multi_tab", True), ("duck_chat", False), ("file_transfers", True)):    # fields the call above does not take
             setattr(profile.extras, _k, bool(m.get(_k, _d)))
         if (profile.extras.interests or profile.extras.household) and not profile.extras.interest_salt:
             import secrets as _s
