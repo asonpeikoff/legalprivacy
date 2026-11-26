@@ -414,7 +414,9 @@ class TorManager:
             f"CookieAuthFile {_torrc_quote(Path(self.cookie_path))}",
             "ClientOnly 1",
             "AvoidDiskWrites 1",
-            "SafeSocks 1",
+            "SafeSocks 1",                           # refuse SOCKS requests that leak a local DNS lookup
+            "ClientDNSRejectInternalAddresses 1",   # an answer that points inside your network is refused
+            "ClientRejectInternalAddresses 1",
             "Log notice stdout",
         ]
         if self.user_socks_port:

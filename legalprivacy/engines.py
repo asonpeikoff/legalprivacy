@@ -40,6 +40,45 @@ SEARCH_OPTIONS: dict = {"weights": {}, "typos": False}
 PERSONA_SEARCH: dict = {}
 
 
+# DNS over TLS: resolver address -> the name on its certificate (all of these also validate DNSSEC).
+DOT_HOSTS = {"9.9.9.9": "dns.quad9.net", "149.112.112.112": "dns.quad9.net",
+             "1.1.1.1": "one.one.one.one", "1.0.0.1": "one.one.one.one"}
+DNS_OPTIONS: dict = {"encrypted": True}
+
+
+def configure_dns(encrypted: bool = True) -> None:
+    DNS_OPTIONS["encrypted"] = bool(encrypted)
+
+
+def dot_query(ip: str, packet: bytes, timeout: float = 3.0, context=None):
+    """One DNS query over TLS (RFC 7858): the length-prefixed query to port 853 with the certificate checked against the
+    resolver's name. Returns the answer bytes, or None (never falls back to plain text)."""
+    import ssl
+    host = DOT_HOSTS.get(ip)
+    if host is None:
+        return None
+    ctx = context or ssl.create_default_context()
+    try:
+        with socket.create_connection((ip, 853), timeout=timeout) as raw, ctx.wrap_socket(raw, server_hostname=host) as tls:
+            tls.settimeout(timeout)
+            tls.sendall(len(packet).to_bytes(2, "big") + packet)
+            head = b""
+            while len(head) < 2:
+                chunk = tls.recv(2 - len(head))
+                if not chunk:
+                    return None
+                head += chunk
+            want, data = int.from_bytes(head, "big"), b""
+            while len(data) < want:
+                chunk = tls.recv(want - len(data))
+                if not chunk:
+                    return None
+                data += chunk
+            return data if len(data) >= 12 else None
+    except (OSError, ssl.SSLError):
+        return None
+
+
 def configure_search(weights: dict | None = None, typos: bool = False, persona: str | None = None) -> None:
     SEARCH_OPTIONS["weights"] = dict(weights or PERSONA_SEARCH.get(persona or "", {}))
     SEARCH_OPTIONS["typos"] = bool(typos)
@@ -446,6 +485,8 @@ class DnsNoise:
         domain = self.domains.hostname()
         packet = build_dns_query(domain, qid=self.rng.randint(0, 0xFFFF))
         server = self.plan.pick()[0] if self.plan is not None else "system"
+        if DNS_OPTIONS["encrypted"] and server != "system" and server not in DOT_HOSTS:
+            server = self.rng.choice(list(DOT_HOSTS))      # a resolver that cannot do DNS over TLS: use one that can
         return packet, domain, server
 
     @staticmethod
@@ -465,7 +506,10 @@ class DnsNoise:
             ex.shutdown(wait=False)
 
     def fire(self, packet: bytes, server: str, timeout: float = 3.0) -> bool:
-        """Send one UDP query; return True if a parseable answer came back."""
+        """Send one query; return True if a parseable answer came back. To a secure resolver it goes over TLS (DNS over
+        TLS, port 853, the certificate checked against the resolver's name) unless that was switched off."""
+        if DNS_OPTIONS["encrypted"] and server in DOT_HOSTS:
+            return dot_query(server, packet, timeout) is not None
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:
             sock.settimeout(timeout)

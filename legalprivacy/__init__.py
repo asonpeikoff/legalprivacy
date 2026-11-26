@@ -2,7 +2,7 @@
 
 Privacy-preserving web noise: three engine families over two transports,
 per-identity consistent fingerprints, human-cadence pacing, and an optional
-community middle-relay contribution (never an exit).
+community relay contribution (middle, bridge or a DNS-only helper; never a general exit).
 """
 
 __version__ = "2.19.1"

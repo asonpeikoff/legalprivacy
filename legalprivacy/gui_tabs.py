@@ -801,7 +801,11 @@ class TorTab(Tab):
         self.r_inputs: list = []
         self.r_mode = tk.StringVar(value="middle")
         for val, txt, hint in (("middle", "Middle relay", "Listed publicly; carries traffic between other relays."),
-                               ("bridge", "Bridge", "Not listed publicly; helps people whose network blocks Tor.")):
+                               ("bridge", "Bridge", "Not listed publicly; helps people whose network blocks Tor."),
+                               ("dns", "DNS helper", "An exit that does only DNS: answers other Tor users' name lookups and lets "
+                                "nothing else out except port 53 of two public resolvers (Quad9). Few clients pick it (no web "
+                                "ports, so no Exit label), so it helps modestly. Starts in practice mode; going public asks "
+                                "you to confirm.")):
             self.r_inputs.append(rc.radio(self.r_mode, val, txt, hint, command=self._relay_changed))
         r = rc.row((8, 2))
         self.r_nick, self.r_bw, self.r_port = (tk.StringVar() for _ in range(3))
