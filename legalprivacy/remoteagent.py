@@ -427,7 +427,8 @@ class Agent:
         self._browse(url)
 
     def _browse(self, url: str, referer: str | None = None) -> None:
-        if self.browser and self.rng.random() < self.browser_share:
+        if self.browser and self.rng.random() < self.browser_share \
+                and host_is_safe(urllib.parse.urlparse(url).hostname or ""):      # same public-only rule as the HTTP lane
             ok, why = browser_visit(self.browser, url)
             if ok:
                 self.counts["visit"] += 1
