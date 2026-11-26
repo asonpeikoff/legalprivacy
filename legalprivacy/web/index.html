@@ -2262,7 +2262,7 @@ setTimeout(done,6000);
 (()=>{
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 
-(function(){const sh=$('#shell'),K='lp_nav';let st={};try{st=JSON.parse(localStorage.getItem(K)||'{}')}catch(e){}
+(function(){const sh=$('#shell'),K='lp_nav2';let st={};try{st=JSON.parse(localStorage.getItem(K)||'{}')}catch(e){}
 const save=()=>{try{localStorage.setItem(K,JSON.stringify(st))}catch(e){}};
 $$('#nav .ng').forEach(g=>{const n=g.dataset.g,h=g.querySelector('.gh');if(st[n])g.classList.add('shut');
  const tg=()=>{g.classList.toggle('shut');h.setAttribute('aria-expanded',!g.classList.contains('shut'));st[n]=g.classList.contains('shut');save()};
@@ -2273,7 +2273,7 @@ $$('#nav button[data-t]').forEach(b=>b.addEventListener('click',()=>{const g=b.c
 })();
 
 // page titles = menu labels; a list of each tab's cards under the tab you are on; a button that hides the menu completely
-(()=>{const sh=$('#shell'),K='lp_nav';let st={};try{st=JSON.parse(localStorage.getItem(K)||'{}')}catch(e){}
+(()=>{const sh=$('#shell'),K='lp_nav2';let st={};try{st=JSON.parse(localStorage.getItem(K)||'{}')}catch(e){}
   const save=()=>{try{localStorage.setItem(K,JSON.stringify(st))}catch(e){}};
   const text=h=>{const c=h.cloneNode(true);c.querySelectorAll('details,svg,.ibtn,button').forEach(x=>x.remove());return c.textContent.replace(/\s+/g,' ').trim()};
   $$('#nav button[data-t]').forEach(b=>{const t=b.dataset.t,sec=$('#t-'+t);if(!sec)return;
