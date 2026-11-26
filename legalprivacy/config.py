@@ -125,17 +125,16 @@ def valid_exclude_entry(entry: str) -> bool:
 
 @dataclass
 class RelayConfig:
-    enabled: bool = False
+    enabled: bool = True
     mode: str = "middle"              # middle | bridge | dns (an exit that only does DNS) — never a general exit
     nickname: str = "legalprivacy"
     contact: str | None = None
     bandwidth_rate: str = "5Mbit"
     or_port: int = 9001
     dir_port: int = 9030
-    practice: bool = True             # practice mode: loopback only, nothing published (the safe first run)
-    autostart: bool = True            # start the relay with the app. On by default, but only ever in practice mode
-                                      # (loopback, nothing published); a public relay still needs the checklist once
-    acknowledged: bool = False        # the checklist was completed once (needed for autostart)
+    practice: bool = False            # practice mode: loopback only, nothing published (an option; not the default)
+    autostart: bool = True            # start the relay with the app (on by default: a public non-exit relay)
+    acknowledged: bool = True         # the checklist's facts were accepted (on by default; the Tor tab explains them)
     private: bool = False             # bridge only: a private bridge for your own use, not handed out to anyone else
 
     def validate(self) -> None:
@@ -318,7 +317,7 @@ class TrafficConfig:
     pattern: str = "drift"        # drift (default) | blend | alternate
     browser: float = 100.0        # clearnet pages in a real browser (relative weight)
     plain: float = 0.0            # clearnet pages over plain HTTP (no JavaScript, no scrolling)
-    onion: float = 40.0           # Tor .onion sites (only when Tor is on)
+    onion: float = 100.0          # Tor .onion sites (only when Tor is on): as much as the browser pages
     mobile_share: float = 0.10    # share of noise identities that are phones (emulated on this computer, so kept low)
     device: str = "iPhone 13"     # phone to emulate, or "mix"
 

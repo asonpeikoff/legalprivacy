@@ -16,6 +16,7 @@ from __future__ import annotations
 import time
 
 STALL_SECONDS = 20 * 60
+TOR_IDLE_SECONDS = 40 * 60       # Tor is up but no onion visit has worked for this long
 TICK_SECONDS = 30
 RESTARTS_PER_HOUR = 6
 
@@ -26,12 +27,38 @@ class KeepAlive:
         self._restarts: list[float] = []
         self._last_tick = clock()
         self._grace_until = 0.0
+        self._tor_nudged_at = 0.0
+        self._tor_nudges = 0
 
     def enabled(self) -> bool:
         try:
             return bool(self.ctl.profile.extras.keep_alive)
         except AttributeError:
             return True
+
+    def _tor_check(self, r, now: float) -> str | None:
+        """Tor says it is connected but no onion visit has worked for 40 minutes (while onion visits are due): ask Tor for fresh
+        circuits, and if that does not help another 40 minutes later, restart Tor. Never stops anything."""
+        lane = next((ln for ln in r.lanes if ln.name == "tor"), None)
+        if lane is None or not lane.open or "onion" not in lane.engines or lane.budgets["onion"].exhausted \
+                or not getattr(r, "hour_target", 0):
+            return None
+        idle = time.time() - max(getattr(r, "last_onion_ok", 0.0), getattr(r, "started_at", 0.0))
+        if idle < TOR_IDLE_SECONDS:
+            self._tor_nudges = 0
+            return None
+        if now - self._tor_nudged_at < TOR_IDLE_SECONDS:
+            return None
+        self._tor_nudged_at = now
+        self._tor_nudges += 1
+        level = 1 if self._tor_nudges == 1 else 2
+        self.ctl.log.warn("tor", f"Tor is connected but no onion visit has worked for {int(idle // 60)} minutes; "
+                                 + ("asking for fresh circuits." if level == 1 else "restarting Tor."))
+        try:
+            self.ctl._tor_trouble(level)
+        except Exception as exc:
+            self.ctl.log.warn("tor", f"Could not fix Tor: {exc}")
+        return "tor"
 
     def tick(self) -> str | None:
         """One check. Returns what it did ("restarted", "woke", "unstuck") or None, for the log and the tests."""
@@ -61,6 +88,9 @@ class KeepAlive:
             r.paused = False
             ctl.log.info("app", "The noise had paused itself. Woke it up (Settings > Keep it running).")
             return "woke"
+        did = self._tor_check(r, now)
+        if did:
+            return did
         if now >= self._grace_until and time.time() - r.last_beat > STALL_SECONDS:
             ctl.log.warn("app", f"The noise looks stuck (nothing moved for {STALL_SECONDS // 60} minutes). Restarting it.")
             try:

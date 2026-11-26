@@ -113,3 +113,12 @@ def test_a_chromium_without_a_google_key_does_not_keep_asking_safe_browsing_for_
     from pathlib import Path
     src = (Path(__file__).parent.parent / "legalprivacy" / "browser.py").read_text(encoding="utf-8")
     assert '"--log-level=3"' in src and '"--safebrowsing-disable-auto-update"' in src and 'if "chromium" in exe' in src
+
+
+def test_the_browsers_do_not_chatter_about_safe_browsing_or_the_accessibility_bus():
+    import os
+    from pathlib import Path
+    src = (Path(__file__).parent.parent / "legalprivacy" / "browser.py").read_text(encoding="utf-8")
+    assert "firefox_user_prefs=sb_off" in src and "browser.safebrowsing.malware.enabled" in src
+    import legalprivacy  # noqa: F401
+    assert os.environ.get("NO_AT_BRIDGE") == "1"

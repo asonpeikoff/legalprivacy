@@ -832,7 +832,7 @@ class TorTab(Tab):
         self.r_inputs += [e1, e2, e3]
         for v in (self.r_nick, self.r_bw, self.r_port, self.r_mode):
             v.trace_add("write", lambda *_a: self._relay_changed())
-        self.r_practice = tk.BooleanVar(value=True)
+        self.r_practice = tk.BooleanVar(value=False)
         self.r_inputs.append(rc.check(self.r_practice, "Practice mode (not published)",
                                       "The relay only listens on this computer and never announces itself, so nobody can use "
                                       "it. It still downloads Tor's public relay list like any Tor program. Needs no checklist. "

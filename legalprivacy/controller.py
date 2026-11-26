@@ -97,6 +97,27 @@ def move_old_defaults(profile) -> list[str]:
     return moved
 
 
+def move_old_defaults_v4(profile) -> list[str]:
+    """Once more: settings still on what version 2.20 or older used as its default move to the new default (a saved
+    settings file holds every value, so an old default looks like a choice; these were not)."""
+    moved = []
+    rc = profile.relay
+    if rc.practice and not rc.acknowledged:
+        rc.practice, rc.acknowledged, rc.enabled = False, True, True
+        moved.append("relay: public non-exit relay instead of practice mode")
+    if profile.dns.mode == "mix" and abs(float(profile.dns.system_share) - 0.85) < 1e-9:
+        profile.dns.mode, profile.dns.encrypted = "secure", True
+        moved.append("DNS: secure resolvers, encrypted")
+    tc = getattr(profile, "traffic", None)
+    if tc is not None and abs(float(tc.onion) - 40.0) < 1e-9:
+        tc.onion = 100.0
+        moved.append("Tor onion visits: as much as the browser pages")
+    if not profile.extras.duck_chat:
+        profile.extras.duck_chat = True
+        moved.append("chat noise on duck.ai: on")
+    return moved
+
+
 class Controller:
     def __init__(self, profile_path: str | None = None):
         wipe_old_log_files()                      # older versions wrote cricket.log to disk
@@ -195,6 +216,9 @@ class Controller:
             if not self.app.get("migrated_defaults_v3"):
                 self._moved_defaults = move_old_defaults(self.profile)
                 self.app["migrated_defaults_v3"] = True
+            if not self.app.get("migrated_defaults_v4"):
+                self._moved_defaults = list(getattr(self, "_moved_defaults", None) or []) + move_old_defaults_v4(self.profile)
+                self.app["migrated_defaults_v4"] = True
             if not self.app.get("migrated_cookie_day"):
                 cl = self.profile.transports.get("clearnet")
                 if cl is not None and cl.cookie_hours == 1.0:
@@ -1269,14 +1293,17 @@ class Controller:
                                   body.get("password") or None, body.get("passphrase") or None)
 
     def relay_autostart(self) -> None:
-        """Called once when the app opens. Starts the relay if 'start with the app' is on (the default). Out of the
-        box that is practice mode: loopback only, nothing published. A public relay starts only after its
-        checklist was completed once."""
+        """Called once when the app opens. Starts the relay if 'start with the app' is on (the default): a public
+        NON-exit relay (it carries other people's Tor traffic, never exits anything). Practice mode (loopback only,
+        nothing published) is an option, not the default. Switch it all off on the Tor tab."""
         rc = self.profile.relay
         if rc.autostart and (rc.practice or rc.acknowledged):
             if not self.relay._find_binary():            # default-on: stay quiet until Tor has been installed once
                 self.log.info("relay", "Relay not started: Tor is not installed yet (it installs the first time you start Tor).")
                 return
+            if not rc.practice:
+                self.log.info("relay", "Starting the Tor relay: it lists this computer's address in Tor's public relay list and "
+                                       "carries other people's encrypted Tor traffic (never an exit). Turn it off on the Tor tab.")
             try:
                 self.relay.start(rc.spec())
             except Exception as exc:

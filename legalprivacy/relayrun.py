@@ -1,7 +1,7 @@
 """Runs the optional Tor relay as its OWN Tor process.
 
 It is separate from the client Tor that the noise uses: its own data directory under app_dir()/relay/,
-its own ports (an ORPort only: no SOCKS, no control port), its own log. It starts with the app by default, in practice mode only, and it
+its own ports (an ORPort only: no SOCKS, no control port), its own log. It starts with the app by default (a public non-exit relay), and it
 only ever runs a middle relay, a bridge or the DNS-only helper: the torrc comes from relay.generate_torrc, which pins
 the exit policy to reject-all (the DNS helper only lets port 53 of two Quad9 addresses out).
 """

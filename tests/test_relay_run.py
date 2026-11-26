@@ -74,9 +74,10 @@ def test_config_reuses_relay_validators():
             apply_overrides(Profile(name="x"), {"contribute": {"relay": bad}})
 
 
-def test_relay_defaults_are_safe():
+def test_relay_defaults_are_on_and_never_an_exit():
     r = Profile(name="x").relay
-    assert r.enabled is False and r.autostart is True and r.practice is True and r.acknowledged is False
+    assert r.enabled is True and r.autostart is True and r.practice is False and r.acknowledged is True
+    assert r.mode == "middle"                                   # a non-exit relay: it exits nothing for anyone
 
 
 # ── a fake Tor ──────────────────────────────────────────────────────────────
@@ -234,20 +235,22 @@ def test_bandwidth_bounds(ctl):
 def test_state_has_estimate_and_torrc_preview(ctl):
     st = ctl.relay_state()
     assert st["estimate"]["max_gb_per_direction"] == pytest.approx(1 * 86400 * 30 / 1000, abs=0.1)
-    assert "ExitPolicy reject *:*" in st["torrc"] and "ORPort 127.0.0.1:" in st["torrc"]   # practice by default
-    assert st["settings"]["practice"] is True and st["settings"]["autostart"] is True
+    assert "ExitPolicy reject *:*" in st["torrc"] and "ExitRelay 0" in st["torrc"]
+    assert "ORPort 127.0.0.1:" not in st["torrc"]                # public by default, not practice mode
+    assert st["settings"]["practice"] is False and st["settings"]["autostart"] is True
 
 
 # ── never automatic, never remembered as "on" ───────────────────────────────
-def test_starts_with_the_app_by_default_in_practice_mode_only(home, tmp_path):
+def test_starts_with_the_app_by_default_as_a_public_non_exit_relay(home, tmp_path):
     from legalprivacy.controller import Controller
     c = Controller(str(home / "config.yaml"))
     c.relay._find_binary = lambda: make_fake(tmp_path)
-    assert c.profile.relay.autostart is True and c.profile.relay.practice is True
+    c.apply_config({"contribute": {"relay": {"or_port": free_port()}}})
+    assert c.profile.relay.autostart is True and c.profile.relay.practice is False
     c.relay_autostart()
     try:
         assert c.relay_state()["status"]["state"] in ("starting", "running")
-        assert c.relay.spec.practice is True                    # nothing published
+        assert c.relay.spec.practice is False and c.relay.spec.mode == "middle"
     finally:
         c.relay.stop()
 
@@ -269,7 +272,7 @@ def test_running_is_not_saved_and_autostart_can_be_turned_off(ctl, home, tmp_pat
     c2.relay._find_binary = lambda: make_fake(tmp_path)
     c2.relay_autostart()
     assert c2.relay_state()["status"]["state"] == "stopped"     # the opt-out is respected
-    assert c2.profile.relay.autostart is False and c2.profile.relay.enabled is False
+    assert c2.profile.relay.autostart is False
     c2.apply_config({"contribute": {"relay": {"autostart": True, "or_port": free_port()}}})
     c2.relay_autostart()
     try:
@@ -278,11 +281,12 @@ def test_running_is_not_saved_and_autostart_can_be_turned_off(ctl, home, tmp_pat
         c2.relay.stop()
 
 
-def test_autostart_of_public_relay_needs_the_checklist_done_once(home, tmp_path):
+def test_autostart_of_a_public_relay_is_skipped_if_the_checklist_was_unaccepted(home, tmp_path):
     from legalprivacy.controller import Controller
     c = Controller(str(home / "config.yaml"))
     c.relay._find_binary = lambda: make_fake(tmp_path)
-    c.apply_config({"contribute": {"relay": {"autostart": True, "practice": False, "or_port": free_port()}}})
+    c.apply_config({"contribute": {"relay": {"autostart": True, "practice": False, "acknowledged": False,
+                                              "or_port": free_port()}}})
     c.relay_autostart()
     assert c.relay_state()["status"]["state"] == "stopped"
 

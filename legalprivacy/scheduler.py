@@ -153,6 +153,7 @@ class Runner:
         self.day_failures = 0           # counted for the statistics only: failures never pause or stop the noise
         self.day_onion_failures = 0
         self.last_beat = time.time()    # the main loop's heartbeat, for the keep-alive watchdog
+        self.last_onion_ok = time.time()  # the last successful onion visit, for the keep-alive watchdog
         self.onion_streak = 0           # onion hits failed in a row (across different sites)
         self.on_tor_trouble = None      # callback(level): 1 = ask Tor for fresh circuits, 2 = restart Tor
         self._tor_fix_at: list[float] = []
@@ -730,6 +731,7 @@ class Runner:
             budget.record_hit(self.clock())
             if eng_name == "onion":
                 self.onion_streak = 0
+                self.last_onion_ok = time.time()
                 self._onion_seen_alive(target.url)
                 try:                                       # remember what the site calls itself, for Tor Browser's bookmarks
                     from .onion import learn_title
