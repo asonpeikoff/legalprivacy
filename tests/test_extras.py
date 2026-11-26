@@ -466,17 +466,18 @@ def test_a_broken_certificate_counts_as_a_site_that_is_down_and_is_remembered(tm
     assert not r2._onion_is_dead(url)
 
 
-def test_ason_searches_almost_only_with_duckduckgo_unless_you_choose_otherwise():
+def test_duckduckgo_is_the_main_engine_with_a_little_google_and_the_rest_unless_you_choose_otherwise():
     engines._ENGINE_HITS.clear()
-    engines.configure_search({}, False, "Ason")
+    engines.configure_search({}, False, None)
     try:
-        picks = [pick_search_endpoint(random.Random(i), now=1e6 + i * 10_000) for i in range(300)]
-        ddg = sum(1 for u in picks if u.startswith("https://duckduckgo.com/"))
-        assert ddg / len(picks) > 0.8
-        engines.configure_search({"Bing": 5}, False, "Ason")          # your own choice wins
+        picks = [pick_search_endpoint(random.Random(i), now=1e6 + i * 10_000) for i in range(600)]
+        ddg = sum(1 for u in picks if "duckduckgo.com" in u) / len(picks)
+        google = sum(1 for u in picks if "google.com" in u) / len(picks)
+        assert 0.65 < ddg < 0.85 and 0.05 < google < 0.2 and google < ddg / 3
+        w = dict(zip(ENGINE_NAMES, engines._current_weights()))
+        assert w["DuckDuckGo"] > 5 * w["Google"] > 0 and w["Google"] > w["Bing"] >= w["Qwant"] > 0
+        engines.configure_search({"Bing": 5}, False, None)             # your own choice wins
         assert dict(zip(ENGINE_NAMES, engines._current_weights()))["Bing"] == 5
-        engines.configure_search({}, False, None)                       # other personas keep the usual mix
-        assert dict(zip(ENGINE_NAMES, engines._current_weights()))["Google"] == 35.0
     finally:
         engines._ENGINE_HITS.clear()
         engines.configure_search({})

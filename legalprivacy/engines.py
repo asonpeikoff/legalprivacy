@@ -16,23 +16,18 @@ from html.parser import HTMLParser
 from .transports import Target
 from .safety import english_url
 
-# Search engine endpoint probability tiers:
-# 1. Most likely group: Google & DuckDuckGo (~70% weight)
-# 2. Next most likely group: Bing, Brave, Startpage (~24% weight)
-# 3. Less likely group: Ecosia, Mojeek, Qwant, DuckDuckGo Lite (~6% weight)
+# Search engine mix: DuckDuckGo is the main one (about 70% plus its lite page), with a little of the others, Google the most
+# of them (about 12%), then Bing, Brave and Startpage, and a trace of the rest. Settings -> Search engines changes any of it.
 SEARCH_ENGINE_TIERS: list[tuple[str, float]] = [
-    # Tier 1 (Highest probability: Google + DuckDuckGo)
-    ("https://www.google.com/search?q=", 35.0),
-    ("https://duckduckgo.com/?q=", 35.0),
-    # Tier 2 (Next most likely: Bing, Brave, StartPage)
-    ("https://www.bing.com/search?q=", 8.0),
-    ("https://search.brave.com/search?q=", 8.0),
-    ("https://www.startpage.com/sp/search?query=", 8.0),
-    # Tier 3 (Less likely group: alternative engines)
+    ("https://www.google.com/search?q=", 12.0),
+    ("https://duckduckgo.com/?q=", 70.0),
+    ("https://www.bing.com/search?q=", 4.0),
+    ("https://search.brave.com/search?q=", 4.0),
+    ("https://www.startpage.com/sp/search?query=", 3.0),
     ("https://www.ecosia.org/search?q=", 1.5),
     ("https://www.mojeek.com/search?q=", 1.5),
     ("https://www.qwant.com/?q=", 1.5),
-    ("https://lite.duckduckgo.com/lite/?q=", 1.5),
+    ("https://lite.duckduckgo.com/lite/?q=", 2.5),
 ]
 SEARCH_ENDPOINTS = [url for url, _ in SEARCH_ENGINE_TIERS]
 SEARCH_WEIGHTS = [w for _, w in SEARCH_ENGINE_TIERS]
@@ -41,9 +36,8 @@ ENGINE_NAMES = ["Google", "DuckDuckGo", "Bing", "Brave", "Startpage", "Ecosia", 
 SEARCH_OPTIONS: dict = {"weights": {}, "typos": False}
 
 
-# The Ason persona searches almost only with DuckDuckGo (anything chosen in Settings -> Search engines wins).
-PERSONA_SEARCH = {"Ason": {"DuckDuckGo": 88.0, "Google": 5.0, "Bing": 3.0, "Brave": 2.0, "Startpage": 1.0,
-                           "DuckDuckGo Lite": 1.0}}
+# Per-persona search mixes (none now: every persona uses the DuckDuckGo-first default; anything chosen in Settings wins).
+PERSONA_SEARCH: dict = {}
 
 
 def configure_search(weights: dict | None = None, typos: bool = False, persona: str | None = None) -> None:
