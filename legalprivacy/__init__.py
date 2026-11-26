@@ -5,4 +5,4 @@ per-identity consistent fingerprints, human-cadence pacing, and an optional
 community relay contribution (middle, bridge or a DNS-only helper; never a general exit).
 """
 
-__version__ = "2.20.1"
+__version__ = "2.21.0"
