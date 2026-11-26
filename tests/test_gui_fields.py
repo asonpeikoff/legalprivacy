@@ -63,7 +63,7 @@ def test_payload_kinds():
     assert p["dns"]["system_share"] == 0.3 and p["transports"]["clearnet"]["proxy"] is None
     assert p["transports"]["tor"]["onion_seeds"].count("\n") == 1
     assert p["extras"] == {"daily_data_mb": 12.0, "active_from": 7, "persona_share": 0.9}
-    assert p["realtime_scale"] == 1.5
+    assert abs(p["realtime_scale"] - 1 / 1.5) < 1e-9          # time compression 1.5x = waits 1/1.5 as long
     assert F.fields_payload({}) == {}
 
 

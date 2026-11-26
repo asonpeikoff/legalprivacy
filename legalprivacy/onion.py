@@ -85,6 +85,59 @@ def builtin_site_name(url: str) -> str | None:
     return None
 
 
+def _names_file():
+    from .paths import app_dir
+    return app_dir() / "onion_names.json"
+
+
+def learned_names() -> dict[str, str]:
+    """Names the noise read off onion pages it visited (their <title>), by host, for sites that have no built-in name."""
+    try:
+        import json
+        data = json.loads(_names_file().read_text(encoding="utf-8"))
+        return {str(k): str(v) for k, v in data.items()} if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+_TITLE_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.I | re.S)
+
+
+def learn_title(url: str, html: str) -> None:
+    """Remember a page's <title> as the name of its site, once (never overwrites; short, plain text only)."""
+    h = _host(url)
+    if not h.endswith(".onion") or builtin_site_name(url) or not html:
+        return
+    m = _TITLE_RE.search(html[:20000])
+    if not m:
+        return
+    import html as _html
+    import json
+    title = re.sub(r"\s+", " ", _html.unescape(re.sub(r"<[^>]+>", "", m.group(1)))).strip()
+    title = re.split(r"\s[|\u2013\u2014-]\s", title)[0].strip()[:40]
+    if len(title) < 3 or not any(c.isalpha() for c in title):
+        return
+    names = learned_names()
+    if h in names:
+        return
+    names[h] = title
+    try:
+        f = _names_file()
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(json.dumps(names, indent=1), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def site_label(url: str) -> str:
+    """The best name we have for an onion address: built in, learned from its page, or a short form of the address."""
+    n = builtin_site_name(url) or learned_names().get(_host(url))
+    if n:
+        return n
+    h = _host(url).removesuffix(".onion")
+    return f"Onion site {h[:6]}\u2026{h[-4:]}" if len(h) > 12 else f"Onion site {h}"
+
+
 _ONION_RE = re.compile(r"^[a-z2-7]{56}$")
 
 

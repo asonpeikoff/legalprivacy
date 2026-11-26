@@ -34,6 +34,7 @@ from .humanize import HumanDriver, lognormal_clipped
 from .transports import ClearnetTransport, HitResult, Target, Transport
 from .paths import getenv
 
+MULTI_TAB = True        # set from Settings (extras.multi_tab)
 DESKTOP_VIEWPORTS = [((1920, 1080), 30), ((1536, 864), 14), ((1366, 768), 12), ((1440, 900), 9),
                      ((1280, 720), 8), ((2560, 1440), 7), ((1600, 900), 6), ((1280, 800), 5)]
 MOBILE_VIEWPORTS = [((390, 844), 3.0, 30), ((412, 915), 2.625, 25), ((393, 873), 2.75, 20), ((360, 800), 3.0, 15)]
@@ -401,6 +402,11 @@ class BrowserTransport(Transport):
             return ctx
         ctx = make()
         ctx.add_init_script(self._NO_POPUPS_JS)
+        try:
+            from . import fingerprint
+            ctx.add_init_script(fingerprint.init_script(fingerprint.seed_state()["seed"]))   # canvas, WebGL, fonts, audio
+        except Exception:
+            pass
         ours = self._our_pages
 
         def _stray(pg):
@@ -571,8 +577,9 @@ class BrowserTransport(Transport):
                 locale=lang, storage_state=self._load_jar(False)))
         page = self._new_tab(ctx)
         if not mobile:
-            (w, h), _ = rng.choices(DESKTOP_VIEWPORTS, weights=[v[1] for v in DESKTOP_VIEWPORTS])[0]
-            vh = h - rng.choice([0, 70, 85, 110])          # browser chrome eats some height
+            from . import fingerprint
+            w, h = fingerprint.window_size(fingerprint.seed_state()["seed"])      # not maximised; steady for hours
+            w += rng.choice([0, 0, 8]); vh = h - 85          # browser chrome eats some height
             try:
                 page.set_viewport_size({"width": w, "height": vh})
             except Exception:
@@ -630,6 +637,8 @@ class BrowserTransport(Transport):
         bytes_before = s.get("counter", {}).get("bytes", 0)
         driver = HumanDriver(self.rng, act, scale=self.scale())
         how = "open"
+        if target.role == "chat" and target.script:
+            return self._chat_hit(page, driver, target, s)
         try:
             resp = None
             t_load = time.time()
@@ -674,10 +683,17 @@ class BrowserTransport(Transport):
                 except Exception:
                     probe = [0, ""]
                 walled = looks_like_login_wall(page.url, title, probe[1], password_fields=probe[0])
-            if walled or foreign:     # needs an account, or not in English: a quick glance, then elsewhere
-                stats = driver.browse(dwell=self.rng.uniform(2, 6))
-            else:
-                stats = driver.serp() if target.role == "search" else driver.browse()
+            side = None
+            if not (walled or foreign) and target.role != "search":
+                side = self._open_side_tab(page, mobile)            # now and then a link is opened in a second tab, as people do
+            try:
+                if walled or foreign:     # needs an account, or not in English: a quick glance, then elsewhere
+                    stats = driver.browse(dwell=self.rng.uniform(2, 6))
+                else:
+                    stats = driver.serp() if target.role == "search" else driver.browse()
+            finally:
+                if side is not None:
+                    self._glance_and_close(side, page, mobile)
             downloaded = None if walled or foreign else (self._maybe_download(page) or self._maybe_save_image(page))
             s["last_url"] = page.url
             s["on_serp"] = target.role == "search"
@@ -715,6 +731,113 @@ class BrowserTransport(Transport):
                 self._sessions.pop(getattr(identity, "id", 0), None)
                 self._contexts = {k: c for k, c in self._contexts.items() if c is not s.get("ctx")}
             return HitResult(None, error=msg)
+
+    def _chat_hit(self, page, driver: HumanDriver, target: Target, s: dict) -> HitResult:
+        """A short chat on a chat site (duck.ai): open it, type each message like a person, wait for the reply to finish
+        streaming, read it, then the next message. The messages are made up from a topic (never from you). The site's
+        terms screen is clicked through only when the user switched chat noise on (target.accept_terms)."""
+        t0 = time.time()
+        sc = self.scale()
+        try:
+            page.goto(target.url, wait_until="domcontentloaded", timeout=int(target.timeout * 1000))
+            box = page.locator("textarea").first
+            try:
+                box.wait_for(state="visible", timeout=15000)
+            except Exception:
+                return HitResult(None, error="the chat box did not appear")
+            self._doing(page, None)
+            if not self._consent(page, target.accept_terms):
+                driver.browse(dwell=self.rng.uniform(3, 8))
+                res = HitResult(200, "")
+                res.detail, res.final_url, res.load_ms = "chat not started: its terms screen needs your OK", page.url, 0.0
+                return res
+            sent = 0
+            for i, msg in enumerate(target.script or []):
+                if self._stopped():
+                    break
+                driver.pause(lognormal_clipped(self.rng, 2.0 if i == 0 else 4.0, 0.5, 0.8, 15))     # think about what to ask
+                box = page.locator("textarea").first
+                box.click()
+                self._type_like_a_person(page, msg, sc)
+                page.keyboard.press("Enter")
+                sent += 1
+                self._wait_for_reply(page, sc)
+                driver.pause(lognormal_clipped(self.rng, 6.0, 0.6, 2.0, 40))                          # read the answer
+            res = HitResult(200, "")
+            res.detail = f"chat: {sent} message{'s' if sent != 1 else ''}"
+            res.final_url, res.load_ms = page.url, (time.time() - t0) * 1000.0
+            res.on_page_s = time.time() - t0
+            res.bytes = 0
+            return res
+        except Exception as exc:
+            return HitResult(None, error=str(exc).splitlines()[0][:200])
+
+    def _stopped(self) -> bool:
+        return bool(self.stop_event is not None and self.stop_event.is_set())
+
+    def _consent(self, page, accept: bool) -> bool:
+        """True when nothing blocks the chat (or the terms screen was accepted because the user said so)."""
+        try:
+            btn = page.get_by_role("button", name=re.compile(r"^(continue|agree and continue|i agree)$", re.I))
+            if btn.count() and btn.first.is_visible():
+                if not accept:
+                    return False
+                btn.first.click()
+                page.wait_for_timeout(int(800 * self.scale() + 200))
+        except Exception:
+            pass
+        return True
+
+    def _type_like_a_person(self, page, text: str, scale: float) -> None:
+        for ch in text:
+            page.keyboard.type(ch, delay=0)
+            d = self.rng.lognormvariate(-2.6, 0.45) * scale           # about 70 ms a key, with a slow tail
+            if ch in " ,." and self.rng.random() < 0.08:
+                d += self.rng.uniform(0.2, 0.7) * scale               # a pause between words
+            page.wait_for_timeout(int(max(5, d * 1000)))
+
+    def _wait_for_reply(self, page, scale: float, limit: float = 90.0) -> None:
+        """The reply is done when the page stops changing for a few seconds (or after `limit` seconds)."""
+        end, last, still = time.time() + limit * max(scale, 0.05), -1, 0
+        while time.time() < end and not self._stopped():
+            page.wait_for_timeout(int(600 * max(scale, 0.05) + 100))
+            n = page.evaluate("() => document.body.innerText.length")
+            still = still + 1 if n == last else 0
+            if still >= 4:
+                return
+            last = n
+
+    def _open_side_tab(self, page, mobile: bool):
+        """About one visit in eight on a desktop: open a link of this page in a second tab (it loads while you read the first)."""
+        if mobile or not MULTI_TAB or self.rng.random() > 0.12:
+            return None
+        try:
+            hrefs = page.evaluate(
+                "() => [...document.querySelectorAll('a[href]')].filter(a => a.offsetParent && a.origin === location.origin"
+                " && a.pathname !== location.pathname && !a.hasAttribute('download')).map(a => a.href).slice(0, 40)")
+            if not hrefs:
+                return None
+            side = self._new_tab(page.context)
+            side.goto(self.rng.choice(hrefs), referer=page.url, wait_until="domcontentloaded", timeout=15000)
+            page.bring_to_front()
+            return side
+        except Exception:
+            return None
+
+    def _glance_and_close(self, side, page, mobile: bool) -> None:
+        """Switch to the second tab, look at it for a few seconds, close it and go back to the first."""
+        try:
+            side.bring_to_front()
+            HumanDriver(self.rng, PlaywrightActuator(side, mobile, self.stop_event, None),
+                        scale=self.scale()).browse(dwell=self.rng.uniform(3, 9))
+        except Exception:
+            pass
+        finally:
+            try:
+                side.close()
+                page.bring_to_front()
+            except Exception:
+                pass
 
     def _click_through(self, page, driver: HumanDriver, target: Target, mobile: bool):
         """Find the result's link on the results page and click (or tap) it like a person."""

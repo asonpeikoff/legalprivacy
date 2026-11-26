@@ -27,12 +27,15 @@ from .paths import getenv
 @dataclass
 class Target:
     url: str
-    kind: str = "html"            # html | doh | dns | pkg
+    kind: str = "html"            # html | doh | dns | pkg | download | upload
     timeout: float = 25.0
     referer: str | None = None    # set on click-through / link-follow hits
     note: str | None = None       # e.g. query origin ("trends", "dataset"…), shown in the log
     role: str = "page"            # search | result | page
     dwell: float | None = None    # seconds a person would spend on this page (sessions)
+    script: list[str] | None = None   # role 'chat': the messages to send, one after another
+    size: int = 0                 # download: stop after this many bytes; upload: how many random bytes to send
+    accept_terms: bool = False    # role 'chat': the user switched chat noise on, which accepts the site's terms
 
     @property
     def host(self) -> str:
@@ -103,19 +106,24 @@ class ClearnetTransport(Transport):
         return healthy
 
     def hit(self, identity: Identity, target: Target) -> HitResult:
+        from .identity import navigation_headers
         proxies = {"http": self.proxy, "https": self.proxy} if self.proxy else None
-        headers = _identity_headers(identity)
-        if target.referer:
-            headers["Referer"] = target.referer
+        if target.kind in ("download", "upload"):
+            from .files import transfer
+            return transfer(target, proxies, None)
+        headers = navigation_headers(identity, target.url, target.referer)
         try:
-            resp = requests.get(
-                target.url,
-                timeout=target.timeout,
-                allow_redirects=True,
-                proxies=proxies,
-                # Identity headers injected here; requests also sets Host/Content-Length.
-                headers=headers,
-            )
+            # A fresh session with none of requests' own default headers, so the request carries exactly the
+            # browser-ordered set above (and no cookies from an earlier visit) instead of requests' signature order.
+            with requests.Session() as sess:
+                sess.headers.clear()
+                resp = sess.get(
+                    target.url,
+                    timeout=target.timeout,
+                    allow_redirects=True,
+                    proxies=proxies,
+                    headers=headers,
+                )
             status = resp.status_code
             if status == 202 and "duckduckgo.com" in target.url:
                 status = 429                       # DuckDuckGo's bot check: back off, don't count a visit
@@ -133,8 +141,9 @@ class TorTransport(Transport):
     """
 
     def __init__(self, socks: str = "127.0.0.1:9050", control: str | None = None,
-                 identities_per_circuit: int = 8, control_password: str | None = None):
+                 identities_per_circuit: int = 8, control_password: str | None = None, share_browser: bool = False):
         host, _, port = socks.partition(":")
+        self.share_browser = share_browser       # Tor Browser uses this Tor too: never signal NEWNYM under it
         self.socks_host = host or "127.0.0.1"
         self.socks_port = int(port) if port else 9050
         self.control = control
@@ -156,6 +165,9 @@ class TorTransport(Transport):
         return {"http": uri, "https": uri}
 
     def hit(self, identity: Identity, target: Target) -> HitResult:
+        if target.kind in ("download", "upload"):
+            from .files import transfer
+            return transfer(target, self._socks_proxies(identity), dict(TOR_BROWSER_HEADERS), 120.0)
         onion = is_onion_host(target.url)
         headers = dict(TOR_BROWSER_HEADERS) if onion else _identity_headers(identity)
         try:
@@ -171,8 +183,10 @@ class TorTransport(Transport):
             return HitResult(None, error=explain_tor_error(str(exc), f"{self.socks_host}:{self.socks_port}"))
 
     def renew_circuits(self) -> bool:
-        """NEWNYM via the Tor control port, if configured. Best-effort."""
-        if not self.control:
+        """NEWNYM via the Tor control port, if configured. Best-effort. Skipped while Tor Browser shares this Tor:
+        a NEWNYM would turn over the circuits under the pages you have open there; each identity already has its own
+        circuit through its own SOCKS login, so the noise does not need it."""
+        if not self.control or self.share_browser:
             return False
         from .torcontrol import TorControl, TorControlError, split_hostport
         host, port = split_hostport(self.control, 9051)

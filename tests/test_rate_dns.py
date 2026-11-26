@@ -17,16 +17,16 @@ from legalprivacy.transports import HitResult  # noqa: E402
 
 def test_slider_is_monotonic_and_labelled_with_benchmarks():
     vals = [searches_per_hour(lv) for lv in range(1, 11)]
-    assert vals == sorted(vals) and vals[0] < 1 and vals[-1] >= 20
+    assert vals == sorted(vals) and vals[0] <= 1 and searches_per_hour(9) >= 45 and vals[-1] >= 60
     d = describe(5, 0.3)
-    assert d["searches_per_hour"] == 4 and d["vs_average_person"] > 1
+    assert d["searches_per_hour"] == 11 and d["vs_average_person"] > 1
 
 
 def test_random_mode_varies_hour_to_hour_and_has_quiet_hours():
     rp = RatePlanner(random.Random(1), RateConfig(mode="random", level=5))
     xs = [rp.actions_for_hour(h % 24, 0.3) for h in range(24 * 30)]
     assert statistics.pstdev(xs) > 0.3 * statistics.mean(xs)
-    assert sum(x < 2 for x in xs) > 24 * 30 * 0.05            # some near-empty "away" hours
+    assert sum(x < 0.15 * statistics.mean(xs) for x in xs) > 24 * 30 * 0.05   # some near-empty "away" hours
     night = [rp.actions_for_hour(4, 0.3) for _ in range(400)]
     evening = [rp.actions_for_hour(20, 0.3) for _ in range(400)]
     assert statistics.mean(evening) > statistics.mean(night)
@@ -135,10 +135,10 @@ def test_partial_randomness_scales_between_steady_and_random():
 def test_top_level_stays_gentle_and_no_engine_exceeds_its_hourly_cap():
     from legalprivacy.engines import MAX_SEARCHES_PER_ENGINE_PER_HOUR, _ENGINE_HITS, pick_search_endpoint
     from legalprivacy.rate import searches_per_hour
-    assert searches_per_hour(10) <= 20
+    assert searches_per_hour(10) <= 100
     _ENGINE_HITS.clear()
     rng, t0 = random.Random(1), 1_000_000.0
-    picks = [pick_search_endpoint(rng, now=t0 + i) for i in range(40)]
+    picks = [pick_search_endpoint(rng, now=t0 + i) for i in range(100)]
     assert max(picks.count(p) for p in set(picks)) <= MAX_SEARCHES_PER_ENGINE_PER_HOUR
     _ENGINE_HITS.clear()
 
@@ -231,6 +231,7 @@ def test_long_session_keeps_returning_to_the_same_page():
     r.run_once(wait=False)
     assert r.hit_log[-1]["url"] == "https://example.org/notes" and r.hit_log[-1]["role"] == "linger"
     now[0] += 4000                                           # the session is over
+    r.profile.extras.long_sessions = False                   # (so the next visit cannot start a new one at random)
     r.run_once(wait=False)
     assert lane.linger is None
 
@@ -253,6 +254,24 @@ def test_stepping_away_keeps_the_route_quiet_then_resumes_the_same_page():
     assert r.lanes[0].linger["mode"] == "work"                 # and carries on with it for a while
 
 
+def test_stepped_away_still_has_the_odd_detour():
+    p = Profile(name="t")
+    apply_overrides(p, {"rate": {"mode": "steady", "level": 10}})
+    now = [1000.0]
+    r = _app_runner(p, lambda: now[0])
+    r.plan_hour(14)
+    for ln in r.lanes:
+        for b in ln.budgets.values():
+            b.per_day = 1000
+        ln.linger = {"mode": "away", "url": "https://example.org/doc", "engine": "crawl",
+                     "until": now[0] + 7200, "next_at": 0.0, "other_at": now[0] + 900}
+    assert r.run_once(wait=False) is False                     # quiet at first
+    now[0] += 1000
+    assert r.run_once(wait=False) is True                      # then a detour while still away
+    assert r.hit_log[-1]["role"] != "linger"
+    assert any(ln.linger and ln.linger["mode"] == "away" and ln.linger["other_at"] > now[0] for ln in r.lanes)
+
+
 def test_long_sessions_start_now_and_then_and_can_be_turned_off():
     from legalprivacy.transports import Target
     p = Profile(name="t")
@@ -264,7 +283,7 @@ def test_long_sessions_start_now_and_then_and_can_be_turned_off():
         lane.linger = None
         r._maybe_linger(lane, "crawl", Target(url="https://example.org/"))
         started += lane.linger is not None
-    assert 80 < started < 280                                  # about 9% of page visits
+    assert 120 < started < 330                                 # about 11% of page visits, few of them "away"
     r.profile.extras.long_sessions = False
     lane.linger = None
     for _ in range(500):
@@ -342,3 +361,69 @@ def test_during_a_long_session_visits_to_other_sites_of_that_kind_are_rare():
     assert 50 < mean_min < 75                                              # about an hour
     share = sum(1 for g in gaps if g < 600) / len(gaps)
     assert abs(share - 0.15) < 0.03 and abs(-600 / math.log(1 - 0.15) / 60 - 61.6) < 0.5
+
+
+def test_ason_long_sessions_sometimes_are_a_duck_ai_chat():
+    from legalprivacy.transports import Target
+    p = Profile(name="t")
+    assert p.extras.persona == "Default mix"
+    r = _app_runner(p, lambda: 0.0)
+    r.rng = random.Random(11)                                     # seeded: the long sessions are drawn at random
+    lane = r.lanes[0]
+    modes = set()
+    for _ in range(8000):
+        lane.linger = None
+        r._maybe_linger(lane, "crawl", Target(url="https://example.org/"))
+        if lane.linger and lane.linger["url"] == "https://duck.ai/":
+            modes.add(lane.linger["mode"])
+    assert modes == {"work", "away"}
+    r.profile.extras.persona = "Student"
+    for _ in range(1500):
+        lane.linger = None
+        r._maybe_linger(lane, "crawl", Target(url="https://example.org/"))
+        assert not lane.linger or lane.linger["url"] != "https://duck.ai/"
+
+
+def test_default_persona_skips_celebrity_sites_in_the_popular_draw():
+    import random
+    from legalprivacy.domains import DomainPool, is_entertainment_news
+    assert is_entertainment_news("www.people.com") and not is_entertainment_news("wikipedia.org")
+    pool = DomainPool(random.Random(1))
+    pool.avoid_entertainment = True
+    assert not any(is_entertainment_news(d) for d in pool._ranked())
+
+
+def test_a_dns_lookup_is_often_followed_by_the_burst_a_page_load_makes():
+    import random as _r
+    from legalprivacy.domains import DomainPool
+    from legalprivacy.engines import PAGE_ASSET_HOSTS, DnsNoise, burst_hosts
+    from legalprivacy.transports import Target
+    pool = DomainPool(_r.Random(2), None)
+    seen = []
+    for seed in range(200):                                   # the burst: 2-14 names, real, no repeats, never the site
+        b = burst_hosts(_r.Random(seed), pool, "example.com")
+        assert 2 <= len(b) <= 14 and len(set(b)) == len(b) and "example.com" not in b
+        seen.append(len(b))
+    assert 2 <= sorted(seen)[100] <= 6                        # usually a handful
+    assert {h for h, _ in PAGE_ASSET_HOSTS} & {h for s in range(50) for h in burst_hosts(_r.Random(s), None)}
+
+    looked = []
+    orig = DnsNoise.resolve_system
+    DnsNoise.resolve_system = staticmethod(lambda domain, timeout=4.0: looked.append(domain) or True)
+    try:
+        p = Profile(name="t")
+        r = _app_runner(p, lambda: 0.0)
+        r.sleep_fn = lambda s: None
+        sizes = []
+        for _ in range(60):
+            looked.clear()
+            res = r._dns_probe(Target(url="dns://system/example.com", kind="dns"))
+            assert res.status == 200 and looked[0] == "example.com"
+            sizes.append(len(looked))
+        assert 0.6 < sum(1 for n in sizes if n > 1) / 60 < 1.0 and max(sizes) > 3      # most, not all, lookups get a burst
+        r.profile.extras.dns_bursts = False
+        looked.clear()
+        r._dns_probe(Target(url="dns://system/example.com", kind="dns"))
+        assert looked == ["example.com"]                       # off: one lookup, as before
+    finally:
+        DnsNoise.resolve_system = orig

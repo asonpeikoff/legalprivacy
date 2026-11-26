@@ -1,6 +1,7 @@
 """Local web dashboard (stdlib only). Binds to 127.0.0.1, token-protected."""
 from __future__ import annotations
 
+import re
 import json
 import os
 import secrets
@@ -182,6 +183,11 @@ class UIServer:
                                        "form-action 'none'"})
                 if not self._auth(q):
                     return self._json({"error": "unauthorized"}, 401)
+                if re.fullmatch(r"/logo/(trad|egg)/[a-z0-9-]+\.(webp|mp4)", u.path):       # the header logos
+                    f = Path(__file__).parent / "web" / "logos" / u.path[len("/logo/"):]
+                    if f.is_file():
+                        return self._send(200, f.read_bytes(), "video/mp4" if f.suffix == ".mp4" else "image/webp")
+                    return self._json({"error": "not found"}, 404)
                 ctl = srv.ctl
                 try:
                     if u.path == "/api/avoid":
@@ -192,6 +198,13 @@ class UIServer:
                         return self._json(ctl.torbrowser_state())
                     if u.path == "/api/defaults":
                         return self._json(ctl.defaults_info())
+                    if u.path == "/api/map/info":
+                        return self._json(ctl.map_info((q.get("ip") or [""])[0], (q.get("name") or [""])[0],
+                                                       (q.get("kind") or [""])[0]))
+                    if u.path == "/api/scrape":
+                        return self._json(ctl.scrape_state())
+                    if u.path == "/api/proxies":
+                        return self._json(ctl.proxy_state())
                     if u.path == "/api/accounts":
                         return self._json(ctl.accounts.status())
                     if u.path == "/api/activity":
@@ -220,6 +233,8 @@ class UIServer:
                         return self._json(ctl.leak_runner().state())
                     if u.path == "/api/relay":
                         return self._json(ctl.relay_state())
+                    if u.path == "/api/remote":
+                        return self._json(ctl.remote_state())
                     if u.path == "/api/tor/dns/addresses":
                         return self._json(ctl.tor_dns_addresses())
                     if u.path == "/api/tools/resolvers":
@@ -247,7 +262,7 @@ class UIServer:
                     if u.path == "/api/tools/estimate":
                         return self._json(ctl.estimate())
                     if u.path == "/api/tools/selftest":
-                        return self._json(ctl.selftest(_qfloat(q, "days", "14")))
+                        return self._json(ctl.selftest(_qfloat(q, "days", "14"), demo=(q.get("demo") or ["0"])[0] == "1"))
                     if u.path == "/api/ml":
                         return self._json(ctl.ml_state())
                     if u.path == "/api/ml/predict":
@@ -341,10 +356,15 @@ class UIServer:
                         return self._json(ctl.relay_start(body))
                     elif path == "/api/relay/stop":
                         return self._json(ctl.relay_stop())
+                    elif path.startswith("/api/remote/") and path[12:] in (
+                            "add", "test", "trust", "forget_key", "configure", "start", "stop", "remove"):
+                        return self._json(getattr(ctl, "remote_" + path[12:])(body))
                     elif path.startswith("/api/tor/"):
                         return self._json(ctl.tor_action(path.rsplit("/", 1)[1]))
                     elif path == "/api/config":
                         return self._json(ctl.apply_config(body))
+                    elif path == "/api/nudge":
+                        return self._json(ctl.nudge_mix(str(body.get("what", "")), int(body.get("direction", 0))))
                     elif path == "/api/torbrowser/open":
                         return self._json(ctl.torbrowser_open())
                     elif path == "/api/update/check":
@@ -365,6 +385,18 @@ class UIServer:
                         return self._json(ctl.mylist_save(body))
                     elif path == "/api/mylist/bookmarks":
                         return self._json(ctl.mylist_bookmarks(body.get("urls")))
+                    elif path == "/api/map/block":
+                        return self._json(ctl.map_block(str(body.get("host", "")), str(body.get("mode", ""))))
+                    elif path == "/api/scrape/start":
+                        return self._json(ctl.scrape_start(body))
+                    elif path == "/api/scrape/stop":
+                        return self._json(ctl.scrape_stop())
+                    elif path == "/api/proxies/refresh":
+                        return self._json(ctl.proxy_refresh())
+                    elif path == "/api/proxies/source":
+                        return self._json(ctl.proxy_source(str(body.get("action", "")), str(body.get("url", ""))))
+                    elif path == "/api/mylist/recording":
+                        return self._json(ctl.mylist_from_recording())
                     elif path == "/api/mylist/scan":
                         return self._json(ctl.mylist_scan(body.get("days", 30)))
                     elif path == "/api/mylist/watch":

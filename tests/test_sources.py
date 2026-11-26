@@ -121,3 +121,46 @@ def test_shipped_snapshot_works_offline_without_fetching():
     st.refresh()                                  # not forced: snapshot is fresh, nothing fetched
     assert calls == [] and not st.path.exists()
     assert all(s["origin"] == "shipped snapshot" for s in st.status())
+
+
+def test_the_header_logo_is_the_red_white_and_blue_one_and_the_egg_is_a_triple_click():
+    import re
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent
+    web = root / "legalprivacy" / "web"
+    html = (web / "index.html").read_text(encoding="utf-8")
+    box = html.split('class="logos"', 1)[1].split("</span>", 1)[0]
+    assert len(re.findall(r"<img[^>]*>", box)) == 1 and (web / "logo_trad.png").exists()
+    assert "clicks.length>=3" in html and "'ArrowUp','ArrowUp','ArrowDown'" in html            # the egg: three quick clicks, or Konami
+    assert (web / "logos" / "egg" / "02-green-supine-skirt.webp").exists()
+    assert not (web / "logos" / "trad" / "03-art-deco.webp").exists() and not (web / "logos" / "trad" / "06-rope-blue.webp").exists()
+
+
+def test_nudges_keep_the_mix_at_100_and_never_go_negative():
+    from legalprivacy.mixnudge import nudge_phones, nudge_shares
+    w = {"browser": 100.0, "plain": 0.0, "onion": 40.0}
+    up = nudge_shares(w, "onion", 1)
+    assert abs(sum(up.values()) - 100) < 0.11 and up["onion"] > 28.6 and up["browser"] < 71.4
+    s = {"browser": 100.0, "plain": 0.0, "onion": 0.0}
+    for _ in range(12):
+        s = nudge_shares(s, "browser", -1)
+        assert all(v >= 0 for v in s.values()) and abs(sum(s.values()) - 100) < 0.11
+    assert s["browser"] == 0.0
+    for _ in range(12):
+        s = nudge_shares(s, "plain", 1)
+    assert s["plain"] == 100.0
+    assert nudge_phones(0.95, 1) == 1.0 and nudge_phones(0.05, -1) == 0.0
+
+
+def test_nudge_mix_saves_and_refuses_onion_without_tor(tmp_path, monkeypatch):
+    import pytest
+    from legalprivacy.config import ConfigError
+    from legalprivacy.controller import Controller
+    monkeypatch.setenv("HOME", str(tmp_path))
+    c = Controller(str(tmp_path / "p.yaml"))
+    m = c.nudge_mix("browser", -1)
+    assert m["shares"]["browser"] == 90.0 and c.profile.traffic.plain == 10.0
+    with pytest.raises(ConfigError):
+        c.nudge_mix("onion", 1)
+    with pytest.raises(ConfigError):
+        c.nudge_mix("bogus", 1)

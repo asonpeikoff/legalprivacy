@@ -77,9 +77,9 @@ def add_typo(rng, query: str) -> str:
     words[i] = w
     return " ".join(words)
 
-# No search engine gets more than this many searches from us in any hour, whatever the
-# level: well under the volume that triggers CAPTCHAs or rate limits for one address.
-MAX_SEARCHES_PER_ENGINE_PER_HOUR = 8
+# No search engine gets more than this many searches from us in any hour, whatever the level. A busy person can
+# do this many on one engine; much more from one address starts to draw CAPTCHAs.
+MAX_SEARCHES_PER_ENGINE_PER_HOUR = 20
 _ENGINE_HITS: dict[str, list[float]] = {}
 _ENGINE_LOCK = __import__("threading").Lock()
 
@@ -405,6 +405,33 @@ def parse_dns_names(answer: bytes) -> list[str]:
     except (IndexError, struct.error):
         return []
     return names
+
+
+# Names a page load really asks for next: shared fonts, script and tag hosts that almost every site uses. Real
+# names only: inventing hosts would produce NXDOMAINs, which is itself a tell.
+PAGE_ASSET_HOSTS = [
+    ("fonts.googleapis.com", 6), ("fonts.gstatic.com", 6), ("www.googletagmanager.com", 5), ("www.google-analytics.com", 4),
+    ("ajax.googleapis.com", 3), ("cdnjs.cloudflare.com", 3), ("cdn.jsdelivr.net", 3), ("code.jquery.com", 2),
+    ("www.gstatic.com", 4), ("www.google.com", 3), ("i.ytimg.com", 1), ("unpkg.com", 1),
+]
+
+
+def burst_hosts(rng: random.Random, pool=None, first: str = "") -> list[str]:
+    """The names a page load asks for right after the site's own: about 2 to 14 (usually 3 or 4), mostly shared
+    asset hosts and the rest other popular sites (embeds, links). Never the site itself, never repeated."""
+    k = max(2, min(14, round(rng.lognormvariate(1.3, 0.55))))
+    out: list[str] = []
+    hosts, weights = zip(*PAGE_ASSET_HOSTS, strict=True)
+    for _ in range(k * 3):
+        if len(out) >= k:
+            break
+        if pool is not None and rng.random() < 0.35:
+            h = (pool.hostname() or "").removeprefix("www.")
+        else:
+            h = rng.choices(hosts, weights=weights)[0]
+        if h and h != first and h not in out:
+            out.append(h)
+    return out
 
 
 class DnsNoise:

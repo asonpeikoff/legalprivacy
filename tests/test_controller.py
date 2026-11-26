@@ -24,7 +24,7 @@ def test_wizard_three_answers_persist_and_tor_defaults_off():
     c = _ctl()
     assert c.first_run
     st = c.wizard({"rate_mode": "random", "level": 3, "tor": "off", "autostart": True})
-    assert not st["first_run"] and st["profile"]["rate"] == {"mode": "random", "level": 3.0, "randomness": 1.0}
+    assert not st["first_run"] and st["profile"]["rate"] == {"mode": "random", "level": 3.0, "randomness": 1.0, "auto_correct": True}
     assert st["profile"]["transports"]["tor"]["enabled"] is False
     c2 = Controller(c.profile_path)                       # reload from disk
     assert c2.app["autostart"] is True and not c2.first_run
@@ -94,6 +94,12 @@ def test_web_api_requires_token_and_serves_state():
             assert e.code == 403
         with urllib.request.urlopen(base + "/?t=" + srv.token, timeout=5) as r:
             assert b"legalPrivacy" in r.read()
+        for path, kind in (("/logo/trad/04-painted.webp", "image/webp"), ("/logo/trad/07-terminal.webp", "image/webp"),
+                           ("/logo/egg/02-green-supine-skirt.webp", "image/webp"), ("/logo/egg/18-purple-anim-white.mp4", "video/mp4")):
+            with urllib.request.urlopen(base + path + "?t=" + srv.token, timeout=5) as r:
+                assert r.headers["Content-Type"] == kind and len(r.read()) > 1000
+        assert _call(base, srv.token, "/logo/trad/../../webui.py")[0] in (401, 404)      # only the logo files are served
+        assert _call(base, "wrong", "/logo/trad/04-painted.webp")[0] == 401
     finally:
         srv.httpd.shutdown()
 
@@ -116,3 +122,47 @@ def test_network_tools_report_errors_without_crashing_and_leak_check_has_shape()
     assert res["down_mbps"] is None and res["up_mbps"] is None and len(res["errors"]) == 2
     leak = dns_leak_check(["9.9.9.9"])
     assert {"resolvers", "sample_lookup", "external_test"} <= set(leak)
+
+
+
+def test_my_list_can_be_filled_from_the_imported_recording():
+    c = _ctl()
+    c.har.load = lambda: {"top_hosts": [["www.example.com", 40], ["example.com", 5], ["news.example.org", 12]], "entries": 57}
+    r = c.mylist_from_recording()
+    assert r["sites"][0] == ["example.com", 45] and ["news.example.org", 12] in r["sites"]
+    c.har.load = lambda: None
+    try:
+        c.mylist_from_recording()
+        raise AssertionError("expected ConfigError")
+    except ConfigError:
+        pass
+
+
+def test_map_node_actions_block_a_site_for_the_noise_and_give_firewall_commands(tmp_path):
+    import os
+    import time as _t
+    os.environ["LEGALPRIVACY_HOME"] = str(tmp_path / "h")
+    from legalprivacy.config import ConfigError
+    c = _ctl()
+    c.map_block("www.Example.com", "temporary")
+    assert "example.com" in c.feeds.denylist() and list(c.blocked()) == ["example.com"]
+    c.map_block("tracker.example.net", "permanent")
+    assert set(c.blocked()) == {"example.com", "tracker.example.net"}
+    c.map_block("example.com", "unblock")
+    assert "example.com" not in c.feeds.denylist() and "tracker.example.net" in c.feeds.denylist()
+    c._apply_blocks({"old.example.org": _t.time() - 5})                  # a day-long block that has run out
+    assert "old.example.org" not in c.blocked()
+    for bad in (("1.2.3.4", "permanent"), ("nodots", "permanent"), ("good.example", "zap")):
+        try:
+            c.map_block(*bad)
+            raise AssertionError("expected ConfigError")
+        except ConfigError:
+            pass
+    info = c.map_info("93.184.216.34", "example.com/", "noise")
+    assert info["ip"] == "93.184.216.34" and info["block_host"] == "example.com" and not info["private"]
+    assert any("iptables" in f["add"] and "93.184.216.34" in f["add"] for f in info["firewall"])
+    try:
+        c.map_info("not-an-ip")
+        raise AssertionError("expected ConfigError")
+    except ConfigError:
+        pass

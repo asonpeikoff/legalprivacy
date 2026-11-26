@@ -74,6 +74,23 @@ def ks_similarity(a: list[float], b: list[float]) -> float | None:
     return round(1 - d, 3)
 
 
+def ks_p(a: list[float], b: list[float]) -> float | None:
+    """Two-sample Kolmogorov-Smirnov p-value (asymptotic): the chance of a gap this large between two samples of the
+    same distribution. It treats each minute as independent, which neighbouring minutes are not, so the true p-value is
+    larger than shown; read it as a rough guide, not a verdict."""
+    s = ks_similarity(a, b)
+    if s is None:
+        return None
+    import math
+    d = 1.0 - s
+    en = math.sqrt(len(a) * len(b) / (len(a) + len(b)))
+    lam = (en + 0.12 + 0.11 / en) * d
+    if lam < 0.2:
+        return 1.0
+    p = 2.0 * sum((-1) ** (j - 1) * math.exp(-2.0 * j * j * lam * lam) for j in range(1, 101))
+    return round(min(1.0, max(0.0, p)), 4)
+
+
 def runs(active: list[bool]) -> tuple[list[int], list[int]]:
     """Lengths (minutes) of consecutive active runs and of the quiet gaps between them."""
     on, off, cur, state = [], [], 0, None
@@ -301,7 +318,13 @@ class TrafficObserver:
              ks_similarity([r["hosts"] for r in base if r["n"] > 0], [max(r["noise"], r["req"]) for r in noisy
                                                                       if r["noise"] or r["req"]])),
         ]
-        out["metrics"] = [{"name": n, "what": w, "similarity": s} for n, w, s in metrics]
+        pvals = {"Time of day": ks_p(hb, hn) if fair else None, "Burst length": ks_p(b_on, n_on),
+                 "Quiet gaps": ks_p(b_off, n_off),
+                 "Busyness": ks_p([r["hosts"] for r in base if r["n"] > 0],
+                                  [max(r["noise"], r["req"]) for r in noisy if r["noise"] or r["req"]])}
+        out["metrics"] = [{"name": n, "what": w, "similarity": s, "difference": None if s is None else round(1 - s, 3),
+                           "p": pvals.get(n)} for n, w, s in metrics]
+        out["correction"] = self.correction()
         vals = [s for _, _, s in metrics if s is not None]
         score = sum(vals) / len(vals) if vals else None
         out["score"] = round(score, 3) if score is not None else None
@@ -311,6 +334,55 @@ class TrafficObserver:
                     default=None)
         out["weakest"] = worst["name"] if worst else None
         return out
+
+    # ── automatic correction ───────────────────────────────────────────────
+    def hour_gains(self, min_minutes: int = 20, kind: str | None = None) -> dict[int, float]:
+        """How much more (or less) noise to plan in each hour of the day so the traffic an observer sees, yours plus the
+        noise, is about as busy at every hour as your busy hours are. In an hour when you are rarely here the noise gets
+        up to twice its normal share; in hours when you are busy it eases to about half. Needs `min_minutes` of recorded
+        minutes in an hour; other hours stay at 1. `kind` "weekday" (Mon-Fri) or "weekend" (Sat-Sun) uses only those days,
+        for people whose week has a rhythm (the record is kept for 7 days); None uses every day."""
+        with self._lock:
+            rows = [(t, (len(m["you"]) if isinstance(m["you"], set) else m["you"])) for t, m in self.minutes.items()]
+        by_hour: dict[int, list[float]] = {}
+        for t, n in rows:
+            lt = time.localtime(t)
+            if kind is not None and (lt.tm_wday >= 5) != (kind == "weekend"):
+                continue
+            by_hour.setdefault(lt.tm_hour, []).append(float(n))
+        means = {h: sum(v) / len(v) for h, v in by_hour.items() if len(v) >= min_minutes}
+        if len(means) < 4:
+            return {}
+        vals = sorted(means.values())
+        target = vals[int(0.75 * (len(vals) - 1))]
+        if target < 0.5:                                  # you barely use the connection: nothing to match
+            return {}
+        return {h: round(min(2.0, max(0.5, 1.0 + (target - m) / target)), 2) for h, m in means.items()}
+
+    def _today_kind(self) -> str:
+        return "weekend" if time.localtime(self.clock()).tm_wday >= 5 else "weekday"
+
+    def _gains_now(self) -> tuple[str, dict[int, float]]:
+        """(which record the gains come from, gains): today's kind of day (weekday or weekend) once there are enough hours of
+        it recorded, otherwise every day together. Cached for ten minutes."""
+        now = self.clock()
+        kind = self._today_kind()
+        cache = getattr(self, "_gain_cache", None)
+        if cache is None or now - cache[0] > 600 or cache[1] != kind:
+            g = self.hour_gains(kind=kind)
+            label = kind
+            if not g:
+                g, label = self.hour_gains(), "all days"
+            cache = self._gain_cache = (now, kind, label, g)
+        return cache[2], cache[3]
+
+    def hour_gain(self, hour: int) -> float:
+        return self._gains_now()[1].get(int(hour), 1.0)
+
+    def correction(self) -> dict:
+        label, g = self._gains_now()
+        moves = sorted(((h, v) for h, v in g.items() if abs(v - 1.0) >= 0.1), key=lambda x: -abs(x[1] - 1.0))
+        return {"active": bool(moves), "basis": label, "hours": [{"hour": h, "gain": v} for h, v in sorted(moves)[:24]]}
 
     def onoff(self) -> dict:
         """Average per-minute picture for minutes with the noise off vs on (last 24 h)."""

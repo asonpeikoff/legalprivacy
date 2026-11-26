@@ -118,15 +118,15 @@ def test_ason_persona_is_the_default_and_spreads_over_many_sites():
     from collections import Counter
     from legalprivacy.config import Profile
     from legalprivacy.interests import CATEGORIES, PERSONAS, Persona
-    assert Profile(name="d").extras.persona == "Ason" and abs(sum(PERSONAS["Ason"].values()) - 1) < 1e-9
-    assert set(PERSONAS["Ason"]) <= set(CATEGORIES)
-    p = Persona(_r.Random(3), "Ason")
+    assert Profile(name="d").extras.persona == "Default mix" and abs(sum(PERSONAS["Default mix"].values()) - 1) < 1e-9
+    assert set(PERSONAS["Default mix"]) <= set(CATEGORIES)
+    p = Persona(_r.Random(3), "Default mix")
     c = Counter(p.site() for _ in range(4000))
     assert len(c) > 300                                           # many different sites ...
     assert c.most_common(1)[0][1] < 0.03 * 4000                   # ... and no single one dominates
     objectivist = set(CATEGORIES["Objectivism"]["sites"])
     share = sum(n for s, n in c.items() if s in objectivist) / 4000
-    assert 0.08 < share < 0.22                                    # present, but not oversampled
+    assert 0.12 < share < 0.32                                    # a main part (about a fifth), not all of it
     assert "legalizingprivacy.substack.com" in objectivist
     assert not any("prometheusfdn" in s or "meetup" in s for s in objectivist)
 
@@ -139,7 +139,7 @@ def test_old_default_persona_is_switched_to_ason_once(tmp_path, monkeypatch):
     c.app["migrated_ason"] = False
     c._save()
     c2 = Controller(str(cfg))
-    assert c2.profile.extras.persona == "Ason"
+    assert c2.profile.extras.persona == "Default mix"
     c2.apply_config({"extras": {"persona": "Data scientist"}})          # a later, deliberate choice is kept
     assert Controller(str(cfg)).profile.extras.persona == "Data scientist"
 
@@ -156,3 +156,60 @@ def test_launcher_prints_the_dashboard_link_and_the_start_script_can_install_a_s
     sh = (pathlib.Path(__file__).resolve().parent.parent / "start-legalprivacy.sh").read_text()
     assert "--service" in sh and "--uninstall-service" in sh and "systemctl --user" in sh
     assert "ExecStart=$DIR/.venv/bin/python -m legalprivacy --no-browser" in sh and "NoNewPrivileges=true" in sh
+
+
+def test_health_strongly_recommends_bridges_and_tor_dns_with_one_click_fixes(tmp_path, monkeypatch):
+    from legalprivacy.controller import Controller
+    monkeypatch.setenv("HOME", str(tmp_path))
+    c = Controller(str(tmp_path / "p.yaml"))
+    c.apply_config({"transports": {"tor": {"enabled": True}}})
+    by = {x["name"]: x for x in c.doctor()}
+    br, dn = by["Tor bridges"], by["Tor DNS (ordinary sites)"]
+    assert br["status"] == "warn" and "Strongly recommended" in br["detail"] and br["fix"]["config"]["transports"]["tor"]["bridge_mode"] == "obfs4"
+    assert dn["status"] == "warn" and dn["fix"]["config"]["transports"]["tor"]["dns_port"] > 0
+    assert by["Your own DNS"]["status"] == "info"
+    c.apply_config(br["fix"]["config"])
+    c.apply_config(dn["fix"]["config"])
+    by = {x["name"]: x for x in c.doctor()}
+    assert by["Tor bridges"]["status"] == "ok" and by["Tor DNS (ordinary sites)"]["status"] == "ok"
+    c.apply_config({"transports": {"tor": {"enabled": False}}})
+    off = {x["name"]: x for x in c.doctor()}["Tor"]
+    assert off["fix"]["config"]["transports"]["tor"]["enabled"] is True              # without Tor, the fix is to switch it on
+
+
+def test_old_defaults_move_to_the_new_ones_once():
+    from legalprivacy.config import apply_overrides, Profile
+    from legalprivacy.controller import move_old_defaults
+    p = apply_overrides(Profile(name="old"), {
+        "extras": {"persona": "", "persona_share": 0.9, "interest_list": ["Data science", "News"]},
+        "transports": {"clearnet": {"browser_engine": "auto"}},
+        "identity": {"ua_mode": "pin", "ua_pin": "own"}, "traffic": {"mobile_share": 0.55},
+        "engines": {"search": {"budget_per_day": 120}, "crawl": {"budget_per_day": 40}, "dns": {"budget_per_day": 200}}})
+    moved = move_old_defaults(p)
+    assert p.extras.persona == "Default mix" and p.extras.persona_share == 0.8
+    assert {"Objectivism", "Authors and readers", "Web 2.0"} <= set(p.extras.interest_list)
+    assert p.transports["clearnet"].browser_engine == "mine"
+    assert p.identity.ua_mode == "mix" and p.identity.ua_own_share == 0.85
+    assert p.engines["dns"].budget_per_day == 480 and p.traffic.mobile_share == 0.10 and len(moved) == 7
+    assert apply_overrides(Profile(name="x"), {"extras": {"persona": "Ason"}}).extras.persona == "Default mix"
+
+
+def test_background_amounts_sit_outside_the_activity_mix():
+    from legalprivacy import gui_fields as F
+    from legalprivacy.config import Profile
+    v = F.profile_values(Profile(name="d"), {})
+    assert "dns" not in v["engines_mix"] and v["dns_amount"] == "3"
+    out = F.build_config_payload({"engines_mix": {"search": 75, "crawl": 25}, "dns_amount": "5", "pkg_amount": "0"})
+    assert out["engines"]["dns"] == {"enabled": True, "budget_per_day": 5000}
+    assert out["engines"]["packages"]["enabled"] is False
+
+
+def test_health_offers_to_restore_the_recommended_behaviour_switches_and_nothing_else():
+    from legalprivacy.controller import Controller
+    c = Controller()
+    row = next(r for r in c.doctor() if r["name"] == "Recommended settings")
+    assert row["status"] == "ok" and "fix" not in row
+    c.profile.extras.multi_tab = False
+    c.profile.extras.persona = "Data scientist"           # a persona choice is not a behaviour switch
+    row = next(r for r in c.doctor() if r["name"] == "Recommended settings")
+    assert row["status"] == "warn" and row["fix"]["config"] == {"extras": {"multi_tab": True}}

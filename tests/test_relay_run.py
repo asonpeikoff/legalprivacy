@@ -68,7 +68,7 @@ def test_data_dir_cannot_inject():
 
 
 def test_config_reuses_relay_validators():
-    for bad in ({"nickname": "a\nb"}, {"contact": "x\ny"}, {"bandwidth_rate": "1 MBytes\nz"}, {"mode": "exit"},
+    for bad in ({"nickname": "a\nb"}, {"bandwidth_rate": "1 MBytes\nz"}, {"mode": "exit"},
                 {"or_port": 80}):
         with pytest.raises(ConfigError):
             apply_overrides(Profile(name="x"), {"contribute": {"relay": bad}})
@@ -214,8 +214,10 @@ def test_public_relay_with_checklist(ctl, home):
 
 
 def test_injection_through_the_controller(ctl):
-    with pytest.raises(ConfigError):
-        ctl.relay_start({"practice": True, "or_port": free_port(), "contact": "a@b.c\nExitRelay 1"})
+    ctl.relay_stop()
+    ctl.relay_start({"practice": True, "or_port": free_port(), "contact": "a@b.c\nExitRelay 1"})   # ignored: never published
+    assert "ExitRelay 1" not in ctl.relay_state()["torrc"] and "ContactInfo" not in ctl.relay_state()["torrc"]
+    ctl.relay_stop()
     with pytest.raises(ConfigError):
         ctl.relay_start({"practice": True, "or_port": free_port(), "nickname": "x\nExitRelay 1"})
     with pytest.raises(ConfigError):

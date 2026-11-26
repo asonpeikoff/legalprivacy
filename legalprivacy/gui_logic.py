@@ -246,7 +246,14 @@ def compare_lines(c: dict) -> list[tuple]:
             word[1], None)]
     for m in c.get("metrics") or []:
         s = m.get("similarity")
-        out.append(((m["name"], "later" if s is None else f"{round(s * 100)}%"), "ok", s or 0.0))
+        p = m.get("p")
+        extra = "" if s is None or m.get("difference") is None else f"  ({round((m.get('difference') or 0) * 100)}% different, p {'—' if p is None else ('<0.001' if p < 0.001 else f'{p:.3f}')})"
+        out.append(((m["name"], "later" if s is None else f"{round(s * 100)}%{extra}"), "ok", s or 0.0))
+    corr = c.get("correction") or {}
+    if corr.get("active"):
+        out.append(("Correcting automatically: more noise when you are away, less when you are busy, based on your "
+                    + {"weekday": "weekdays", "weekend": "weekends"}.get(corr.get("basis"), "days") + " ("
+                    + ", ".join(f"{h['hour']:02d}:00 x{h['gain']:.1f}" for h in corr["hours"]) + ").", "ok", None))
     out.append((f"Based on {c.get('baseline_active')} busy minutes of yours and {c.get('noise_active')} with noise.", "off", None))
     return out
 
@@ -488,6 +495,10 @@ class Debouncer:
             self._cancel(self._h)
             self._h = None
             self._fire()
+
+
+NUDGE_PARTS = (("browser", "Web pages in a real browser"), ("plain", "Web pages over plain HTTP"),
+               ("onion", "Tor .onion sites"), ("phones", "Share that is a phone"))
 
 
 class LiveApply:

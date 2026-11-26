@@ -88,9 +88,29 @@ class DashboardTab(Tab):
         self.empty = lc.note("No lanes yet. Press Start (F5) and the lanes appear here with their hits and budgets.",
                              pady=(8, 0))
 
+        # Nudge the mix: a few buttons that steer the traffic mix live
+        self.nudge_card = Card(f, app, "Nudge the mix", "act",
+                               help="Each press moves one part of the traffic mix up or down by 10 points and the rest "
+                                    "give or take the difference. It applies live and is saved. Fine control is in "
+                                    "Traffic mix below.")
+        self.nudge_card.grid(row=4, column=0, sticky="ew", pady=(0, GAP))
+        self.nudge_rows: dict = {}
+        for key, label in L.NUDGE_PARTS:
+            r = self.nudge_card.row((4, 0))
+            self.nudge_card.lbl(r, label, False).pack(side="left")
+            plus = app.btn(r, "+", None, "secondary", lambda k=key: self.nudge(k, 1), "More of this")
+            plus.pack(side="right")
+            pct = self.nudge_card.lbl(r, "—", False)
+            pct.configure(width=7, anchor="center")
+            pct.pack(side="right", padx=6)
+            minus = app.btn(r, "\u2212", None, "secondary", lambda k=key: self.nudge(k, -1), "Less of this")
+            minus.pack(side="right")
+            self.nudge_rows[key] = (r, pct, minus, plus)
+        self.nudge_busy = False
+
         # How much noise
         nc = Card(f, app, "How much noise", "set")
-        nc.grid(row=4, column=0, sticky="ew", pady=(0, GAP))
+        nc.grid(row=5, column=0, sticky="ew", pady=(0, GAP))
         self.level = tk.DoubleVar(value=5)
         r = nc.row()
         nc.lbl(r, "How much", False).pack(side="left")
@@ -100,7 +120,7 @@ class DashboardTab(Tab):
         self.scale = ttk.Scale(r, from_=1, to=10, variable=self.level, command=self._snap, style="Card.Horizontal.TScale")
         self.scale.pack(side="left", fill="x", expand=True, padx=8)
         nc.lbl(r, "More", True).pack(side="left")
-        tip(self.scale, "Level 1-10. Even the highest level stays under what gets one address rate-limited.")
+        tip(self.scale, "Level 1-10: the average amount. No search engine gets more than 20 of our searches in an hour.")
         self._reg("level", lambda: int(round(self.level.get())), lambda x: (self.level.set(x), self._text()))
         self.rate_msg = nc.note("", muted=True)
         self.scope_msg = nc.note("", muted=True)
@@ -117,16 +137,26 @@ class DashboardTab(Tab):
         self._reg("randomness", lambda: int(round(self.rand.get() / 10) * 10),
                   lambda x: (self.rand.set(x), self.rand_msg.configure(text=F.rand_text(int(x)))))
         self.rand_msg = nc.note("", muted=True)
-        nc.heading("Mix of activity", "always adds up to 100%; drag one and the others make room. 0% turns that part off")
+        self.f_check(nc, "auto_correct", "Adjust to my rhythm",
+                     "Recommended. Plans more noise in the hours you are away and less in your busy ones, from what the Proof tab "
+                     "saw of your own traffic, so what an observer sees is about as busy at every hour.")
+        nc.heading("Mix of activity", "what you do one thing at a time, like a person: adds up to 100%; drag one and "
+                                      "the others make room. 0% turns that part off")
         self.eng_mix = MixBar(nc.body, app, [], self.app.edited)
         self.eng_mix.pack(fill="x")
         self.eng_note = nc.note("Onion sites join this mix automatically when Tor is on (Tor tab).", pady=(4, 0))
         self._reg("engines_mix", self.eng_mix.values, lambda x: None)
+        nc.heading("Also running in the background", "at the same time as the mix above, never taking a share of it")
+        r = nc.row()
+        nc.lbl(r, "DNS lookups").pack(side="left")
+        self.f_combo(r, "dns_amount", F.DNS_AMOUNTS, 20).pack(side="left", padx=8)
+        nc.lbl(r, "Package installs").pack(side="left", padx=(12, 0))
+        self.f_combo(r, "pkg_amount", F.PKG_AMOUNTS, 10).pack(side="left", padx=8)
 
         # Traffic mix
         tc = Card(f, app, "Traffic mix", "web", help="Ordinary web noise never goes through Tor; .onion noise always "
                                                       "does, in its own lane.")
-        tc.grid(row=5, column=0, sticky="ew", pady=(0, GAP))
+        tc.grid(row=6, column=0, sticky="ew", pady=(0, GAP))
         tc.note("What kinds of noise run, and how the mix changes over time.")
         tc.heading("How the mix changes")
         self.f_radios(tc, "traffic_pattern", [
@@ -143,7 +173,7 @@ class DashboardTab(Tab):
         r = tc.row()
         tc.lbl(r, "Share of noise that is a phone").pack(side="left")
         self.f_spin(r, "mobile_share", 0, 100, 5, 5).pack(side="left", padx=6)
-        tc.lbl(r, "%  (55% recommended: most browsing happens on phones)", True).pack(side="left")
+        tc.lbl(r, "%  (10% recommended: phones are emulated here, so a few is enough)", True).pack(side="left")
         r = tc.row()
         tc.lbl(r, "Phone to emulate").pack(side="left")
         self.f_combo(r, "device", [("iPhone 13", "iPhone 13 (recommended)"), ("iPhone 15", "iPhone 15"),
@@ -163,8 +193,8 @@ class DashboardTab(Tab):
     def load(self, v: dict) -> None:
         super().load(v)
         tor_on = bool(v.get("tor_enabled"))
-        pkg = v.get("packages") == "on" or (v.get("packages") != "off" and v.get("persona") in ("Ason", "Data scientist", "Developer"))
-        names = F.visible_engines(self.app.ctl.profile.engines, tor_on, pkg)
+        pkg = v.get("packages") == "on" or (v.get("packages") != "off" and v.get("persona") in F.TECHY)
+        names = [n for n in F.visible_engines(self.app.ctl.profile.engines, tor_on, pkg) if n not in F.BACKGROUND_ENGINES]
         eng_vals = v.get("engines_mix", {})
         if self._mix_keys.get("eng") != names:
             self._mix_keys["eng"] = names
@@ -209,9 +239,42 @@ class DashboardTab(Tab):
     def test_hit(self) -> None:
         self.app.work(self.app.ctl.test_once, done=lambda _r: self.app.flash("Sent one test hit; see Activity."))
 
+    def nudge(self, what: str, direction: int) -> None:
+        if self.nudge_busy:
+            return
+        self.nudge_busy = True
+        self._show_nudge(self.app.ctl.mix_status())
+
+        def done(m):
+            self.nudge_busy = False
+            self._show_nudge(m)
+            self.app.flash("Mix nudged" + (" and applied." if self.app.ctl.running else "."))
+
+        def error(exc):
+            self.nudge_busy = False
+            self._show_nudge(self.app.ctl.mix_status())
+            self.app.error("Could not nudge the mix", exc)
+
+        self.app.work(lambda: self.app.ctl.nudge_mix(what, direction), done=done, error=error)
+
+    def _show_nudge(self, m: dict) -> None:
+        for key, (row, pct, minus, plus) in self.nudge_rows.items():
+            if key == "onion":
+                if m["tor"]:
+                    row.pack(fill="x", pady=(4, 0))
+                else:
+                    row.pack_forget()
+                    continue
+            v = m["phones"] if key == "phones" else m["shares"].get(key, 0.0)
+            pct.configure(text=f"{v:g}%")
+            for b, off in ((minus, v <= 0), (plus, v >= 100)):
+                b.configure(state="disabled" if off or self.nudge_busy else "normal")
+
     def update_state(self, st: dict) -> None:
         kind, text = L.run_status(st)
         self.state_var.set(text)
+        if st.get("mix") and not self.nudge_busy:
+            self._show_nudge(st["mix"])
         lanes = st.get("lanes") or []
         hits, fails = sum(x.get("hits", 0) for x in lanes), sum(x.get("failures", 0) for x in lanes)
         self.k_hits.set(f"{hits:,}", " · ".join(f"{L.lane_label(x['name'])} {x.get('hits', 0)}" for x in lanes))
@@ -517,6 +580,10 @@ class TorTab(Tab):
         v_onion = self.f_check(cc, "tor_onion", "Include .onion sites in the noise",
                                "Needs Tor above. Adds visits to real .onion websites, which never leave the Tor network. "
                                "If this is off, Tor runs but no onion sites are visited.")
+        self.f_check(cc, "tor_onion_browser", "Use the real Tor Browser for onion visits",
+                     "Off by default (it opens a Tor Browser window). Scrolls, reads and clicks like a person, through this app's Tor, at security level "
+                     "Safest. If it can't start (not installed yet, no display), the plain lane is used and the Live Log "
+                     "says why.")
         for var in (v_tor, v_onion):
             var.trace_add("write", lambda *_a: self._mix_text(v_tor.get(), v_onion.get()))
         self._mix_text(v_tor.get(), v_onion.get())
@@ -528,8 +595,38 @@ class TorTab(Tab):
         cc.lbl(r, "Control").pack(side="left")
         self.f_entry(r, "tor_control", 20).pack(side="left", padx=6)
 
+        # Tor Browser: the official one, for your own private browsing (same as the web dashboard's card)
+        tb = Card(f, app, "Tor Browser: for your own private browsing", "tor",
+                  help="Opens the official Tor Browser so you can browse privately yourself. It is completely separate from "
+                       "the noise: its own folder, its own profile and its own Tor, unless you share this app's Tor below. "
+                       "The app downloads it only from torproject.org and installs it only after checking its signature with "
+                       "the Tor Project's signing key (this needs GnuPG, gpg). It is checked for a newer release every few "
+                       "hours and updated by itself (never while it is open), the signature is checked again each time, and "
+                       "before every launch its programs are compared with what was verified. It is never started as the "
+                       "administrator. SHARING THIS APP'S TOR (on by default): without it Tor Browser runs its own Tor, so "
+                       "your real browsing and the noise reach the Tor network through two separate connections, and the "
+                       "real one stands out. Shared, both use the same Tor and the same entry relay, with separate circuits "
+                       "so pages and noise never mix. (1) The New identity button here is disabled while sharing; (2) your "
+                       "relay-avoid list and bridges apply to Tor Browser too; (3) Tor Browser's own connection screens are "
+                       "replaced by this tab; (4) Tor Browser's own New Identity resets the noise circuits too. Turning it "
+                       "on restarts this app's Tor.")
+        tb.grid(row=3, column=0, sticky="ew", pady=(0, GAP))
+        r = tb.row()
+        self.b_tb_open = app.btn(r, "Open Tor Browser", "play", "tor", self.tb_open,
+                                 "Opens the official Tor Browser (installing it first if needed).")
+        self.b_tb_check = app.btn(r, "Check for updates", None, "secondary", self.tb_check)
+        self.b_tb_open.pack(side="left", padx=(0, 6))
+        self.b_tb_check.pack(side="left")
+        self.tb_stat = tb.note("", muted=False, pady=(6, 0))
+        self.tb_sig = tb.note("", pady=(0, 4))
+        self.f_check(tb, "tor_share_browser", "Share this app's Tor with Tor Browser",
+                     "On by default. Both use the same Tor and entry relay (separate circuits), so your own browsing blends "
+                     "in with the noise. Turning it off restarts Tor. Details: the (i) at the top of this card.")
+        self._tb_at = 0.0
+        self._tb_snap: dict = {}
+
         ci = Card(f, app, "Circuits")
-        ci.grid(row=3, column=0, sticky="ew", pady=(0, GAP))
+        ci.grid(row=8, column=0, sticky="ew", pady=(0, GAP))
         self.circ_head = ci.note("", pady=(0, 4))
         self.circ = ttk.Treeview(ci.body, columns=("id", "status", "purpose", "path"), show="headings", height=4,
                                  selectmode="none")
@@ -707,37 +804,40 @@ class TorTab(Tab):
                                ("bridge", "Bridge", "Not listed publicly; helps people whose network blocks Tor.")):
             self.r_inputs.append(rc.radio(self.r_mode, val, txt, hint, command=self._relay_changed))
         r = rc.row((8, 2))
-        self.r_nick, self.r_bw, self.r_port, self.r_contact = (tk.StringVar() for _ in range(4))
-        rc.lbl(r, "Nickname").pack(side="left")
+        self.r_nick, self.r_bw, self.r_port = (tk.StringVar() for _ in range(3))
+        l1 = rc.lbl(r, "Nickname ⓘ")
+        l1.pack(side="left")
         e1 = ttk.Entry(r, textvariable=self.r_nick, width=16)
         e1.pack(side="left", padx=(6, 14))
-        tip(e1, "1 to 19 letters or digits.")
-        rc.lbl(r, "Speed limit").pack(side="left")
+        tip(l1, 'The name your relay goes by in Tor\'s public relay list (1 to 19 letters or digits). It is not tied to you. It starts as "legalPrivacy" plus four random characters so it cannot clash with another relay; change it if you like.')
+        tip(e1, 'The name your relay goes by in Tor\'s public relay list (1 to 19 letters or digits). It is not tied to you. It starts as "legalPrivacy" plus four random characters so it cannot clash with another relay; change it if you like.')
+        l2 = rc.lbl(r, "Speed limit ⓘ")
+        l2.pack(side="left")
+        tip(l2, 'The most traffic your relay may carry for other people each second, in each direction. 1 MByte per second is about 8 megabits per second. Start low; you can raise it later. Tor needs at least about 0.08 MBytes per second.')
         e2 = ttk.Spinbox(r, from_=0.1, to=1000, increment=0.5, width=7, textvariable=self.r_bw, command=self._relay_changed)
         e2.pack(side="left", padx=6)
-        tip(e2, "The most the relay may send and receive each second, in megabytes.")
+        tip(e2, 'The most traffic your relay may carry for other people each second, in each direction. 1 MByte per second is about 8 megabits per second. Start low; you can raise it later. Tor needs at least about 0.08 MBytes per second.')
         rc.lbl(r, "MBytes per second", True).pack(side="left", padx=(0, 14))
-        rc.lbl(r, "Port (ORPort)").pack(side="left")
+        l3 = rc.lbl(r, "Port (ORPort) ⓘ")
+        l3.pack(side="left")
         e3 = ttk.Spinbox(r, from_=1024, to=65535, width=7, textvariable=self.r_port, command=self._relay_changed)
         e3.pack(side="left", padx=6)
+        tip(l3, 'The port other Tor relays and Tor programs connect to on this computer (OR stands for onion router). 9001 is the usual choice. For a public relay it must be reachable from the internet, so forward it on your router and allow it in your firewall. In practice mode it only listens on this computer.')
+        tip(e3, 'The port other Tor relays and Tor programs connect to on this computer (OR stands for onion router). 9001 is the usual choice. For a public relay it must be reachable from the internet, so forward it on your router and allow it in your firewall. In practice mode it only listens on this computer.')
         self.r_est = rc.note("", pady=(2, 2))
-        r = rc.row()
-        rc.lbl(r, "Contact (optional)").pack(side="left")
-        e4 = ttk.Entry(r, textvariable=self.r_contact, width=36)
-        e4.pack(side="left", padx=6)
-        tip(e4, "Shown publicly in the relay list if you add it, for example an email address.")
-        self.r_inputs += [e1, e2, e3, e4]
-        for v in (self.r_nick, self.r_bw, self.r_port, self.r_contact, self.r_mode):
+        self.r_inputs += [e1, e2, e3]
+        for v in (self.r_nick, self.r_bw, self.r_port, self.r_mode):
             v.trace_add("write", lambda *_a: self._relay_changed())
         self.r_practice = tk.BooleanVar(value=True)
         self.r_inputs.append(rc.check(self.r_practice, "Practice mode (not published)",
                                       "The relay only listens on this computer and never announces itself, so nobody can use "
                                       "it. It still downloads Tor's public relay list like any Tor program. Needs no checklist. "
-                                      "Untick it only when you are ready to join the network.", command=self._relay_changed))
-        rc.heading("Before a public relay", "tick each one")
+                                      "Untick it only when you are ready to join the network.", command=self._relay_changed,
+                                      tooltip='A dry run. The relay starts and you can watch how it behaves, but it only listens on this computer and never announces itself to the Tor network, so nobody can send traffic through it. Untick it when you are ready to become a real, public relay.'))
+        rc.heading("Before a public relay", "all ticked for you; untick any that is not true")
         self.r_checks: dict[str, tk.BooleanVar] = {}
         for key, txt in self.CHECKS:
-            var = tk.BooleanVar(value=False)
+            var = tk.BooleanVar(value=True)            # ticked for you: they only gate a public relay, never practice mode
             self.r_checks[key] = var
             self.r_inputs.append(rc.check(var, txt, command=self._relay_changed))
         rc.note("The settings file for the relay (read-only):", pady=(8, 2))
@@ -790,7 +890,7 @@ class TorTab(Tab):
         except ValueError:
             port = 0
         return {"mode": self.r_mode.get(), "nickname": self.r_nick.get(), "bandwidth_mb": bw, "or_port": port,
-                "contact": self.r_contact.get(), "practice": bool(self.r_practice.get()),
+                "practice": bool(self.r_practice.get()),
                 "checklist": {k: v.get() for k, v in self.r_checks.items()}}
 
     def _relay_changed(self) -> None:
@@ -817,20 +917,21 @@ class TorTab(Tab):
         elif not why and not b["practice"] and not all(b["checklist"].values()):
             why = "Tick every item on the checklist to start a public relay, or keep practice mode on."
         up = self._r_up
-        self.r_start.state(["!disabled"] if not up and not why else ["disabled"])
+        self.r_start.state(["!disabled"] if not why else ["disabled"])
+        self.r_start.configure(text="Restart with these settings" if up else "Start relay")
         self.r_stop.state(["!disabled"] if up else ["disabled"])
-        for w in self.r_inputs:
-            try:
-                w.state(["disabled"] if up else ["!disabled"])
-            except (AttributeError, tk.TclError):
-                pass
-        if not up:
-            self.r_msg.configure(text=why)
+        self.r_msg.configure(text=why or ("Running now. Change anything above, then press Restart to apply it." if up else ""))
 
     def relay_start(self) -> None:
         body = self._relay_body()
+        was_up = self._r_up
         self.r_start.state(["disabled"])
-        self.app.work(lambda: self.app.ctl.relay_start(body), done=lambda _r: self.app.poll_now(),
+
+        def go():
+            if was_up:                                  # a running relay is restarted with the new settings
+                self.app.ctl.relay_stop()
+            return self.app.ctl.relay_start(body)
+        self.app.work(go, done=lambda _r: self.app.poll_now(),
                       error=lambda e: (self.app.error("Relay", e), self._relay_gate()))
 
     def relay_stop(self) -> None:
@@ -855,7 +956,6 @@ class TorTab(Tab):
             self.r_nick.set(s["nickname"])
             self.r_bw.set(f"{s['bandwidth_mb']:g}")
             self.r_port.set(str(s["or_port"]))
-            self.r_contact.set(s["contact"])
             self.r_practice.set(bool(s["practice"]))
             self.r_auto.set(bool(s["autostart"]))
             self._r_filled = True
@@ -872,7 +972,6 @@ class TorTab(Tab):
             f"Relay fingerprint: {status['fingerprint']}" if status["state"] == "running" and status.get("fingerprint") else ""))
         if up:
             self._set_torrc(st["torrc"])
-            self.r_msg.configure(text="")
         sig = (tuple(status["log"][-80:]),)
         if sig != self._r_prev:
             self._r_prev = sig
@@ -895,6 +994,56 @@ class TorTab(Tab):
     def act(self, action: str) -> None:
         self.app.work(lambda: self.app.ctl.tor_action(action), done=lambda _r: self.app.poll_now(),
                       error=lambda e: self.app.error("Tor", e))
+
+    # ── Tor Browser ──
+    def tb_open(self) -> None:
+        snap = self._tb_snap or self.app.ctl.torbrowser_state()
+        if not snap.get("supported"):                       # nothing to install on this system: send them to the download page
+            import webbrowser
+            webbrowser.open(snap.get("download_page") or "https://www.torproject.org/download/")
+            return
+        self.b_tb_open.state(["disabled"])
+
+        def done(_r):
+            self.b_tb_open.state(["!disabled"])
+            self.app.flash("Opening Tor Browser…")
+            self._tb_at = 0.0
+
+        def fail(e):
+            self.b_tb_open.state(["!disabled"])
+            self.app.error("Tor Browser", e)
+        self.app.work(self.app.ctl.torbrowser_open, done, fail)
+
+    def tb_check(self) -> None:
+        self.app.work(self.app.ctl.torbrowser_check, done=lambda s: self._tb_show(s),
+                      error=lambda e: self.app.error("Tor Browser", e))
+
+    def _tb_show(self, s: dict) -> None:
+        self._tb_snap = s
+        self.b_tb_open.configure(text=("Open Tor Browser" if s.get("installed") else "Install and open Tor Browser")
+                                 if s.get("supported") else "Get Tor Browser (torproject.org)")
+        t = f"Installed: {s['installed']}" if s.get("installed") else "Not installed yet"
+        if s.get("latest"):
+            t += f" · newest: {s['latest']}"
+        if s.get("update_available"):
+            t += " · an update will be installed when you open it"
+        if s.get("state") == "installing":
+            t = f"Downloading and checking… {round((s.get('progress') or 0) * 100)}%"
+        if s.get("state") == "error":
+            t = f"Problem: {s.get('error')}"
+        self.tb_stat.configure(text=t)
+        sig = s.get("signature")
+        self.tb_sig.configure(text=(f"Signature verified against the Tor Browser Developers key {sig['fingerprint'][-16:]} on "
+                                    f"{L.clock12(sig['at'])}; files re-checked at each launch.") if sig else "")
+
+    def _tb_refresh(self) -> None:
+        """Re-read the Tor Browser state now and then (every second while it installs, otherwise every few seconds)."""
+        now = time.time()
+        busy = (self._tb_snap or {}).get("state") == "installing"
+        if now - self._tb_at < (1.0 if busy else 5.0):
+            return
+        self._tb_at = now
+        self._tb_show(self.app.ctl.torbrowser_state())
 
     def selftest(self) -> None:
         self.test_note.configure(text="Testing Tor… this takes up to a minute.")
@@ -926,6 +1075,7 @@ class TorTab(Tab):
 
     # -- state
     def update_state(self, st: dict) -> None:
+        self._tb_refresh()
         self.builtin_seeds = [b["url"] for b in st.get("builtin_onion_seeds") or []]
         t = st.get("tor") or {}
         state = t.get("state") or "stopped"

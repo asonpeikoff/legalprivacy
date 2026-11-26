@@ -47,7 +47,7 @@ def test_search_profile_parses():
     assert profile.transports["tor"].socks == "127.0.0.1:9050"
     assert profile.engines["search"].budget_per_day == 120
     # clearnet engines never include onion; example profile keeps Tor on for onion only
-    assert profile.active_engines("clearnet") == ["search", "crawl", "dns", "packages"]   # default persona: Data scientist
+    assert profile.active_engines("clearnet") == ["search", "crawl", "dns", "packages", "files"]   # default persona: Data scientist
     assert profile.active_engines("tor") == ["onion"]
 
 
@@ -214,3 +214,86 @@ def test_identity_settings_round_trip_and_validate():
     p = Profile(name="t")
     apply_overrides(p, {"identity": {"ua_mode": "pin", "ua_pin": "own", "own_ua": "Mozilla/5.0 X"}})
     assert p.identity.ua_mode == "pin" and profile_to_dict(p)["profile"]["identity"]["own_ua"] == "Mozilla/5.0 X"
+
+
+# ── plain-HTTP lane: the request looks like a browser's on the wire (measured against Chromium 153) ──────────────────
+CHROMIUM_NAV_ORDER = ["Host", "Connection", "sec-ch-ua", "sec-ch-ua-mobile", "sec-ch-ua-platform",
+                      "Upgrade-Insecure-Requests", "User-Agent", "Accept-Language", "Accept", "Sec-Fetch-Site",
+                      "Sec-Fetch-Mode", "Sec-Fetch-User", "Sec-Fetch-Dest", "Accept-Encoding"]
+
+
+def _raw_request(identity, path="/", referer=None):
+    """Make the plain lane fetch a local server and return the raw request head it sent (as header lines)."""
+    import socket
+    import threading
+    from legalprivacy.transports import ClearnetTransport, Target
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(1)
+    got = []
+
+    def serve():
+        c, _ = srv.accept()
+        c.settimeout(2)
+        data = b""
+        while b"\r\n\r\n" not in data:
+            data += c.recv(4096)
+        got.append(data.decode("latin1"))
+        c.sendall(b"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok")
+        c.close()
+    t = threading.Thread(target=serve, daemon=True)
+    t.start()
+    url = f"http://127.0.0.1:{srv.getsockname()[1]}{path}"
+    res = ClearnetTransport().hit(identity, Target(url=url, referer=referer, timeout=5.0))
+    t.join(3)
+    srv.close()
+    assert res.status == 200
+    return got[0].split("\r\n")[:-2], url
+
+
+def _chromium_identity():
+    for i in range(60):
+        ident = make_identity(Random(i), i, WORDS)
+        if ident.chromium and "Chrome/" in ident.user_agent:
+            return ident
+    raise AssertionError("no Chromium identity in the library")
+
+
+def test_plain_lane_sends_chromiums_header_order_and_values():
+    ident = _chromium_identity()
+    lines, _ = _raw_request(ident)
+    names = [ln.split(":", 1)[0] for ln in lines[1:]]
+    assert names == [n for n in CHROMIUM_NAV_ORDER]
+    h = dict(ln.split(": ", 1) for ln in lines[1:])
+    assert h["Accept"].startswith("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng")
+    assert h["Sec-Fetch-Site"] == "none" and h["Sec-Fetch-User"] == "?1" and h["Connection"] == "keep-alive"
+    assert h["User-Agent"] == ident.user_agent and h["Accept-Language"] == ident.accept_language
+    assert "python-requests" not in " ".join(lines)
+    from legalprivacy.identity import accept_encoding
+    assert h["Accept-Encoding"] == accept_encoding() and h["Accept-Encoding"].startswith("gzip, deflate")
+
+
+def test_a_click_through_carries_referer_and_matching_fetch_metadata():
+    from legalprivacy.identity import navigation_headers, referer_value
+    ident = _chromium_identity()
+    lines, _ = _raw_request(ident, "/x", referer="http://127.0.0.1:1/some/page?q=1")
+    names = [ln.split(":", 1)[0] for ln in lines[1:]]
+    assert names == CHROMIUM_NAV_ORDER[:-1] + ["Referer", "Accept-Encoding"]       # Referer sits before Accept-Encoding
+    # same origin: the whole address, same-origin; another site: just the origin, cross-site; https to http: nothing
+    h = navigation_headers(ident, "https://a.example.com/x", "https://a.example.com/p?q=1")
+    assert h["Sec-Fetch-Site"] == "same-origin" and h["Referer"] == "https://a.example.com/p?q=1"
+    h = navigation_headers(ident, "https://www.example.org/x", "https://a.example.com/p?q=1")
+    assert h["Sec-Fetch-Site"] == "cross-site" and h["Referer"] == "https://a.example.com/"
+    h = navigation_headers(ident, "https://b.example.com/x", "https://a.example.com/p")
+    assert h["Sec-Fetch-Site"] == "same-site"
+    assert referer_value("http://a.example.com/", "https://a.example.com/p") == ""
+    assert "Referer" not in navigation_headers(ident, "http://a.example.com/", "https://a.example.com/p")
+
+
+def test_encodings_are_only_claimed_when_they_can_be_decoded(monkeypatch):
+    import urllib3.util.request as req
+    from legalprivacy.identity import accept_encoding
+    monkeypatch.setattr(req, "ACCEPT_ENCODING", "gzip,deflate,br,zstd")
+    assert accept_encoding() == "gzip, deflate, br, zstd"                  # what Chrome says, once brotli and zstd are installed
+    monkeypatch.setattr(req, "ACCEPT_ENCODING", "gzip,deflate")
+    assert accept_encoding() == "gzip, deflate"

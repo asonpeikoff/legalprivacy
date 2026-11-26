@@ -76,3 +76,42 @@ def test_ml_report_has_the_numbers_a_data_scientist_expects_and_predicts():
     assert sum(res["hours"]["you"]) == sum(res["hours"]["noise"]) == res["compared"]
     model = res["_model"]
     assert predict(model, "site42.example.com", 4, 2, {}) > 50 > predict(model, SITES[0], 21, 2, {})
+
+
+def test_stronger_observer_reports_future_events_and_low_false_alarm_rates():
+    from legalprivacy.selftest import featurize, precision_at_prevalence, rates_at_fpr
+    rng = random.Random(3)
+    real = _person(rng)
+    noise = sorted((t - (t % 86400) + random.Random(4).uniform(2, 8) * 3600, f"site{i}.example.com")
+                   for i, (t, _) in enumerate(_person(random.Random(4))))
+    g = evaluate(real, noise, {})["strong"]
+    assert g["auc"] >= 90 and g["forward_auc"] >= 90 and g["tpr_at_1pct_fpr"] >= 90
+    like_you = evaluate(_person(random.Random(1)), _person(random.Random(2)), {})["strong"]
+    assert like_you["auc"] < 65 and like_you["tpr_at_1pct_fpr"] < 25
+    assert "note" in g                                                  # few of your visits: the rare-error rate is rough
+    # base rate: a 1% false-alarm rate still buries rare noise in accusations
+    assert precision_at_prevalence(1.0, 0.01, 0.01) < 0.51 and precision_at_prevalence(1.0, 0.0, 0.01) == 1.0
+    sc = [(float(i), 0) for i in range(1000)] + [(float(i) + 0.5, 1) for i in range(0, 1000, 2)]
+    assert 0 <= rates_at_fpr(sc)[0.01] <= 1
+    # bursts: three requests within a minute are a burst, an isolated one is not
+    rows = featurize([(0.0, "a.com", 0), (5.0, "b.com", 0), (9.0, "c.com", 0), (4000.0, "d.com", 0)], {})
+    assert rows[0][0]["burst"] == "0" and rows[2][0]["burst"] == "2-3" and rows[3][0]["burst"] == "0"
+    assert rows[1][0]["stay"] == "0"
+
+
+def test_demo_person_looks_like_a_person_and_the_demo_stays_out_of_your_history(tmp_path, monkeypatch):
+    from legalprivacy.controller import Controller
+    from legalprivacy.selftest import DEMO_HABITS, demo_person
+    since = 1_800_000_000.0
+    ev = demo_person(since, since + 14 * 86400)
+    assert len(ev) > 400 and ev == sorted(ev) and all(since <= t < since + 14 * 86400 for t, _ in ev)
+    top = {h for h, _ in DEMO_HABITS}
+    assert sum(1 for _, s in ev if s in top) / len(ev) > 0.6              # a few favourite sites dominate
+    assert any(a[1] == b[1] for a, b in zip(ev, ev[1:], strict=False))    # and visits come in runs on one site
+    hours = [time.localtime(t).tm_hour for t, _ in ev]
+    assert sum(1 for h in hours if 2 <= h < 7) == 0                       # nobody browses at 3 am
+    monkeypatch.setenv("HOME", str(tmp_path))
+    c = Controller(str(tmp_path / "p.yaml"))
+    r = c.selftest(14, demo=True)
+    assert r["baseline"]["source"] == "demo" and r["compared"] >= 50 and "error" not in r and "strong" in r
+    assert not c.app.get("ml_history")                                    # a demo score is not a score about you

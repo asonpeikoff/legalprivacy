@@ -49,10 +49,52 @@ def wipe_old_log_files() -> None:
             pass
 
 
-APP_DEFAULTS = {"migrated_ason": False, "observe": True, "update_check": True, "autostart": True, "open_browser": True, "port": 8765, "intensity": "normal",
+APP_DEFAULTS = {"migrated_ason": False, "migrated_share": False, "migrated_tb_lane": False, "migrated_cookie_day": False, "observe": True, "update_check": True, "autostart": True, "open_browser": True, "port": 8765, "intensity": "normal",
                 "auto_refresh_sources": False,   # off: use the snapshot shipped with the app (no lookups)
                 "ml_auto": False, "ml_history": [],
-                "clear_logs_on_restart": True}
+                "clear_logs_on_restart": True,   # on start, clear Live Log and Activity entries older than…
+                "log_keep_days": 7,              # …this many days (0 = clear everything)
+                "migrated_defaults_v3": False}
+
+
+def move_old_defaults(profile) -> list[str]:
+    """Once: settings still on what an older version used as its default move to the current default.
+    Settings files hold every value, so an old default looks like a choice; these were not."""
+    moved = []
+    ex, ident = profile.extras, profile.identity
+    if ex.persona == "":                                 # older web pages could save "" before the list loaded
+        ex.persona = "Default mix"
+        moved.append("persona: Default mix")
+    if abs(float(ex.persona_share) - 0.9) < 1e-9:
+        ex.persona_share = 0.8
+        moved.append("persona followed 80% (20% random)")
+    if ex.interest_list:
+        add = [t for t in ("Objectivism", "Authors and readers", "Web 2.0") if t not in ex.interest_list]
+        if add:
+            ex.interest_list = list(ex.interest_list) + add
+            moved.append("allowed themes: added " + ", ".join(add))
+    clear = profile.transports.get("clearnet")
+    if clear is not None and clear.browser_engine in ("auto", "mix"):
+        clear.browser_engine = "mine"
+        moved.append("browser engine: your own Firefox")
+    if ident.ua_mode == "pin" and ident.ua_pin == "own":
+        ident.ua_mode, ident.ua_own_share = "mix", 0.85
+        moved.append("user agent: Mix, 85% your own")
+    elif ident.ua_mode == "mix" and abs(float(ident.ua_own_share) - 0.7) < 1e-9:
+        ident.ua_own_share = 0.85
+        moved.append("user agent: 85% your own")
+    tc = getattr(profile, "traffic", None)
+    if tc is not None and abs(float(tc.mobile_share) - 0.55) < 1e-9:
+        tc.mobile_share = 0.10
+        moved.append("phones: 10%")
+    eng = profile.engines
+    dns = eng.get("dns")
+    if dns is not None and dns.enabled:
+        base = sum(eng[n].budget_per_day for n in ("search", "crawl") if n in eng and eng[n].enabled)
+        if base and dns.budget_per_day < 3 * base:
+            dns.budget_per_day = 3 * base
+            moved.append("DNS lookups: More")
+    return moved
 
 
 class Controller:
@@ -65,8 +107,13 @@ class Controller:
         self.app: dict[str, Any] = dict(APP_DEFAULTS)
         self.profile: Profile = Profile(name="default")
         self._load()
-        if self.profile.extras.persona == "Ason" and self.app.get("migrated_ason") and not self.first_run:
+        if self.profile.extras.persona == "Default mix" and self.app.get("migrated_ason") and not self.first_run:
             self._save()                          # remember that the one-time switch to the new default happened
+        if getattr(self, "_moved_defaults", None):
+            self._save()
+            self.log.info("app", "Settings that were still on an older default now use the new one: "
+                                 + "; ".join(self._moved_defaults) + ".")
+        self._fresh_relay_nickname()
         self.tor: TorManager | None = None
         self.feeds = FeedStore(self.log)
         from .observe import TrafficObserver
@@ -75,6 +122,12 @@ class Controller:
             noise_requests=self._requests_in_minute,
             tor_pid=lambda: (self.tor.pid if self.tor else None),
             path=app_dir() / "observe.json")
+        try:
+            self.feeds.set_user_block(set(self.blocked()))
+        except Exception:
+            pass
+        from .proxies import ProxyManager
+        self.proxies = ProxyManager(app_dir() / "proxies.json")       # tested free proxies, for jobs the user starts
         from .har import HarStore
         self.har = HarStore(app_dir() / "har.json")      # derived counts from an imported browser recording
         self._hist_cache: tuple | None = None            # (read at, [(time, site)]) for the baseline fallback
@@ -83,6 +136,8 @@ class Controller:
         self._feed_timer_started = False
         from .relayrun import RelayManager
         self.relay = RelayManager(self.log)        # optional relay: its own Tor process, practice mode unless set up
+        from .remoterun import RemoteManager
+        self.remote = RemoteManager(self.log, pools=self._remote_pools)   # other computers you own, over SSH
         from .torbrowser import TorBrowserManager
         self.torbrowser = TorBrowserManager(self.log)   # Tor Browser for your own use: separate from the noise
         from .accounts import AccountsManager
@@ -113,10 +168,44 @@ class Controller:
             self.profile = apply_overrides(Profile(name="default"), raw)
             self.app |= {k: v for k, v in (raw.get("app") or {}).items() if k in APP_DEFAULTS}
             if self.profile.extras.persona == "Data scientist" and not self.app.get("migrated_ason"):
-                self.profile.extras.persona = "Ason"        # the new default persona replaces the old default once
+                self.profile.extras.persona = "Default mix"  # the new default persona replaces the old default once
                 self.app["migrated_ason"] = True
+            if not self.app.get("migrated_share"):
+                tor = self.profile.transports.get("tor")
+                if tor is not None:
+                    tor.share_browser = True               # sharing the app's Tor with Tor Browser is now on by default
+                self.app["migrated_share"] = True
+            if not self.app.get("migrated_defaults_v3"):
+                self._moved_defaults = move_old_defaults(self.profile)
+                self.app["migrated_defaults_v3"] = True
+            if not self.app.get("migrated_cookie_day"):
+                cl = self.profile.transports.get("clearnet")
+                if cl is not None and cl.cookie_hours == 1.0:
+                    cl.cookie_hours = 24.0                 # the old default: a returning visitor keeps its cookies for a day now
+                self.app["migrated_cookie_day"] = True
+            if not self.app.get("migrated_tb_lane"):
+                tor = self.profile.transports.get("tor")
+                if tor is not None:
+                    tor.onion_browser = False              # it opens a Tor Browser window: only when you switch it on
+                self.app["migrated_tb_lane"] = True
         except Exception as exc:
             self.log.error("app", f"Could not read config ({exc}); using defaults.")
+
+    def _planner(self, prof):
+        import random as _r
+        pl = RatePlanner(_r.Random(), prof.rate)
+        pl.gain_fn = self.observer.hour_gain             # the correction toward your own rhythm (Proof tab)
+        return pl
+
+    def _fresh_relay_nickname(self) -> None:
+        """The relay's public nickname starts as the app's name plus four random characters (so two relays never clash),
+        and the old app's name is replaced once. Anything the user chose themselves is left alone."""
+        import secrets
+        r = self.profile.relay
+        if r.nickname.lower() in ("noisycricket", "legalprivacy", ""):
+            r.nickname = "legalPrivacy" + secrets.token_hex(2)
+            if not self.first_run:
+                self._save()
 
     def _save(self) -> None:
         # Settings save themselves, so two saves can arrive together: serialise them, and give
@@ -216,6 +305,8 @@ class Controller:
         for k in ("autostart", "open_browser", "auto_refresh_sources", "ml_auto", "observe", "clear_logs_on_restart", "update_check"):
             if k in raw:
                 self.app[k] = bool(raw[k])
+        if "log_keep_days" in raw:
+            self.app["log_keep_days"] = max(0, min(365, int(float(raw["log_keep_days"] or 0))))
         if "observe" in raw:
             (self.observer.start if self.app["observe"] else self.observer.stop)()
         self._save()
@@ -436,6 +527,7 @@ class Controller:
                           random_share=ml.random_share, my_weights=ml.weights)
         pool.interests, pool.interest_share = self._interests(), self._interest_share()
         pool.site_list = self.profile.extras.site_list
+        pool.avoid_entertainment = self.profile.extras.persona == "Default mix"
         return pool
 
     def interests_state(self) -> dict:
@@ -477,28 +569,33 @@ class Controller:
                 "actions_per_hour": round(actions_h), "hours_per_day": hours,
                 "real_browser": b_share > 0, "low_data": ex.low_data, "cap_mb": ex.daily_data_mb}
 
-    def selftest(self, days: float = 14) -> dict:
-        """How easily the noise could be told apart from your real browsing (local only)."""
+    def selftest(self, days: float = 14, demo: bool = False) -> dict:
+        """How easily the noise could be told apart from your real browsing (local only).
+        demo=True compares it with a built-in typical person instead, so the test can be tried with no history."""
         import random as _r
         from .history import visit_events
-        from .selftest import evaluate, simulate_noise
+        from .selftest import demo_person, evaluate, simulate_noise
         days = max(2.0, min(60.0, float(days)))
         now = time.time()
         since = now - days * 86400
         from .baseline import HOWTO, har_events, human_span
         har = self.har.load()
         real_note, until, from_har = "", now, False
-        if har and har.get("top_hosts") and har["entries"] >= 50 and (har["last"] - har["first"]) >= 2 * 3600:
+        if (not demo and har and har.get("top_hosts") and har["entries"] >= 50
+                and (har["last"] - har["first"]) >= 2 * 3600):
             real = {"events": har_events(har), "errors": []}          # your imported recording comes first
             since, until, from_har = har["first"], har["last"], True  # compare only over the hours it covers
             real_note = ("Your baseline is the browser recording you imported. Site names for each moment were "
                          "re-drawn from its top-sites list, so revisit habits are approximate, and noise was "
                          "compared only over the hours the recording covers.")
+        elif demo:
+            real = {"events": demo_person(since, now, [d for d in self.feeds.items("tranco")[:300]
+                                                      if d.count(".") == 1 and not d.endswith(".gov")] or None), "errors": []}
         else:
             real = visit_events(since, now)
         hits = [h for h in (self.runner.hit_log if self.runner else []) if h["lane"] != "tor"]
         session_span = (hits[-1]["ts"] - hits[0]["ts"]) if len(hits) > 1 else 0
-        if len(hits) >= 200 and session_span >= 86400 and not from_har:
+        if len(hits) >= 200 and session_span >= 86400 and not from_har and not demo:
             import urllib.parse as up
             noise = [(h["ts"], (up.urlparse(h["url"]).hostname if "://" in h["url"] else h["url"]) or "")
                      for h in hits]
@@ -509,10 +606,16 @@ class Controller:
         ranks = {d: i for i, d in enumerate(self.feeds.items("tranco"))}
         res = evaluate(real["events"], [(t, s.removeprefix("www.")) for t, s in noise if s], ranks)
         n_real = len(real["events"])
-        if from_har:
+        if demo and not from_har:
+            res["baseline"] = {"source": "demo", "status": "Demo: a made-up typical person (evening and weekend sittings, a few "
+                                                           "favourite sites visited again and again) against the noise your "
+                                                           "current settings would make. It is not your history, and the noise "
+                                                           "is not tuned to this person: the real test uses your own "
+                                                           "browsing, so the noise can be matched to you."}
+        elif from_har:
             res["baseline"] = {"source": "har", "status": f"Your baseline: {human_span(until - since)} from your HAR file "
                                                           f"(approximate: see the note below)."}
-        elif n_real >= 50:
+        elif n_real >= 50 and not demo:
             res["baseline"] = {"source": "history", "status": f"Your baseline: {n_real:,} visits from your browser "
                                                               f"history over the last {days:g} days."}
         else:
@@ -528,11 +631,13 @@ class Controller:
         model = res.pop("_model", None)
         if model is not None:
             self._ml_model, self._ml_ranks = model, ranks
-            hist = list(self.app.get("ml_history") or [])[-29:] + [[round(time.time()), res["score"]]]
-            self.app["ml_history"] = hist             # scores only: no browsing data is kept
-            self._save()
+            if not demo:                              # a demo score says nothing about you: keep it out of the trend
+                hist = list(self.app.get("ml_history") or [])[-29:] + [[round(time.time()), res["score"]]]
+                self.app["ml_history"] = hist         # scores only: no browsing data is kept
+                self._save()
         self._ml_last = res
-        self.log.info("tools", f"Self-test: {res.get('score', '—')}% ({res.get('verdict', res.get('error', ''))}).")
+        self.log.info("tools", f"Self-test{' (demo)' if demo else ''}: {res.get('score', '—')}% "
+                               f"({res.get('verdict', res.get('error', ''))}).")
         return res
 
     def ml_state(self) -> dict:
@@ -592,6 +697,171 @@ class Controller:
         res = top_sites(time.time() - days * 86400, denylist=self.feeds.denylist())
         self.log.info("mylist", f"Scanned browser history (last {days:g} days): {len(res['sites'])} sites found.")
         return res
+
+    # ── network map: click a node ──────────────────────────────────────────
+    def _blocked_file(self) -> Path:
+        return app_dir() / "blocked.json"
+
+    def blocked(self) -> dict[str, float]:
+        """host -> expiry (0 = until removed). Expired entries are dropped."""
+        try:
+            data = json.loads(self._blocked_file().read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            data = {}
+        now = time.time()
+        return {h: float(t) for h, t in data.items() if isinstance(h, str) and (float(t) == 0 or float(t) > now)}
+
+    def _apply_blocks(self, blocks: dict[str, float]) -> None:
+        try:
+            self._blocked_file().write_text(json.dumps(blocks), encoding="utf-8")
+        except OSError:
+            pass
+        self.feeds.set_user_block(set(blocks))
+
+    @staticmethod
+    def _firewall_commands(ip: str) -> list[dict]:
+        return [
+            {"name": "nftables (Linux)", "add": f"sudo nft add rule inet filter output ip daddr {ip} drop",
+             "note": "Needs an existing `inet filter output` chain; list rules with `sudo nft -a list ruleset` to remove it."},
+            {"name": "iptables (Linux)", "add": f"sudo iptables -I OUTPUT -d {ip} -j DROP", "remove": f"sudo iptables -D OUTPUT -d {ip} -j DROP"},
+            {"name": "ufw (Linux)", "add": f"sudo ufw deny out to {ip}", "remove": f"sudo ufw delete deny out to {ip}"},
+            {"name": "Windows (administrator)", "add": f'netsh advfirewall firewall add rule name="Block {ip}" dir=out action=block remoteip={ip}',
+             "remove": f'netsh advfirewall firewall delete rule name="Block {ip}"'},
+        ]
+
+    def map_info(self, ip: str, name: str = "", kind: str = "") -> dict:
+        """What a node on the map is, as far as this computer can tell. The reverse lookup is a normal DNS question and is
+        made only because the person clicked Info."""
+        import ipaddress
+        try:
+            addr = ipaddress.ip_address(ip)
+        except ValueError:
+            raise ConfigError("That is not an address.") from None
+        rdns = ""
+        out: list[str] = []
+
+        def ask() -> None:
+            try:
+                out.append(socket.gethostbyaddr(str(addr))[0])
+            except OSError:
+                pass
+        t = threading.Thread(target=ask, daemon=True)
+        t.start()
+        t.join(3.0)
+        rdns = out[0] if out else ""
+        host = (name or "").split("/")[0].removeprefix("www.")
+        blocks = self.blocked()
+        return {"ip": str(addr), "name": name, "kind": kind, "rdns": rdns, "private": addr.is_private,
+                "blocked": host in blocks, "block_host": host if host and host != str(addr) else "",
+                "whois": f"https://bgp.he.net/ip/{addr}", "firewall": self._firewall_commands(str(addr))}
+
+    def map_block(self, host: str, mode: str) -> dict:
+        """Tell the noise to leave a site alone (temporarily for a day, or until removed), or undo that. This is the app's own
+        deny list; it cannot block your other programs (that is the firewall, which needs administrator rights: map_info
+        gives the commands to copy)."""
+        host = (host or "").strip().lower().removeprefix("www.")
+        if not re.fullmatch(r"[a-z0-9]([a-z0-9.-]*[a-z0-9])?", host) or "." not in host or re.fullmatch(r"[0-9.]+", host):
+            raise ConfigError("Only a site name can be blocked this way. For an address, use the firewall commands.")
+        blocks = self.blocked()
+        if mode == "temporary":
+            blocks[host] = time.time() + 86400
+        elif mode == "permanent":
+            blocks[host] = 0.0
+        elif mode == "unblock":
+            blocks.pop(host, None)
+        else:
+            raise ConfigError("mode must be temporary, permanent or unblock")
+        self._apply_blocks(blocks)
+        self.log.info("tools", f"{'Unblocked' if mode == 'unblock' else 'Blocked'} {host} for the noise ({mode}).")
+        return {"blocked": sorted(blocks)}
+
+    # ── scraping jobs (Tools) ──────────────────────────────────────────────
+    def scrape_state(self) -> dict:
+        job = getattr(self, "_scrape", None)
+        return {"job": dict(job.status) if job else None, "kinds": ["tables", "images", "video", "audio", "documents", "archives"],
+                "proxies": len(self.proxies.good()), "folder": str(app_dir() / "scrapes")}
+
+    def scrape_start(self, body: dict) -> dict:
+        """Start one polite crawl of a site the user named. Tables become CSV; images, video, audio, documents and archives are
+        saved. It follows robots.txt, waits a random few seconds, and can mix in visits to unrelated popular sites."""
+        from .scrape import ALL_KINDS, USER_AGENT, ScrapeJob
+        job = getattr(self, "_scrape", None)
+        if job and job.status["running"]:
+            raise ConfigError("A scrape is already running. Stop it first.")
+        url = str(body.get("url", "")).strip()
+        kinds = [k for k in (body.get("kinds") or ALL_KINDS) if k in ALL_KINDS]
+        proxy = None
+        if body.get("use_proxy"):
+            proxy = self.proxies.pick()
+            if proxy is None:
+                raise ConfigError("No tested proxies yet. Fetch and test some on this tab first, or turn the proxy off.")
+        host = re.sub(r"[^a-z0-9.-]+", "-", (url.split("//", 1)[-1].split("/", 1)[0] or "site").lower())[:40]
+        out = app_dir() / "scrapes" / f"{time.strftime('%Y%m%d-%H%M%S')}-{host}"
+        pool = list(self.feeds.items("tranco")[:400]) or ["wikipedia.org", "bbc.com", "nytimes.com"]
+
+        def noise() -> None:
+            import requests
+            site = random.choice(pool)
+            requests.get(f"https://{site}/", timeout=10, headers={"User-Agent": USER_AGENT},
+                         proxies={"http": proxy, "https": proxy} if proxy else None).close()
+        try:
+            self._scrape = ScrapeJob(
+                url, out, kinds=kinds, depth=int(body.get("depth", 1)), max_pages=int(body.get("max_pages", 20)),
+                delay=float(body.get("delay", 2.0)), max_mb=float(body.get("max_mb", 200)),
+                same_site=body.get("same_site", True) is not False, respect_robots=body.get("respect_robots", True) is not False,
+                mix_noise=body.get("mix_noise", True) is not False, proxy=proxy, noise_fn=noise)
+        except (ValueError, TypeError) as exc:
+            raise ConfigError(str(exc)) from None
+        threading.Thread(target=self._scrape.run, daemon=True, name="scrape").start()
+        self.log.info("tools", f"Scraping {url} into {out}" + (" through a tested proxy." if proxy else "."))
+        return self.scrape_state()
+
+    def scrape_stop(self) -> dict:
+        job = getattr(self, "_scrape", None)
+        if job:
+            job.stop.set()
+        return self.scrape_state()
+
+    def proxy_state(self) -> dict:
+        return self.proxies.state()
+
+    def proxy_refresh(self) -> dict:
+        """Fetch the proxy lists and test candidates in the background; poll proxy_state for progress."""
+        if not self.proxies.progress["running"]:
+            threading.Thread(target=self.proxies.refresh, daemon=True, name="proxy-refresh").start()
+            self.log.info("tools", "Testing free proxies from the lists (slow and dead ones are thrown out).")
+        return self.proxies.state()
+
+    def proxy_source(self, action: str, url: str) -> dict:
+        try:
+            if action == "add":
+                self.proxies.add_source(str(url).strip())
+            elif action == "remove":
+                self.proxies.remove_source(str(url))
+            else:
+                raise ConfigError("action must be add or remove")
+        except ValueError as exc:
+            raise ConfigError(str(exc)) from None
+        return self.proxies.state()
+
+    def mylist_from_recording(self) -> dict:
+        """Your habits from the browser recording you imported: the sites you load most, safety-filtered, in the same
+        shape as a history scan (so the same 'pick the ones to add' screen works). Counts are requests, which include
+        a page's own files, so sites that are only helper hosts (CDNs, trackers) are left out by the list filter."""
+        from .safety import safe_domain
+        har = self.har.load()
+        if not har or not har.get("top_hosts"):
+            raise ConfigError("No browser recording has been imported yet. Import one in the Proof tab first.")
+        deny = self.feeds.denylist()
+        seen: dict[str, int] = {}
+        for host, n in har["top_hosts"]:
+            site = host.removeprefix("www.")
+            if safe_domain(site, deny):
+                seen[site] = seen.get(site, 0) + int(n)
+        sites = sorted(seen.items(), key=lambda kv: -kv[1])[:200]
+        self.log.info("mylist", f"Read your imported recording: {len(sites)} sites found.")
+        return {"sites": [list(x) for x in sites], "browsers": ["imported recording"], "errors": [],
+                "filtered": len(har["top_hosts"]) - len(sites)}
 
     def mylist_watch(self, action: str, hours: float | None = None) -> dict:
         from .history import top_sites
@@ -794,13 +1064,31 @@ class Controller:
             return None
         from .torbrowser import TorBrowserError, shared_env
         tm = self.tor_manager()
+        if tm.state != "ready":                      # sharing is on by default: bring the app's Tor up so the click just works
+            self.log.info("app", "Tor Browser is set to share this app's Tor, which isn't connected yet: starting it first.")
+            tm.start()
+            deadline = time.time() + 120
+            while time.time() < deadline and tm.state in ("installing", "starting", "bootstrapping"):
+                time.sleep(1.0)
         if tm.state != "ready" or not tm.user_socks_port:
-            raise TorBrowserError("Sharing is on, but this app's Tor isn't connected yet (or needs a restart "
-                                  "after you turned sharing on). Start Tor on this tab, wait for Connected, then try again.")
+            raise TorBrowserError("Tor Browser is set to share this app's Tor, but it isn't connected (" +
+                                  (tm.error or tm.state) + "). Look at the Tor tab, wait for Connected, then try again.")
+        from .torbrowser import socks_answers
+        why = socks_answers("127.0.0.1", tm.user_socks_port)
+        if why:                                      # better to say so than to open a browser that cannot load anything
+            raise TorBrowserError("Tor Browser's door into this app's Tor isn't answering: " + why +
+                                  ". Restart Tor on the Tor tab, wait for Connected, then try again.")
         return shared_env(f"127.0.0.1:{tm.user_socks_port}", tm.control_addr, tm.cookie_path)
 
+    def _seed_bookmarks(self) -> list[tuple[str, str]]:
+        from .onion import site_label
+        seeds = list(self._tor_cfg().onion_seeds or [])
+        return [(site_label(u), u) for u in seeds]
+
     def torbrowser_open(self) -> dict:
+        from . import torbrowser
         from .torbrowser import TorBrowserError
+        torbrowser.extra_bookmarks_fn = self._seed_bookmarks
         self.torbrowser.shared_fn = self._shared_tor_env
         try:
             return self.torbrowser.open()
@@ -837,7 +1125,7 @@ class Controller:
             if not (0.1 <= mb <= 1000):
                 raise ConfigError("bandwidth cap must be between 0.1 and 1000 MBytes per second")
             rc = RelayConfig(mode=str(body.get("mode", cur.mode)), nickname=str(body.get("nickname", cur.nickname)),
-                             contact=str(body.get("contact") or "").strip() or None,
+                             contact=None,
                              bandwidth_rate=f"{mb:g} MBytes", or_port=int(body.get("or_port", cur.or_port)),
                              dir_port=0, practice=body.get("practice", cur.practice) is True,
                              private=body.get("private", cur.private) is True)
@@ -891,7 +1179,7 @@ class Controller:
             raise ConfigError("Tick every item on the checklist before starting a public relay, "
                               "or use practice mode.")
         raw = {"mode": str(body.get("mode", cur.mode)), "nickname": str(body.get("nickname", cur.nickname)),
-               "contact": str(body.get("contact") or "").strip() or None,
+               "contact": None,
                "bandwidth_rate": f"{mb:g} MBytes", "or_port": or_port, "dir_port": 0, "practice": practice,
                "private": body.get("private", cur.private) is True,
                "acknowledged": cur.acknowledged or not practice}
@@ -907,6 +1195,61 @@ class Controller:
     def relay_stop(self) -> dict:
         self.relay.stop()
         return self.relay_state()
+
+    # ── remote machines (noise from other computers you own, over SSH) ───────
+    def _remote_pools(self, rng, os_name: str = "Linux") -> dict:
+        """What one remote machine draws from: a fresh random slice of sites, searches and browser identities."""
+        from .domains import DomainPool, looks_browsable
+        from .queries import QueryConfig, QuerySource
+        from .useragents import build_pool
+        sites = [d for d in DomainPool(rng, self.feeds)._ranked()[:6000] if looks_browsable(d)]
+        rng.shuffle(sites)
+        qs = QuerySource(rng, self.feeds, QueryConfig())
+        queries: list[str] = []
+        for _ in range(400):
+            try:
+                q = qs.next()[0]
+            except Exception:
+                break
+            if q not in queries:
+                queries.append(q)
+        plat = {"Darwin": "macOS", "Windows": "Windows"}.get(os_name, "Linux")
+        uas = [e["ua"] for key in ("desktop-firefox", "desktop-chrome") for e in build_pool().get(key, [])
+               if e["platform"] == plat]
+        return {"domains": sites[:600], "queries": queries, "user_agents": uas}
+
+    def remote_state(self) -> dict:
+        return self.remote.snapshot()
+
+    def remote_add(self, body: dict) -> dict:
+        return self.remote.add(
+            target=str(body.get("target") or ""), auth=str(body.get("auth") or "password"),
+            password=body.get("password") or None, key_path=body.get("key_path") or None,
+            passphrase=body.get("passphrase") or None, label=str(body.get("label") or ""),
+            authorised=bool(body.get("authorised")), settings=body.get("settings"))
+
+    def remote_test(self, body: dict) -> dict:
+        return self.remote.test(str(body.get("id") or ""), body.get("password") or None, body.get("passphrase") or None)
+
+    def remote_trust(self, body: dict) -> dict:
+        return self.remote.trust(str(body.get("id") or ""), str(body.get("fingerprint") or ""))
+
+    def remote_forget_key(self, body: dict) -> dict:
+        return self.remote.forget_key(str(body.get("id") or ""))
+
+    def remote_configure(self, body: dict) -> dict:
+        return self.remote.configure(str(body.get("id") or ""), body.get("settings") or {})
+
+    def remote_start(self, body: dict) -> dict:
+        return self.remote.start(str(body.get("id") or ""), body.get("password") or None,
+                                 body.get("passphrase") or None, body.get("fingerprint") or None)
+
+    def remote_stop(self, body: dict) -> dict:
+        return self.remote.stop(str(body.get("id") or ""))
+
+    def remote_remove(self, body: dict) -> dict:
+        return self.remote.remove(str(body.get("id") or ""), bool(body.get("wipe", True)),
+                                  body.get("password") or None, body.get("passphrase") or None)
 
     def relay_autostart(self) -> None:
         """Called once when the app opens. Starts the relay if 'start with the app' is on (the default). Out of the
@@ -930,6 +1273,25 @@ class Controller:
         active = cfg.browser == "on" or (cfg.browser == "auto" and ok)
         return {"setting": cfg.browser, "available": ok, "detail": detail,
                 "active": bool(active and ok), "visible": cfg.browser_visible}
+
+    def _tor_lane_transport(self, stop: threading.Event):
+        """The Tor lane's browser: the real Tor Browser through this app's Tor, or None (the plain lane is used)."""
+        cfg = self._tor_cfg()
+        if not (cfg.enabled and cfg.onion and cfg.onion_browser):
+            return None
+        from . import torlane
+        ok, why = torlane.support()
+        if not ok:
+            self.log.info("browser", f"Onion sites will be visited with the plain lane: {why}.")
+            return None
+        import os as _os
+        headless = not (self.profile.transports["clearnet"].browser_visible or
+                        sys.platform in ("win32", "darwin") or bool(_os.environ.get("DISPLAY")))
+        return torlane.TorBrowserTransport(
+            socks=cfg.socks, control=cfg.control, identities_per_circuit=cfg.identities_per_circuit,
+            control_password=cfg.control_password, share_browser=bool(cfg.share_browser), headless=headless,
+            stop_event=stop, scale=lambda: self.profile.realtime_scale,
+            on_event=lambda lvl, msg: self.log.add(lvl, "browser", msg))
 
     def _clearnet_transport(self, stop: threading.Event):
         cfg = self.profile.transports["clearnet"]
@@ -1080,25 +1442,34 @@ class Controller:
             if browser_tr is not None and prof.traffic.plain > 0:      # both kinds of clearnet noise
                 from .transports import ClearnetTransport
                 plain_tr = ClearnetTransport(proxy=prof.transports["clearnet"].proxy)
+            from . import browser as _bw
+            _bw.MULTI_TAB = bool(getattr(prof.extras, "multi_tab", True))
             lanes = build_lanes(prof, words, tor_gate=gate, clearnet_transport=browser_tr,
-                                plain_transport=plain_tr)
+                                plain_transport=plain_tr, tor_transport=self._tor_lane_transport(self._stop))
             if not lanes:
                 raise ConfigError("Nothing to run: enable clearnet noise or Tor/onion noise in Settings.")
             import random as _r
             prev = self.runner
-            if self.app.get("clear_logs_on_restart", True):      # Settings → General (on by default)
+            keep_s = float(self.app.get("log_keep_days", 7) or 0) * 86400
+            clearing = self.app.get("clear_logs_on_restart", True)     # Settings → General (on by default)
+            if clearing and not keep_s:
                 self.log.clear()
                 self.log_epoch = getattr(self, "log_epoch", 0) + 1
+            elif clearing:
+                self.log.clear_older(keep_s)                     # only what is older than the days kept
             self.runner = Runner(profile=prof, lanes=lanes, wordlist=words, log=self.log,
                                  stop_event=self._stop, sleep_fn=lambda s: self._stop.wait(s),
                                  queries=self._query_source(words), domains=self._domain_pool(_r),
-                                 rate=RatePlanner(_r.Random(), prof.rate),
+                                 rate=self._planner(prof),
                                  dns_plan=self._fresh_dns_plan(),
-                                 mix=True, side_streams=("dns", "packages"))
+                                 mix=True, side_streams=("dns", "packages", "files"))
             if prev is not None:                  # request numbers keep counting across restarts
                 self.runner._hit_seq = prev._hit_seq
-                if not self.app.get("clear_logs_on_restart", True):
+                if not clearing:
                     self.runner.hit_log.extend(prev.hit_log)
+                elif keep_s:
+                    cut = time.time() - keep_s
+                    self.runner.hit_log.extend(h for h in prev.hit_log if h.get("ts", 0) >= cut)
             self._thread = threading.Thread(target=self._run_loop, daemon=True, name="legalprivacy-runner")
             self._thread.start()
             self.accounts.start()                 # idle unless an account is signed in AND switched on
@@ -1205,11 +1576,15 @@ class Controller:
         if self.relay.running:
             self.relay.stop()
             done.append("relay stopped")
+        if any(m.running for m in self.remote.machines.values()):
+            self.remote.stop_all()
+            done.append("remote machines stopped")
         if level in ("medium", "hard"):
             self.log.clear()
             done.append("log cleared")
             shutil.rmtree(app_dir() / "browser", ignore_errors=True)
-            done.append("noise-browser cookies deleted")
+            (app_dir() / "fingerprint.json").unlink(missing_ok=True)
+            done.append("noise-browser cookies and fingerprint seed deleted")
             self.accounts.forget_all()
             done.append("signed-in account sessions deleted (you will need to sign in again)")
         if level == "hard":
@@ -1324,6 +1699,7 @@ class Controller:
             self.tor.stop()
         if stop_tor:
             self.relay.stop()                     # quitting the app also stops the relay
+            self.remote.stop_all()                # ...and the noise on remote machines
         wipe_old_log_files()                      # the log itself lives in memory and ends with the app
 
     def pause(self, paused: bool) -> None:
@@ -1353,6 +1729,46 @@ class Controller:
                 r.close()
         threading.Thread(target=_go, daemon=True, name="legalprivacy-once").start()
 
+    # ── nudging the traffic mix ─────────────────────────────────────────────
+    def mix_status(self) -> dict:
+        """The traffic mix as percentages, for the nudge buttons. Onion only counts while Tor is on."""
+        from .mixnudge import KINDS, shares
+        tor = self.profile.transports.get("tor")
+        tor_on = bool(tor and tor.enabled)
+        tc = self.profile.traffic
+        kinds = KINDS if tor_on else ("browser", "plain")
+        sh = shares({"browser": tc.browser, "plain": tc.plain, "onion": tc.onion}, kinds)
+        sh.setdefault("onion", 0.0)
+        return {"shares": {k: round(v, 1) for k, v in sh.items()}, "phones": round(tc.mobile_share * 100, 1),
+                "tor": tor_on}
+
+    def nudge_mix(self, what: str, direction: int) -> dict:
+        """One button press: move browser / plain / onion / phones up or down a step, save it, and apply it live."""
+        from .mixnudge import KINDS, nudge_phones, nudge_shares
+        d = 1 if int(direction) > 0 else -1
+        tc = self.profile.traffic
+        mix = self.mix_status()
+        if what == "phones":
+            raw = {"traffic": {"mobile_share": nudge_phones(tc.mobile_share, d)}}
+        elif what in KINDS:
+            if what == "onion" and not mix["tor"]:
+                raise ConfigError("Tor is off, so there are no .onion sites to nudge. Turn Tor on first.")
+            kinds = KINDS if mix["tor"] else ("browser", "plain")
+            new = nudge_shares({"browser": tc.browser, "plain": tc.plain, "onion": tc.onion}, what, d, kinds)
+            raw = {"traffic": new}
+        else:
+            raise ConfigError(f"traffic mix: unknown part '{what}'")
+        self.apply_config(raw)
+        if self.running:
+            self.reapply()
+        after = self.mix_status()
+        label = {"browser": "web pages in a real browser", "plain": "web pages over plain HTTP",
+                 "onion": ".onion sites", "phones": "phones"}[what]
+        self.log.info("app", f"Traffic mix nudged {'up' if d > 0 else 'down'}: {label}. Now "
+                             + ", ".join(f"{k} {v:g}%" for k, v in after["shares"].items() if v or k == "browser")
+                             + f"; phones {after['phones']:g}%.")
+        return after
+
     # ── state / diagnostics ─────────────────────────────────────────────────
     def state(self) -> dict:
         r = self.runner
@@ -1380,6 +1796,7 @@ class Controller:
             "dns": self.dns_report(),
             "settings": self.settings_status(),
             "accounts": self.accounts.status(),
+            "mix": self.mix_status(),
         }
 
     def _search_share(self) -> float:
@@ -1405,8 +1822,11 @@ class Controller:
         """Self-checks with plain-language results: status ∈ ok | warn | fail | info."""
         checks: list[dict] = []
 
-        def add(name, status, detail):
-            checks.append({"name": name, "status": status, "detail": detail})
+        def add(name, status, detail, fix=None):
+            c = {"name": name, "status": status, "detail": detail}
+            if fix:                                   # a one-click change the Health tab offers: {"label", "config"}
+                c["fix"] = fix
+            checks.append(c)
 
         for lib in ("requests", "yaml", "socks"):
             try:
@@ -1414,6 +1834,43 @@ class Controller:
                 add(f"Python library: {lib}", "ok", "installed")
             except ImportError:
                 add(f"Python library: {lib}", "fail", "missing — reinstall legalPrivacy")
+        try:                                  # the recommended human-like behaviour switches, each on by default
+            rec = {"extras": {"long_sessions": True, "multi_tab": True, "dns_bursts": True,
+                              "browser_dns": True},
+                   "transports": {"clearnet": {"cookie_hours": 24.0, "cookie_vary": True}},
+                   "identity": {"ua_mode": "mix"}}
+            diff: dict = {}
+            for sect, vals in rec.items():
+                obj = getattr(self.profile, sect)
+                for key, val in vals.items():
+                    if isinstance(val, dict):                      # transports.<name>.<field>
+                        for k2, v2 in val.items():
+                            if getattr(obj[key], k2, v2) != v2:
+                                diff.setdefault(sect, {}).setdefault(key, {})[k2] = v2
+                    elif getattr(obj, key, val) != val:
+                        diff.setdefault(sect, {})[key] = val
+            names = [k for v in diff.values() for k in v]
+            if diff:
+                add("Recommended settings", "warn", "These differ from the recommended human-like defaults: " +
+                    ", ".join(names) + ". Your other choices (sites, personas, limits) are left alone.",
+                    fix={"label": "Use the recommended ones", "config": diff})
+            else:
+                add("Recommended settings", "ok", "The human-like behaviour switches (long sessions, second tab, DNS "
+                    "bursts, cookie lifetime, user agent mix) are all on the recommended values.")
+        except Exception as exc:
+            add("Recommended settings", "info", f"not checked ({exc})")
+        try:
+            import random as _r
+            from .fingerprint_audit import audit_identity
+            from .identity import make_identity
+            rng, bad = _r.Random(0), []
+            for k in range(300):
+                bad += audit_identity(make_identity(rng, k, []))
+            add("Identity consistency", "ok" if not bad else "warn",
+                "300 sample identities checked: user agent, platform, client hints and language all agree" if not bad
+                else f"{len(bad)} contradictions in 300 sample identities, for example: {bad[0]}")
+        except Exception as exc:
+            add("Identity consistency", "info", f"not checked ({exc})")
         wl = next((e.wordlist for e in self.profile.engines.values() if e.enabled and e.wordlist), None)
         if wl:
             path = resolve_resource(wl)
@@ -1430,7 +1887,9 @@ class Controller:
             add("Internet (clearnet)", "warn", f"cannot reach 1.1.1.1:443 ({exc})")
         cfg = self._tor_cfg()
         if not cfg.enabled:
-            add("Tor", "info", "Tor is turned off (optional). Enable it in Settings or on the Tor tab.")
+            add("Tor", "info", "Tor is turned off. Bridges, Tor DNS, onion sites and Tor Browser sharing all need it, so "
+                               "it is recommended: switch it on here, or on the Tor tab.",
+                {"label": "Turn on the app's private Tor", "config": {"transports": {"tor": {"enabled": True}}}})
         else:
             binp = find_tor_binary()
             add("Tor program", "ok" if binp else "warn",
@@ -1441,9 +1900,36 @@ class Controller:
             seeds_ok, bad = clean_seed_list(cfg.onion_seeds or [u for _, u in BUILTIN_ONION_SEEDS])
             add("Onion seeds", "ok" if not bad else "fail",
                 f"{len(seeds_ok)} valid v3 addresses" + (f"; {len(bad)} invalid" if bad else ""))
+            from . import tordns
+            if cfg.bridge_mode == "off":
+                add("Tor bridges", "warn",
+                    "Not using bridges. Strongly recommended: a bridge hides from your internet provider that you use Tor, "
+                    "and the built-in obfs4 bridges look like ordinary encrypted traffic. (With automatic fallback on, "
+                    "bridges are otherwise used only if Tor cannot connect directly.)",
+                    {"label": "Use the built-in bridges (obfs4)", "config": {"transports": {"tor": {"bridge_mode": "obfs4"}}}})
+            else:
+                add("Tor bridges", "ok", f"in use: {cfg.bridge_mode}" + (" (your own)" if cfg.bridge_mode == "custom" else " (built in)"))
+            if not cfg.dns_port:
+                add("Tor DNS (ordinary sites)", "warn",
+                    "Off. Your own lookups for ordinary, non-onion sites go to your internet provider or router in the clear. "
+                    "Strongly recommended: turn on Tor DNS, then point this computer's DNS at it (Tor tab, DNS) and those "
+                    "lookups leave through Tor instead. Exit relays do the looking up, so it suits sites you would also open "
+                    "over Tor.",
+                    {"label": "Turn on Tor DNS", "config": {"transports": {"tor": {"dns_port": tordns.DEFAULT_PORT}}}})
+            else:
+                add("Tor DNS (ordinary sites)", "ok", f"on (local port {cfg.dns_port}); point your computer's DNS at it to use it")
             if port_open("127.0.0.1", 9150) or port_open("127.0.0.1", 9050):
                 add("Other Tor on this PC", "info",
                     "A system Tor/Tor Browser is running. legalPrivacy's own Tor uses different ports and won't touch it.")
+        if self.profile.dns.mode == "system":
+            add("DNS noise", "warn",
+                "All DNS noise uses your normal resolver, so it cannot show how your lookups look to a second provider. "
+                "Mix (the default) also uses the secure resolvers.",
+                {"label": "Use Mix", "config": {"dns": {"mode": "mix"}}})
+        add("Your own DNS", "info",
+            "legalPrivacy cannot change how this computer looks names up. To keep your own lookups private from your internet "
+            "provider, turn on encrypted DNS (DNS over HTTPS or TLS) in your browser's privacy settings or in your system's "
+            "network settings, or use Tor DNS above.")
         bi = self.browser_info()
         add("Real browser", "ok" if bi["active"] else ("warn" if bi["setting"] != "off" else "info"),
             (f"in use: {bi['detail']}" if bi["active"] else

@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/logo/legalprivacy-logo.png" alt="legalPrivacy" width="720"></p>
+<p align="center"><img src="docs/logo/legalprivacy-logo-wordmark.png" alt="legalPrivacy" width="720"></p>
 
 # legalPrivacy
 
@@ -40,6 +40,15 @@ existing settings, start-up commands (`cricket`, `cricket-launch`) and `CRICKET_
 | <img src="docs/screenshots/proof-looks-like-you.png" alt="A 72% match score with Looks like you and four similarity bars" width="440"><br><sub><b>Does it look like you?</b> A score and four checks.</sub> | <img src="docs/screenshots/proof-off-vs-on.png" alt="Noise off against noise on: addresses and requests per minute" width="440"><br><sub><b>Off vs on:</b> what an observer sees with and without the noise.</sub> |
 | <img src="docs/screenshots/amount.png" alt="Amount of noise: a 1 to 10 slider, randomness, the mix of activity and background lookups and installs" width="440"><br><sub>How much noise, how random, and the mix</sub> | <img src="docs/screenshots/dns.png" alt="DNS settings: normal, secure or mix, with the resolver table and live checks" width="440"><br><sub>DNS: your resolvers, checked live</sub> |
 | <img src="docs/screenshots/bridges.png" alt="Tor bridges: built-in obfs4, Snowflake and meek, or your own" width="440"><br><sub>Tor bridges</sub> | |
+
+### Newer features
+
+| | |
+|---|---|
+| <img src="docs/screenshots/proof-pvalues-correction.png" alt="The Proof card: 67 percent, four rhythm comparisons each with its percent difference and p-value, and the hours the app is correcting" width="440"><br><sub>Proof: each rhythm comparison shows percent different and a p-value, and "Adjust to my rhythm" lists the hours it is changing. (Demo data.)</sub> | <img src="docs/screenshots/health-recommended.png" alt="Health tab: checks for the recommended settings, identity consistency, Tor, DNS, sources" width="440"><br><sub>Health: recommended settings, identity consistency and one-click fixes.</sub> |
+| <img src="docs/screenshots/menu-settings-cards.png" alt="Side menu with Settings open and its cards listed underneath" width="440"><br><sub>Side menu: a tab's cards are listed under it; ☰ hides the menu, Collapse keeps the icons.</sub> | <img src="docs/screenshots/tools-two-columns.png" alt="Tools tab in two columns: privacy check, DNS leak check, speed test, data estimate, MAC address, password generator" width="440"><br><sub>Tools in two compact columns, with a password generator.</sub> |
+| <img src="docs/screenshots/help-sections.png" alt="Help tab as expandable sections, About at the bottom" width="440"><br><sub>Help as expandable sections, About included.</sub> | <img src="docs/screenshots/menu-dashboard.png" alt="The dashboard with the red, white and blue logo and the grouped side menu" width="440"><br><sub>The dashboard with the red, white and blue logo and the grouped menu.</sub> |
+
 
 ## Quick start
 
@@ -84,6 +93,13 @@ already has the recommended value, and settings save themselves as you change th
 | **Tools** | Data-use estimate, privacy check, DNS leak check, speed test, clear the live log |
 | **Proof** | A live EtherApe-style map of every machine this computer talks to, 6 hours of traffic per minute with the noise on/off periods shaded, and whether the noise's rhythm looks like yours |
 
+**Nudge the mix.** The Dashboard tab has a "Nudge the mix" card: minus and plus buttons for web pages in a real browser,
+web pages over plain HTTP, Tor .onion sites (when Tor is on) and the phone share. Each press moves one part by 10 points,
+the others give or take the difference so the total stays 100%, and the change is saved and applied live. Fine control
+stays in Settings → Traffic mix.
+
+<p align="center"><img src="docs/screenshots/nudge-the-mix.png" alt="The Nudge the mix card: web pages in a real browser 90%, web pages over plain HTTP 10%, share that is a phone 65%, each with minus and plus buttons" width="900"></p>
+
 The dashboard listens only on `127.0.0.1` and needs the token in its link. Settings live in
 `~/.legalprivacy/config.yaml` (`%APPDATA%\legalPrivacy` on Windows); set `LEGALPRIVACY_HOME` to move them.
 
@@ -99,14 +115,16 @@ The dashboard listens only on `127.0.0.1` and needs the token in its link. Setti
 
 | Level | Searches an hour | Over a 15-hour day |
 |---|---|---|
-| 1 | 0.5 | ~8 |
-| 3 | 1.5 | ~23 |
-| 5 (default) | 4 | ~60 |
-| 7 | 8 | ~120 |
-| 10 | 20 | ~300 |
+| 1 | 1 | ~15 |
+| 3 | 4 | ~60 |
+| 5 (default) | 11 | ~165 |
+| 7 | 25 | ~375 |
+| 9 | 50 | ~750 |
+| 10 | 70 | ~1050 |
 
-Even level 10 stays below what gets one address rate-limited: no search engine gets more than
-8 searches an hour from legalPrivacy. Page visits and DNS lookups come on top of searches.
+These are averages: in random mode busy hours go well above them. No search engine gets more than
+20 searches an hour from legalPrivacy; above that the searches spread over more engines. Page visits
+and DNS lookups come on top of searches.
 
 Activity comes in **sittings**: a few requests close together, then a longer gap, the way people
 use a computer. The first action comes within seconds of pressing Start.
@@ -194,6 +212,14 @@ each site is, revisits and domain endings. A classifier tries to separate them, 
 - which signals give the noise away, the specific values behind them, and the setting that fixes each
 - when you browse versus when the noise runs, hour by hour
 - a score history, an optional daily automatic run, and a quick "would this look like noise?" check
+- **a stronger observer**: it also sees bursts, same-site runs and combinations of signals, is trained on the past and
+  tested on the future, and is judged on how much noise it catches while rarely accusing you (at 1% and 0.1% false
+  alarms), plus how often a flagged event would really be noise if only 1 in 100 events were
+- **Try the demo**: compares the noise your current settings would make with a built-in, made-up typical person, so you
+  can see what the tab shows before you have any history to use. A banner says it is not your history, and a demo score
+  is never added to your score trend.
+
+<p align="center"><img src="docs/screenshots/ml-demo.png" alt="The ML tab after Try the demo: a 95.6% score, the stronger observer's numbers, the ROC curve, which signals give the noise away and when the made-up person browses versus when the noise runs" width="900"></p>
 
 Nothing is sent anywhere; only the scores are kept.
 
@@ -326,6 +352,10 @@ If Tk is missing it says so and opens the web dashboard instead.
   budgets; **how much noise** (the 1-10 level and the steady-to-random slider); the **mix of activity** and the
   **traffic mix** as coloured stacked bars with one slider per part that always add up to 100% (drag one and the others
   make room; 0% turns a part off), the drift/blend/alternate pattern, and the phone share and device.
+- **Nudge the mix** (Dashboard): the same minus and plus buttons as the web dashboard, applied live.
+
+<p align="center"><img src="docs/screenshots/native-nudge.png" alt="The desktop app's Dashboard: the wordmark header with Start, Pause and Stop, and the Nudge the mix card" width="760"></p>
+
 - **Activity:** recent hits, newest first (site names only), with filters and CSV/JSON export. **Live Log:** coloured by
   level, filter, pause scrolling, copy, clear.
 - **Tor:** status and progress, details, Start / Stop / Restart / New identity / Install / Test, the circuits table,
@@ -376,6 +406,10 @@ Each lookup in Activity shows which resolver answered it. **Check now** times ea
 All optional:
 
 - **Active hours:** only make noise between set times
+- **Look sites up like a browser, and follow lookups with a page's burst of lookups:** a browser also asks for IPv6 and
+  HTTPS records, and a real page load asks for its fonts, scripts and other sites a few tens of milliseconds after the
+  site itself. With the second option on (the default), about 85% of DNS noise lookups are followed by such a burst
+  (usually 3 or 4 names), using real names only
 - **Your own activity:** pause while you're using the connection, or run mostly while you're active
 - **Persona:** who the noise mostly looks like (Data scientist by default, Developer, Sports fan, Student, Home
   cook and gardener, Traveller, or neutral), followed mostly but not perfectly (90% by default). Searches are mostly
@@ -442,6 +476,24 @@ Tor lane for noise, which stays onion-only.
 - **What a relay does not give you:** it is not an exit and it is not DNS. Only exit relays resolve names, and this app never runs one. The Tor lane for noise stays onion-only.
 - Router and firewall notes are in the card. See also the Tor Project's relay documentation, https://community.torproject.org/relay/.
 - Not tested here: joining the real Tor network as a public relay (this was developed where Tor could not connect out), and Windows and macOS.
+
+## Remote machines (optional, over SSH)
+
+The **Remote** tab (web dashboard and desktop app) runs the same kind of noise on other computers you log in to over SSH: page visits, searches, DNS lookups and downloads from *their* network, each machine with its own random identities, rhythm, daily peak, budgets and sites.
+
+**Only add computers you own or are authorised to use.** The app asks you to confirm that, and the API refuses without it.
+
+| Step | What happens |
+|---|---|
+| Add | `user@host` or `user@host:port`, plus a private-key path (preferred; passphrase optional) or a password. Passwords stay in memory while the app runs; they are never saved, logged or shown. A key path is saved, never the key. |
+| Test connection | Connects, shows the host key fingerprint the first time and sends nothing until you confirm it (a changed key is refused). Reports the system, Python and any headless browser found. |
+| Start | Copies one small stdlib-only file (`remoteagent.py`) and a settings file into `~/.cache/legalprivacy` (Windows: `%LOCALAPPDATA%\legalprivacy`), runs it over SSH and streams its log back. |
+| Stop | Ends the runner. It also ends by itself if the connection drops, and Panic or quitting the app stops all of them. |
+| Remove | Stops it and deletes the folder it created (needs the password or key to be available). |
+
+Needs `pip install legalprivacy[remote]` (installs `paramiko`) on the computer running the app, and **Python 3 on the remote machine**; no root, no display and no service there. With a headless Chromium, Chrome or Firefox installed, some visits use it; otherwise everything is plain HTTP. Downloads are read and thrown away (never written to disk), links found on visited pages are used, and you may add your own `https://` addresses. The runner only connects to public internet addresses, never to private, loopback or link-local ones.
+
+Tested: Linux, against a real SSH server (paramiko's server side, on loopback) with the real runner. Windows OpenSSH/PowerShell commands are built from documented behaviour and only exercised against a fake machine. The headless-browser flags are standard but not exercised against a real browser in the tests.
 
 ## Privacy
 

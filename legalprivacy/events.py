@@ -67,6 +67,14 @@ class EventLog:
                if LEVELS.get(e.level, 20) >= floor and (not sources or e.source in sources)]
         return out[-limit:]
 
+    def clear_older(self, seconds: float) -> None:
+        """Forget entries older than this many seconds; newer ones stay."""
+        cut = time.time() - seconds
+        with self._lock:
+            keep = [e for e in self._buf if e.ts >= cut]
+            self._buf.clear()
+            self._buf.extend(keep)
+
     def clear(self) -> None:
         """Forget everything in the live log. Ids keep counting up so open UIs stay in sync."""
         with self._lock:

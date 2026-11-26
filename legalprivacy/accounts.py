@@ -387,6 +387,56 @@ class _ReadOnlyActuator:
         return _make_readonly_actuator()(page, mobile, stop, None)
 
 
+FIREFOX_COOKIE_HOSTS = {"google": ("google.com", "youtube.com"),
+                        "microsoft": ("live.com", "microsoftonline.com", "microsoft.com", "office.com")}
+
+
+def firefox_session(provider: str, profile: Path | None = None) -> dict | None:
+    """The sign-in you already have in your own Firefox: its cookies for this provider, read from a COPY of the
+    cookie file of the profile Firefox opens by default (Firefox itself is never touched or changed). Returns a
+    browser state like the sign-in window's, or None when Firefox isn't signed in there."""
+    import sqlite3
+    import tempfile
+    if profile is None:
+        try:
+            from .realfirefox import default_profile
+            profile = default_profile()
+        except Exception:
+            profile = None
+    src = Path(profile) / "cookies.sqlite" if profile else None
+    if src is None or not src.exists():
+        return None
+    hosts = FIREFOX_COOKIE_HOSTS.get(provider, ())
+    tmp = Path(tempfile.mkdtemp(prefix="lp-ffcookies-"))
+    try:
+        for name in ("cookies.sqlite", "cookies.sqlite-wal"):          # the -wal file holds the newest cookies
+            if (src.parent / name).exists():
+                shutil.copy2(src.parent / name, tmp / name)
+        con = sqlite3.connect(f"file:{tmp / 'cookies.sqlite'}?mode=ro", uri=True)
+        try:
+            rows = con.execute("SELECT name, value, host, path, expiry, isSecure, isHttpOnly, sameSite "
+                               "FROM moz_cookies").fetchall()
+        finally:
+            con.close()
+    except Exception:
+        return None
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    cookies = []
+    for name, value, host, path, expiry, secure, http_only, same in rows:
+        dom = str(host or "").lstrip(".").lower()
+        if not any(dom == h or dom.endswith("." + h) for h in hosts):
+            continue
+        exp = float(expiry or -1)
+        if exp > 1e11:                                   # newer Firefox stores milliseconds
+            exp /= 1000.0
+        cookies.append({"name": name, "value": value, "domain": host, "path": path or "/", "expires": exp,
+                        "httpOnly": bool(http_only), "secure": bool(secure),
+                        "sameSite": {1: "Lax", 2: "Strict"}.get(int(same or 0), "None")})
+    state = {"cookies": cookies, "origins": []}
+    return state if looks_signed_in(provider, state) else None
+
+
 def _real_signin(provider: str, cancel: threading.Event, progress: Callable[[str, str], None],
                  executable: str | None = None) -> dict | None:
     """Open a VISIBLE browser at the provider's sign-in page and wait while the person signs in by hand.
@@ -422,16 +472,20 @@ def _real_signin(provider: str, cancel: threading.Event, progress: Callable[[str
                 if not open_pages:
                     break
                 url = open_pages[-1].url
+                # Only the cookies are read while the person signs in: reading the full storage state every second
+                # (it visits every origin's local storage) made Google's sign-in page reload over and over.
                 try:
-                    snap = ctx.storage_state()
+                    last = {"cookies": ctx.cookies(), "origins": []}
                 except Exception:
-                    snap = None
-                if snap:
-                    last = snap
+                    pass
                 at_home = any(url.startswith(f"https://{h}{p}") for h, p in spec["home"])
                 if at_home and looks_signed_in(provider, last):
                     home_since = home_since or time.time()
                     if time.time() - home_since > 4:      # give it a moment to settle, then finish
+                        try:
+                            last = ctx.storage_state() or last
+                        except Exception:
+                            pass
                         break
                 else:
                     home_since = None
@@ -463,11 +517,12 @@ class AccountsManager:
     def __init__(self, log, config: Callable[[], dict], running: Callable[[], bool],
                  proxy: Callable[[], str | None] = lambda: None,
                  tor_addrs: Callable[[], tuple[str, ...]] = lambda: (),
-                 signin_impl=None, visit_impl=None, has_display_fn=None, browser_ok=None,
+                 signin_impl=None, visit_impl=None, has_display_fn=None, browser_ok=None, firefox_import=None,
                  rng: random.Random | None = None, now: Callable[[], float] = time.time):
         self.log, self._config, self._running = log, config, running
         self._proxy, self._tor_addrs = proxy, tor_addrs
         self._signin_impl = signin_impl or _real_signin
+        self._firefox_import = firefox_import or firefox_session
         self._visit_impl = visit_impl or _real_visit
         self._has_display = has_display_fn or has_display
         self._browser_ok = browser_ok or self._default_browser_ok
@@ -710,6 +765,18 @@ class AccountsManager:
     def begin_signin(self, provider: str) -> dict:
         self._check(provider)
         label = PROVIDERS[provider]["label"]
+        try:                                     # already signed in in your own Firefox: use that, no window
+            ff = self._firefox_import(provider)
+        except Exception:
+            ff = None
+        if ff and looks_signed_in(provider, ff, self.now()):
+            self._save_session(provider, ff)
+            with self._lock:
+                self._signin[provider] = {"state": "done", "cancel": threading.Event(),
+                                          "message": "Used the sign-in you already have in your own Firefox "
+                                                     "(Firefox itself is unchanged). Turn the switch on to let the noise use it."}
+            self.log.info("accounts", f"{label}: using the sign-in from your own Firefox (session saved on this computer).")
+            return {"ok": True, "from_firefox": True}
         if not self._has_display():
             raise AccountError("This computer has no display, so a sign-in window can't open here. "
                                "Sign in from a computer with a screen (desktop session), not a headless server.")
@@ -737,13 +804,7 @@ class AccountsManager:
                     entry["state"], entry["message"] = "failed", (
                         "The window closed before sign-in finished, so nothing was saved. Try again.")
                     return
-                _write_private(_state_file(provider), json.dumps(state))
-                meta = self._meta(provider)
-                meta.update({"saved_at": self.now(), "attention_until": 0, "reason": None})
-                host = self._mail_host(state)
-                if host:
-                    meta["mail_host"] = host
-                self._save_meta(provider, meta)
+                self._save_session(provider, state)
                 entry["state"], entry["message"] = "done", "Signed in. Turn the switch on to let the noise use it."
                 self.log.info("accounts", f"{label}: signed in (session saved on this computer).")
             except Exception as exc:
@@ -752,6 +813,15 @@ class AccountsManager:
 
         threading.Thread(target=work, daemon=True, name=f"signin-{provider}").start()
         return {"ok": True}
+
+    def _save_session(self, provider: str, state: dict) -> None:
+        _write_private(_state_file(provider), json.dumps(state))
+        meta = self._meta(provider)
+        meta.update({"saved_at": self.now(), "attention_until": 0, "reason": None})
+        host = self._mail_host(state)
+        if host:
+            meta["mail_host"] = host
+        self._save_meta(provider, meta)
 
     @staticmethod
     def _mail_host(state: dict) -> str | None:

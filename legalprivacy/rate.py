@@ -18,11 +18,11 @@ from dataclasses import dataclass
 
 from .pacing import diurnal_factor
 
-# searches per hour at each slider level (1..10)
-# The top is kept low enough that no one search engine sees bot-like volume from your
-# address: at level 10 the busiest engine (Google, ~35% of searches) gets about 7 an hour,
-# and engines.py also caps every engine at 8 searches in any hour.
-SEARCHES_PER_HOUR = [0.5, 1, 1.5, 2.5, 4, 6, 8, 11, 15, 20]
+# searches per hour at each slider level (1..10), the average. In random mode busy hours go well above it.
+# A busy person searches far more than the population average below (heavy phone users search over a hundred
+# times in a busy hour), so the upper levels are meant to cover that. engines.py caps every engine at
+# MAX_SEARCHES_PER_ENGINE_PER_HOUR, so at the top levels the searches spread over more engines.
+SEARCHES_PER_HOUR = [1, 2, 4, 7, 11, 17, 25, 36, 50, 70]
 LEVEL_NAMES = ["barely there", "very light", "light", "light-moderate", "moderate",
                "moderate-busy", "busy", "very busy", "heavy", "very heavy"]
 AVG_PERSON_SEARCHES_PER_DAY = 4.2      # SparkToro 2024, active US desktop users (126/month)
@@ -33,6 +33,7 @@ class RateConfig:
     mode: str = "random"          # random (recommended) | steady
     level: float = 5.0            # 1..10 slider: the average amount, in both modes
     randomness: float = 1.0       # 0 = steady .. 1 = fully random; in between = partly each
+    auto_correct: bool = True     # plan more noise in the hours you are away and less in your busy ones (see Proof)
 
     def validate(self) -> None:
         if self.mode not in ("random", "steady"):
@@ -75,9 +76,19 @@ class RatePlanner:
         self._away_level = 1.0        # 1.0 when at the computer, ramps toward 0.1 when away
         self._day_mult = 1.0
         self._last_hour = -1
+        self.gain_fn = None           # hour -> multiplier, from what the observer saw of your own traffic
 
     def actions_for_hour(self, hour: int, search_share: float) -> float:
-        """Total actions (all engines) planned for the given local hour."""
+        """Total actions (all engines) planned for the given local hour, corrected toward your own rhythm."""
+        v = self._plan_hour(hour, search_share)
+        if self.gain_fn is not None and getattr(self.cfg, "auto_correct", False):
+            try:
+                v *= float(self.gain_fn(hour))
+            except Exception:
+                pass
+        return v
+
+    def _plan_hour(self, hour: int, search_share: float) -> float:
         base = searches_per_hour(self.cfg.level) / max(search_share, 0.05)
         r = 0.0 if self.cfg.mode == "steady" else min(1.0, max(0.0, float(self.cfg.randomness)))
         if r == 0:

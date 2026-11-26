@@ -96,6 +96,8 @@ class QuerySource:
         self._last: dict[int, str] = {}
         self.interests = None              # Interests (optional personas)
         self.interest_share = 0.0
+        self.narrative_share = 0.55        # how often a search starts a run of related searches
+        self._threads: dict[int, deque[tuple[str, str]]] = {}
 
     def _pools(self) -> dict[str, list[str]]:
         st = self.store
@@ -122,6 +124,11 @@ class QuerySource:
         ident = getattr(identity, "id", None)
         last = self._last.pop(ident, None)            # refine at most once per base query
         prev, prev_origin = last if last else (None, None)
+        th = self._threads.get(ident)
+        while th:                                     # the run of related searches this identity is in the middle of
+            q, org = th.popleft()                     # a follow-up keeps the origin of the search it follows
+            if self.rng.random() < 0.88 and safe_query(q) and q.lower() not in self._recent:
+                return self._finish(ident, q, org, follow=True)
         if prev and prev_origin in REFINERS and len(prev.split()) <= 4 and "?" not in prev \
                 and not prev.startswith(("define ",)) and self.rng.random() < 0.22:
             q = f"{prev} {self.rng.choice(REFINERS[prev_origin])}"     # a person narrows the previous search
@@ -158,7 +165,7 @@ class QuerySource:
         biggest = max(pools, key=lambda n: len(pools[n]))  # everything recently used: allow a repeat
         return self._finish(ident, self.rng.choice(pools[biggest]), biggest)
 
-    def _finish(self, ident, q: str, origin: str) -> tuple[str, str]:
+    def _finish(self, ident, q: str, origin: str, follow: bool = False) -> tuple[str, str]:
         q = re.sub(r"\s+", " ", q).strip()
         if q.endswith("?") and self.rng.random() < 0.7:   # most people don't type the question mark
             q = q[:-1].rstrip()
@@ -167,8 +174,15 @@ class QuerySource:
         if origin != "dataset" and self.rng.random() < 0.03:
             q = _typo(self.rng, q)
         self._recent.append(q)
-        if origin != "refine":
+        if not follow and origin not in ("refine", "words") and self.rng.random() < self.narrative_share:
+            from .narrative import follow_ups
+            ups = follow_ups(self.rng, q, list(self._recent)[-60:])
+            if ups:
+                self._threads[ident] = deque((u, origin) for u in ups)
+        if origin != "refine" and not follow:
             self._last[ident] = (q, origin)
         if len(self._last) > 200:
             self._last.pop(next(iter(self._last)))
+        if len(self._threads) > 200:
+            self._threads.pop(next(iter(self._threads)))
         return q, origin

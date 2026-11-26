@@ -199,3 +199,156 @@ def test_sharing_adds_a_separate_isolated_door_and_blocks_new_identity(tmp_path,
     tm.cookie_path = str(tmp_path / "cookie")
     text = tm._write_torrc(tmp_path).read_text()
     assert "SocksPort 127.0.0.1:19150 IsolateSOCKSAuth IsolateClientAddr" in text
+
+
+def test_sharing_with_tor_browser_is_on_by_default_and_old_saved_settings_move_over_once(tmp_path, monkeypatch):
+    import yaml
+    from legalprivacy.config import Profile
+    from legalprivacy.controller import Controller
+    assert Profile(name="x").transports["tor"].share_browser is True
+    monkeypatch.setenv("HOME", str(tmp_path))
+    path = tmp_path / "p.yaml"
+    path.write_text(yaml.safe_dump({"profile": {"transports": {"tor": {"enabled": True, "share_browser": False}}}}))
+    c = Controller(str(path))
+    assert c.profile.transports["tor"].share_browser is True and c.app["migrated_share"] is True   # moved over once
+    c.apply_config({"transports": {"tor": {"share_browser": False}}})
+    c2 = Controller(str(path))
+    assert c2.profile.transports["tor"].share_browser is False            # and a later choice sticks
+
+
+def test_the_noise_never_sends_newnym_under_a_shared_tor_browser():
+    from legalprivacy.transports import TorTransport
+    assert TorTransport(control="127.0.0.1:9051", share_browser=True).renew_circuits() is False
+
+
+def test_opening_tor_browser_starts_the_shared_tor_first(tmp_path, monkeypatch):
+    from legalprivacy.controller import Controller
+    monkeypatch.setenv("HOME", str(tmp_path))
+    c = Controller(str(tmp_path / "p.yaml"))
+
+    class FakeTm:
+        state, user_socks_port, control_addr, cookie_path, error = "stopped", 19150, "127.0.0.1:19151", "/tmp/c", None
+        started = 0
+
+        def start(self):
+            self.started += 1
+            self.state = "ready"
+    tm = FakeTm()
+    monkeypatch.setattr(c, "tor_manager", lambda: tm)
+    import legalprivacy.torbrowser as tbm
+    monkeypatch.setattr(tbm, "socks_answers", lambda *a, **k: "nothing is listening")
+    import pytest
+    with pytest.raises(tbm.TorBrowserError, match="isn't answering"):          # a dead door is reported, not opened
+        c._shared_tor_env()
+    tm.state = "stopped"
+    tm.started = 0
+    monkeypatch.setattr(tbm, "socks_answers", lambda *a, **k: None)
+    env = c._shared_tor_env()
+    assert tm.started == 1 and env                                         # the click just works: Tor was brought up
+    c.profile.transports["tor"].share_browser = False
+    assert c._shared_tor_env() is None
+
+
+def test_relay_nickname_is_the_app_name_plus_random_characters_and_the_old_name_goes(tmp_path, monkeypatch):
+    import yaml
+    from legalprivacy.controller import Controller
+    monkeypatch.setenv("HOME", str(tmp_path))
+    c = Controller(str(tmp_path / "p.yaml"))
+    n = c.profile.relay.nickname
+    assert n.startswith("legalPrivacy") and len(n) == 16 and n.isalnum()
+    path = tmp_path / "old.yaml"
+    path.write_text(yaml.safe_dump({"profile": {"contribute": {"relay": {"nickname": "noisycricket"}}}}))
+    assert Controller(str(path)).profile.relay.nickname.startswith("legalPrivacy")
+    path.write_text(yaml.safe_dump({"profile": {"contribute": {"relay": {"nickname": "MyOwnRelay"}}}}))
+    assert Controller(str(path)).profile.relay.nickname == "MyOwnRelay"    # a name you chose stays
+
+
+def test_a_relay_never_publishes_a_contact_address(tmp_path, monkeypatch):
+    from legalprivacy.config import RelayConfig
+    from legalprivacy.relay import generate_torrc
+    rc = RelayConfig(contact="me@example.org")
+    assert rc.spec().contact is None and "ContactInfo" not in generate_torrc(rc.spec(), data_dir="/tmp/x")
+
+
+def test_tor_browser_gets_the_original_library_path_back_in_the_packaged_app(monkeypatch):
+    from legalprivacy import torbrowser as tb
+    monkeypatch.setenv("LD_LIBRARY_PATH", "/tmp/_MEI123/lib")
+    monkeypatch.setenv("LD_LIBRARY_PATH_ORIG", "/usr/lib/x")
+    monkeypatch.setattr("sys.frozen", True, raising=False)
+    assert tb.clean_env()["LD_LIBRARY_PATH"] == "/usr/lib/x"               # what PyInstaller saved before it changed it
+    monkeypatch.delenv("LD_LIBRARY_PATH_ORIG")
+    assert "LD_LIBRARY_PATH" not in tb.clean_env()                          # there was none: drop the bundled one
+    monkeypatch.setattr("sys.frozen", False, raising=False)
+    monkeypatch.delattr("sys._MEIPASS", raising=False)
+    monkeypatch.setenv("LD_LIBRARY_PATH", "mine")
+    assert tb.clean_env()["LD_LIBRARY_PATH"] == "mine"                      # running from source: untouched
+
+
+def test_a_dead_door_is_reported_before_tor_browser_is_opened():
+    import socket
+    import threading
+    from legalprivacy import torbrowser as tb
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(1)
+    port = srv.getsockname()[1]
+
+    def serve():
+        c, _ = srv.accept()
+        c.recv(3)
+        c.sendall(b"\x05\x00")
+        c.close()
+    threading.Thread(target=serve, daemon=True).start()
+    assert tb.socks_answers("127.0.0.1", port) is None                       # a SOCKS5 proxy answers
+    srv.close()
+    assert "nothing is listening" in tb.socks_answers("127.0.0.1", port, timeout=1.0)
+
+
+def test_tor_browser_is_set_to_safest_and_every_known_onion_site_is_bookmarked(tmp_path):
+    import json
+    from legalprivacy import torbrowser as tb
+    from legalprivacy.onion import BUILTIN_ONION_SEEDS
+    tree = tmp_path / "tor-browser"
+    dist = tree / "Browser" / "distribution"
+    dist.mkdir(parents=True)
+    (dist / "policies.json").write_text(json.dumps({"policies": {"DisableTelemetry": True}}))   # a policy already there stays
+    prof = tree / "Browser" / "TorBrowser" / "Data" / "Browser" / "profile.default"
+    prof.mkdir(parents=True)
+    (prof / "user.js").write_text('user_pref("some.other", 1);\nuser_pref("browser.security_level.security_slider", 4);\n')
+    tb.extra_bookmarks_fn = lambda: [("", "http://" + "a" * 56 + ".onion/")]
+    try:
+        tb.customize(tree)
+        tb.customize(tree)                                                  # again: nothing doubles
+    finally:
+        tb.extra_bookmarks_fn = tb._no_extra_bookmarks
+    uj = (prof / "user.js").read_text()
+    assert uj.count("security_slider") == 1 and 'security_slider", 1)' in uj and "some.other" in uj     # 1 = Safest
+    pol = json.loads((dist / "policies.json").read_text())["policies"]
+    assert pol["DisableTelemetry"] is True and pol["DisplayBookmarksToolbar"] == "always"
+    marks = pol["Bookmarks"]
+    assert len(marks) == len(BUILTIN_ONION_SEEDS) + 1 and all(m["Placement"] == "toolbar" for m in marks)
+    assert marks[0] == {"Title": BUILTIN_ONION_SEEDS[0][0], "URL": BUILTIN_ONION_SEEDS[0][1], "Placement": "toolbar"}
+    assert marks[-1]["Title"].startswith("Onion site aaaaaa") and marks[-1]["URL"].endswith(".onion/")   # no name known yet
+
+
+def test_site_names_are_learned_from_the_pages_the_noise_visits(tmp_path, monkeypatch):
+    from legalprivacy import onion
+    monkeypatch.setenv("HOME", str(tmp_path))
+    url = "http://" + "b" * 56 + ".onion/"
+    assert onion.site_label(url).startswith("Onion site bbbbbb")
+    onion.learn_title(url, "<html><head><title> Example Wiki | Home &amp; more </title></head></html>")
+    assert onion.site_label(url) == "Example Wiki"                           # the part before the separator
+    onion.learn_title(url, "<title>Something else</title>")
+    assert onion.site_label(url) == "Example Wiki"                           # the first name sticks
+    onion.learn_title(onion.BUILTIN_ONION_SEEDS[0][1], "<title>Not this</title>")
+    assert onion.site_label(onion.BUILTIN_ONION_SEEDS[0][1]) == onion.BUILTIN_ONION_SEEDS[0][0]
+
+
+def test_shared_env_never_sets_tor_transproxy_which_switches_tor_browsers_proxy_off(monkeypatch):
+    from legalprivacy import torbrowser as tb
+    env = tb.shared_env("127.0.0.1:19150", "127.0.0.1:19151", "/tmp/cookie")
+    assert "TOR_TRANSPROXY" not in env                                      # even "0" counts: Tor Browser checks existence
+    assert env["TOR_SKIP_LAUNCH"] == "1" and env["TOR_SOCKS_PORT"] == "19150" and env["TOR_CONTROL_PORT"] == "19151"
+    assert env["TOR_CONTROL_COOKIE_AUTH_FILE"] == "/tmp/cookie"
+    monkeypatch.setenv("TOR_TRANSPROXY", "0")
+    assert "TOR_TRANSPROXY" not in tb.clean_env()                           # and one inherited from outside is dropped

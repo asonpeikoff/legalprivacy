@@ -345,11 +345,15 @@ def tk_app(tmp_path, monkeypatch):
         pass
 
 
+def _tab(app, title):
+    return next(t for t in app.tabs if t.title == title)
+
+
 def test_window_builds_polls_and_saves_a_change(tk_app):
     app = tk_app
     app.pump_for(1.6)
-    assert [t.title for t in app.tabs] == ["Dashboard", "Activity", "Live Log", "Tor", "Settings", "My List", "ML",
-                                           "Proof", "Security", "Tools", "Health", "Help"]
+    assert [t.title for t in app.tabs] == ["Dashboard", "Activity", "Live Log", "Tor", "Remote", "Settings", "My List", "ML",
+                                           "Proof", "Antivirus", "Tools", "Health", "Help"]
     assert app.state.get("version") and app.status_var.get() == "Stopped"
     assert str(app.b_start.cget("state")) != "disabled" and "disabled" in app.b_stop.state()
     assert "Applying" not in app.set_chip.cget("text")
@@ -360,7 +364,7 @@ def test_window_builds_polls_and_saves_a_change(tk_app):
     app.pump_for(2.0)
     assert app.ctl.profile.rate.level == 9.0
     assert "Start" in app.apply_var.get() or "Live" in app.apply_var.get()
-    app.tabs[4].load({"dns_mode": "system"})            # setting a control saves it like a click would
+    _tab(app, "Settings").load({"dns_mode": "system"})            # setting a control saves it like a click would
     app.pump_for(2.0)
     assert app.ctl.profile.dns.mode == "system"
     # the log tab got the start-up lines; dark mode switches without error
@@ -368,10 +372,10 @@ def test_window_builds_polls_and_saves_a_change(tk_app):
     app.set_theme("dark")
     app.set_theme("light")
     # proof tab renders the checks and the three charts from real controller data
-    app.nb.select(7)
+    app.nb.select(app.tabs.index(_tab(app, "Proof")))
     app.pump_for(3.0)
-    assert app.tabs[7].headline.get()
-    assert app.tabs[7].verdicts["intended"].get().startswith("Reads as")
+    assert _tab(app, "Proof").headline.get()
+    assert _tab(app, "Proof").verdicts["intended"].get().startswith("Reads as")
 
 
 def test_every_tab_opens_and_the_controls_match_the_profile(tk_app):
@@ -403,3 +407,80 @@ def test_the_traffic_mix_bar_adds_up_to_100_and_saves(tk_app):
     app.pump_for(2.0)
     assert app.ctl.profile.engines[eng.items[0]["key"]].enabled is False
     assert abs(sum(eng.values().values()) - 100) < 0.2
+
+
+def test_logo_easter_egg_needs_something_a_normal_user_would_not_do(tk_app, tmp_path, monkeypatch):
+    from legalprivacy import gui
+    f = tmp_path / "logo_egg"
+    monkeypatch.setattr(gui, "_egg_file", lambda: f)
+    app = tk_app
+    app._egg = False
+    app._show_logo(0)
+    assert app._logo_now is app.logo_trad                       # the plain wordmark by default
+    for _ in range(2):
+        app._logo_click()
+    assert not app._egg                                         # two clicks are nothing special
+    app._logo_click()
+    assert app._egg and f.exists() and app._logo_now is app.logos[0]
+    app._logo_click()
+    assert app._logo_now is app.logos[1]                        # now clicking switches versions
+    app._show_logo(3)
+    assert app._logo_now is app.logos[3]                        # and tabs pick their own
+    app._logo_keys = gui.KONAMI[:-1]
+
+    class Ev:
+        keysym, widget = "a", app.root
+
+    app._logo_key(Ev)                                           # the Konami code undoes it
+    assert not app._egg and not f.exists() and app._logo_now is app.logo_trad
+
+
+def test_nudge_buttons_move_the_mix_and_save_it(tk_app):
+    app = tk_app
+    tab = next(t for t in app.tabs if type(t).__name__ == "DashboardTab")
+    app.ctl.apply_config({"traffic": {"browser": 100, "plain": 0}})
+    tab._show_nudge(app.ctl.mix_status())
+    assert tab.nudge_rows["browser"][1].cget("text") == "100%" and str(tab.nudge_rows["browser"][3].cget("state")) == "disabled"
+    app.work = lambda fn, done=None, error=None: done and done(fn())          # run inline for the test
+    app.flash = lambda *_a, **_k: None
+    tab.nudge("browser", -1)
+    assert tab.nudge_rows["browser"][1].cget("text") == "90%" and tab.nudge_rows["plain"][1].cget("text") == "10%"
+    assert app.ctl.profile.traffic.plain == 10.0 and not tab.nudge_busy
+    tab.nudge("phones", 1)
+    assert tab.nudge_rows["phones"][1].cget("text") == "65%"
+
+
+def test_tor_tab_has_the_tor_browser_card_like_the_web_dashboard(tk_app, monkeypatch):
+    app = tk_app
+    tab = next(t for t in app.tabs if type(t).__name__ == "TorTab")
+    tab._tb_show({"supported": True, "installed": None, "latest": "15.0.1", "state": "idle", "progress": 0,
+                  "update_available": False, "signature": None})
+    assert tab.b_tb_open.cget("text") == "Install and open Tor Browser"
+    assert "Not installed yet" in tab.tb_stat.cget("text") and "15.0.1" in tab.tb_stat.cget("text")
+    tab._tb_show({"supported": True, "installed": "14.5.8", "latest": "15.0.1", "update_available": True, "state": "idle",
+                  "signature": {"ok": True, "fingerprint": "ABCDEF0123456789ABCDEF0123456789ABCDEF01", "at": 1_800_000_000}})
+    assert tab.b_tb_open.cget("text") == "Open Tor Browser" and "update will be installed" in tab.tb_stat.cget("text")
+    assert "Signature verified" in tab.tb_sig.cget("text") and "23456789ABCDEF01" in tab.tb_sig.cget("text")
+    tab._tb_show({"supported": True, "installed": None, "state": "installing", "progress": 0.42})
+    assert "42%" in tab.tb_stat.cget("text")
+    opened = []
+    import webbrowser
+    monkeypatch.setattr(webbrowser, "open", lambda u, *a, **k: opened.append(u))
+    tab._tb_show({"supported": False, "download_page": "https://example.invalid/tb"})
+    assert tab.b_tb_open.cget("text").startswith("Get Tor Browser")
+    tab.tb_open()
+    assert opened == ["https://example.invalid/tb"]                      # nothing to install here: the download page
+    # sharing the app's Tor is a saved setting, like the web dashboard's tickbox
+    from legalprivacy import gui_fields as F
+    assert F.FIELDS["tor_share_browser"][0] == ("transports", "tor", "share_browser")
+
+
+def test_trad_logo_choices_are_packaged():
+    """Every logo Settings > Logo offers has its PNG in the package, and the first (the default) is the fixed one."""
+    from pathlib import Path
+
+    from legalprivacy import gui
+    assert gui.TRAD_LOGOS[0][0] == "" and gui.TRAD_LOGOS[0][2] == "logo_trad.png"
+    web = Path(gui.__file__).parent / "web"
+    for _key, _label, fname in gui.TRAD_LOGOS:
+        assert (web / fname).is_file(), fname

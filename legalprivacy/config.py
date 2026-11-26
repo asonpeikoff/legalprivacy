@@ -66,7 +66,7 @@ class TransportConfig:
     browser_visible: bool = False     # derived from browser_window (kept for older settings files)
     browser_offscreen: bool = False   # derived from browser_window
     browser_engine: str = "mine"      # clearnet: mine (default: your own Firefox, on a copy of your profile; else mix) | mix | auto | chromium | firefox
-    cookie_hours: float = 1.0         # clearnet: keep browser cookies this long, then start fresh (0 = never keep)
+    cookie_hours: float = 24.0        # clearnet: keep browser cookies this long (a day: consent choices and 'returning visitor' state, like a real user), then start fresh (0 = never keep)
     cookie_vary: bool = True          # clearnet: each jar lives 60-140% of cookie_hours, so wipes aren't on a fixed beat
     # --- tor lane only ---
     socks: str = DEFAULT_TOR_SOCKS
@@ -76,6 +76,8 @@ class TransportConfig:
     manage: bool = True               # True: app runs its own private Tor; False: use existing Tor
     auto_install: bool = True         # download official Tor bundle if none is installed
     onion: bool = True                # run the onion engine on the Tor lane
+    onion_browser: bool = False       # visit onion sites with the real Tor Browser (scrolling, reading, like a person); opens a window, so off until you switch it on;
+                                      # the plain requests lane is the fallback when it can't be started
     onion_seeds: list[str] = field(default_factory=list)   # extra seeds; empty = built-ins
     onion_follow_offsite: bool = True
     bridges: list[str] = field(default_factory=list)       # bridge lines for censored networks
@@ -86,7 +88,7 @@ class TransportConfig:
     dns_lan_addr: str = ""            # which of this computer's private addresses, when dns_lan is on
     exclude_nodes: list[str] = field(default_factory=lambda: ["{us}"])   # relays (fingerprints) or countries Tor avoids
     exclude_gov_names: bool = True    # also avoid relays that look governmental by name or .gov/.mil contact
-    share_browser: bool = False       # let Tor Browser (opened from this app) use this app's Tor instead of its own
+    share_browser: bool = True        # Tor Browser (opened from this app) uses this app's Tor, so your own browsing and the noise share one Tor
     exclude_strict: bool = True       # never use them, even if that means Tor can't connect (turn off if Tor won't connect)
 
     def validate(self, name: str) -> None:
@@ -150,7 +152,7 @@ class RelayConfig:
 
     def spec(self):
         from .relay import RelaySpec
-        return RelaySpec(mode=self.mode, nickname=self.nickname, contact=self.contact or None,
+        return RelaySpec(mode=self.mode, nickname=self.nickname, contact=None,      # never published: a contact address is public
                          bandwidth_rate=self.bandwidth_rate, or_port=self.or_port,
                          dir_port=self.dir_port, practice=self.practice, private=self.private)
 
@@ -212,7 +214,7 @@ class IdentityConfig:
     rotate_every: str = "hour"    # hour | day   (rotate mode: how often the choice changes)
     ua_pin: str = "own"           # pin mode: "own" or a library id. "own" with no UA yet = rotate until known
     own_ua: str = ""              # your browser's user agent (stored only on this computer)
-    ua_own_share: float = 0.7     # mix mode: share of identities that use your own browser's user agent (0 to 1);
+    ua_own_share: float = 0.85    # mix mode: share of identities that use your own browser's user agent (0 to 1);
                                   # the rest get a random one from the library
 
     def validate(self) -> None:
@@ -238,19 +240,23 @@ class ExtrasConfig:
     daily_data_mb: float = 0.0    # stop for the day after this much data; 0 = no cap
     polite: bool = False          # at least a minute between visits to the same site
     browser_dns: bool = True      # look names up like a browser: A, plus AAAA and HTTPS records
+    dns_bursts: bool = True       # a lookup is often followed by the burst of lookups a page load makes (fonts, scripts, other sites)
     interests: bool = False       # interest personas: a few steady themes at a time
     interest_list: list = field(default_factory=list)   # themes allowed ([] = all)
     interest_active: int = 3      # how many themes at once
     interest_rotate_days: int = 10
     interest_share: float = 0.3   # share of visits and searches that follow the themes
+    file_transfers: bool = True   # now and then download a real file (photo, video, zip...) and throw it away, or upload random bytes
+    duck_chat: bool = False       # short made-up chats on duck.ai (accepts duck.ai's terms for you: off until you switch it on)
+    multi_tab: bool = True        # now and then open a link in a second tab, read the first, then glance at it
     long_sessions: bool = True    # now and then stay on one page a long time, or leave it open for hours and come back
     interest_salt: str = ""       # random, set on first use: keeps your themes yours
     activity: str = "off"         # your own activity: off | backoff | follow
     busy_kbps: int = 400          # backoff: pause while your own traffic is above this
     metrics: bool = False         # Prometheus metrics at /metrics (needs the dashboard token)
     site_list: str = "both"       # both = Tranco re-ranked by Chrome's real browsing (CrUX), default | tranco
-    persona: str = "Ason"   # who the noise mostly looks like ("" = nobody in particular)
-    persona_share: float = 0.9    # how closely the persona is followed (share of visits and searches)
+    persona: str = "Default mix"  # who the noise mostly looks like ("" = nobody in particular)
+    persona_share: float = 0.8    # how closely the persona is followed (share of visits and searches); the rest is random
     packages: str = "auto"        # real pip/npm installs (removed again): auto (techy personas) | on | off
     household: bool = False       # noise from a virtual household of several people
     household_size: int = 3       # 2..5 people, member 1 = you
@@ -306,7 +312,7 @@ class TrafficConfig:
     browser: float = 100.0        # clearnet pages in a real browser (relative weight)
     plain: float = 0.0            # clearnet pages over plain HTTP (no JavaScript, no scrolling)
     onion: float = 40.0           # Tor .onion sites (only when Tor is on)
-    mobile_share: float = 0.55    # share of noise identities that are phones (most browsing is on phones)
+    mobile_share: float = 0.10    # share of noise identities that are phones (emulated on this computer, so kept low)
     device: str = "iPhone 13"     # phone to emulate, or "mix"
 
     def validate(self) -> None:
@@ -380,9 +386,10 @@ class Profile:
     engines: dict[str, EngineConfig] = field(default_factory=lambda: {
         "search": EngineConfig(budget_per_day=120),
         "crawl": EngineConfig(budget_per_day=40),
-        "dns": EngineConfig(budget_per_day=320),
+        "dns": EngineConfig(budget_per_day=480),     # 3x searches + link-following ("More")
         "onion": EngineConfig(budget_per_day=40, max_depth=3),
         "packages": EngineConfig(budget_per_day=28),
+        "files": EngineConfig(budget_per_day=10),
     })
     transports: dict[str, TransportConfig] = field(default_factory=lambda: {
         "clearnet": TransportConfig(),
@@ -402,7 +409,8 @@ class Profile:
 
     def active_engines(self, transport: str) -> list[str]:
         """Engines a lane runs. Onion is Tor-only; clearnet engines never run over Tor."""
-        on = [n for n, e in self.engines.items() if e.enabled and (n != "packages" or self.packages_on())]
+        on = [n for n, e in self.engines.items() if e.enabled and (n != "packages" or self.packages_on())
+              and (n != "files" or (self.extras.file_transfers and not self.extras.low_data))]
         if transport == "tor":
             on = [n for n in on if n != "packages"]           # package installs never go over Tor
         if transport == "clearnet":
@@ -544,15 +552,17 @@ def apply_overrides(profile: Profile, raw: dict[str, Any]) -> Profile:
             active_hours=bool(m["active_hours"]), active_from=int(m["active_from"]), active_to=int(m["active_to"]),
             search_engines={str(k): float(v) for k, v in (m.get("search_engines") or {}).items()},
             typos=bool(m["typos"]), low_data=bool(m["low_data"]), daily_data_mb=float(m["daily_data_mb"]),
-            polite=bool(m["polite"]), browser_dns=bool(m["browser_dns"]),
+            polite=bool(m["polite"]), browser_dns=bool(m["browser_dns"]), dns_bursts=bool(m["dns_bursts"]),
             interests=bool(m["interests"]), interest_list=[str(x) for x in (m.get("interest_list") or [])],
             interest_active=int(m["interest_active"]), interest_rotate_days=int(m["interest_rotate_days"]),
             interest_share=float(m["interest_share"]), interest_salt=str(m.get("interest_salt") or ""),
             activity=str(m["activity"]), busy_kbps=int(m["busy_kbps"]), metrics=bool(m["metrics"]),
             site_list="tranco" if m.get("site_list") == "tranco" else "both",
             household=bool(m.get("household")), household_size=int(m.get("household_size") or 3),
-            persona=str(m.get("persona") or ""), persona_share=float(m.get("persona_share", 0.9)),
+            persona=_persona_name(m.get("persona")), persona_share=float(m.get("persona_share", 0.8)),
             packages=str(m.get("packages") or "auto"))
+        for _k, _d in (("long_sessions", True), ("multi_tab", True), ("duck_chat", False), ("file_transfers", True)):    # fields the call above does not take
+            setattr(profile.extras, _k, bool(m.get(_k, _d)))
         if (profile.extras.interests or profile.extras.household) and not profile.extras.interest_salt:
             import secrets as _s
             profile.extras.interest_salt = _s.token_hex(8)
@@ -607,6 +617,12 @@ def apply_overrides(profile: Profile, raw: dict[str, Any]) -> Profile:
     if profile.realtime_scale <= 0:
         raise ConfigError("realtime_scale must be > 0")
     return profile
+
+
+def _persona_name(x) -> str:
+    from .interests import LEGACY_PERSONA_NAMES
+    x = str(x or "")
+    return LEGACY_PERSONA_NAMES.get(x, x)
 
 
 def load_profile(path: str | None) -> Profile:
