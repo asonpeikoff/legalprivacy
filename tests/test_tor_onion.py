@@ -65,7 +65,7 @@ def test_tor_is_off_by_default_and_clearnet_over_tor_off():
     p = Profile(name="d")
     tor = p.transports["tor"]
     assert tor.enabled is False and tor.onion is True
-    assert p.active_engines("tor") == ["onion"]          # even when later enabled
+    assert p.active_engines("tor") == ["onion", "files"]   # onion, plus some file downloads          # even when later enabled
     assert "onion" not in p.active_engines("clearnet")
     assert build_lanes(p, WORDS) and [l.name for l in build_lanes(p, WORDS)] == ["clearnet"]
 
@@ -74,7 +74,7 @@ def test_enabling_tor_adds_onion_lane_only():
     p = Profile(name="d")
     apply_overrides(p, {"transports": {"tor": {"enabled": True}}})
     lanes = {l.name: l for l in build_lanes(p, WORDS)}
-    assert lanes["tor"].engines == ["onion"]
+    assert lanes["tor"].engines == ["onion", "files"]
     assert lanes["clearnet"].budgets["search"].per_day == 120      # not halved: nothing shared
 
 
@@ -82,7 +82,7 @@ def test_tor_lane_runs_only_onion():
     p = Profile(name="d")
     apply_overrides(p, {"transports": {"tor": {"enabled": True}}})
     lanes = {l.name: l for l in build_lanes(p, WORDS)}
-    assert set(lanes["tor"].engines) == {"onion"}
+    assert set(lanes["tor"].engines) == {"onion", "files"}
     assert lanes["clearnet"].budgets["search"].per_day == 120       # clearnet budgets are never shared with Tor
 
 
@@ -108,6 +108,11 @@ def _run_onion_runner(gate_open):
     lanes = build_lanes(p, WORDS, tor_gate=lambda: gate_open[0])
     r = Runner(profile=p, lanes=lanes, wordlist=WORDS, clock=lambda: 0.0, local_hour_fn=lambda: 12.0,
                sleep_fn=lambda s: None, probe_fn=probe, max_iterations=50)
+
+    class _NoNetCatalog:                                       # the file engine must not reach the real internet in tests
+        def pick(self, cap=0, kind=None):
+            return None
+    r.__dict__["_catalog"] = _NoNetCatalog()
     return r, seen
 
 
@@ -118,9 +123,9 @@ def test_tor_lane_waits_for_gate_then_runs_onion_only():
     gate[0] = True
     for _ in range(10):
         r.run_once(wait=False)
-    assert seen and all(is_onion_url(u) for _, u in seen) and {l for l, _ in seen} == {"tor"}
+    assert seen and all(is_onion_url(u) or "archive.org" in u for _, u in seen) and {l for l, _ in seen} == {"tor"}
     assert r.stats()["lanes"][0]["hits"] == len(seen)
-    assert r.hit_log and r.hit_log[-1]["engine"] == "onion"
+    assert r.hit_log and r.hit_log[-1]["engine"] in ("onion", "files")
 
 
 def test_onion_failures_dont_trip_clearnet_failure_cap():
