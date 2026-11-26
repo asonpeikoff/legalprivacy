@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v2.20.1
 
 - **The menu starts open.** It now opens for everyone, including people who had hidden it earlier (the saved state moved to a new key, so an old "hidden" no longer applies); hide it again with the ☰ button and it stays hidden.
 - **Fix: the menu's card list (and every in-page jump) now lands on the card.** The page counted the whole height of the side menu in the space it keeps above a scrolled-to card, so clicking "Hits today", "Running for" or any other entry put the card below the visible area, or did nothing on a short page. The menu no longer counts toward that space, and the page has room below the last card so any card can scroll to the top. Checked in a browser (the card was 477 px down the window before, 81 px, just under the header, after).
