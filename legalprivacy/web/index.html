@@ -366,6 +366,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
 #shell>nav .rt{margin-top:auto;justify-content:flex-start;gap:8px;text-transform:none;letter-spacing:0;font-size:12px}
 #shell.slim{--rail:58px}#shell.slim>nav .gh:not(.rt),#shell.slim>nav button .tl,#shell.slim>nav .rt .tl{display:none}#shell.slim>nav .ng.shut .gb{display:flex}#shell.slim>nav button{justify-content:center;padding:8px}
 #shell>main{width:100%;max-width:1200px}
+#shell>main::after{content:"";display:block;height:55vh}   /* room below the last card, so any card can be scrolled to the top of the page */
 }
 @media(max-width:860px){#shell>nav .gh{display:none}#shell>nav .ng,#shell>nav .gb{display:contents}}
 
@@ -2249,7 +2250,7 @@ document.addEventListener('input',e=>{if(e.target.type==='range')syncRanges()},t
 setInterval(()=>{if(!document.hidden)syncRanges()},400);syncRanges();
 // the sticky header and tab strip: tell CSS how tall they are so anchors and focus never hide under them
 const hd=$('header'),nv=$('nav');
-function sizes(){root.style.setProperty('--hdr-h',(getComputedStyle(hd).position==='sticky'?hd.offsetHeight:0)+'px');root.style.setProperty('--nav-h',nv.offsetHeight+'px')}
+function sizes(){root.style.setProperty('--hdr-h',(getComputedStyle(hd).position==='sticky'?hd.offsetHeight:0)+'px');root.style.setProperty('--nav-h',(getComputedStyle(nv).flexDirection==='column'?0:nv.offsetHeight)+'px')}   // a side menu does not sit above the content, so it adds nothing to the scroll offset
 sizes();addEventListener('resize',sizes);if(window.ResizeObserver){const ro=new ResizeObserver(sizes);ro.observe(hd);ro.observe(nv)}
 // skeleton shimmer until the first state arrives
 const run=$('#pRun'),done=()=>document.body.classList.remove('loading');
