@@ -177,3 +177,18 @@ def test_relay_list_records_relays_with_no_country(tmp_path):
     g.update_relays(opener=lambda *a, **k: _Resp(json.dumps(data).encode()))
     assert g.unknown_country == ["E" * 40]
     assert geoban.GeoBan(path=tmp_path / "g.json").unknown_country == ["E" * 40]
+
+
+def test_tors_repeated_bridge_refusal_is_logged_once(bundle):
+    tm = _tm(bundle)
+    lines = [f"Nov 27 01:18:{i:02d}.000 [warn] Not using bridge at [scrubbed]: it is in ExcludeNodes.\n" for i in range(50)]
+    lines.append("Nov 27 01:19:00.000 [notice] Bootstrapped 100% (done): Done\n")
+
+    class P:
+        stdout = iter(lines)
+        def wait(self): return 0
+    tm._proc = None                                   # an old process: its exit is not a failure
+    tm._pump_output(P())
+    msgs = [e["message"] for e in tm.log.since(0)]
+    assert sum("Not using bridge" in m for m in msgs) == 1 and tm._refused_n == 50
+    assert any("Bootstrapped 100%" in m for m in msgs)

@@ -230,6 +230,7 @@ class TorManager:
         self._recovering: float | None = None   # the start a recovery is already under way for
         self._wipe_next = False
         self._refused_since: float | None = None   # when Tor first said a bridge is in ExcludeNodes (this start)
+        self._refused_n = 0
         self.bridge_in_use: dict | None = None  # the bridge Tor is connected through right now
         self.auto_install = auto_install
         self.dns_port_cfg, self.dns_lan, self.dns_lan_addr = dns_port, dns_lan, dns_lan_addr   # Tor DNS (optional)
@@ -497,7 +498,7 @@ class TorManager:
         self.started_at = time.time()
         self.state = "bootstrapping"
         self.bootstrap_pct = 0
-        self._refused_since, self.bridge_in_use = None, None
+        self._refused_since, self._refused_n, self.bridge_in_use = None, 0, None
         threading.Thread(target=self._pump_output, args=(self._proc,), daemon=True,
                          name="tor-log").start()
         threading.Thread(target=self._watchdog, args=(self.started_at,), daemon=True, name="tor-watchdog").start()
@@ -758,8 +759,14 @@ class TorManager:
                 if self.bootstrap_pct >= 100 and self.state in ("bootstrapping", "starting"):
                     self.state = "ready"
                     self.log.info("tor", "Tor is ready (bootstrapped 100%).")
-            if "Not using bridge" in line and "ExcludeNodes" in line and self._refused_since is None:
-                self._refused_since = time.time()
+            refused = "Not using bridge" in line and "ExcludeNodes" in line
+            if refused:
+                self._refused_n += 1
+                if self._refused_since is None:
+                    self._refused_since = time.time()
+                    self.log.warn("tor", line + "  (A bridge is on the avoid list, so Tor skips it. Further repeats of this "
+                                                "line are hidden; the app moves on to other bridges if none can be used.)")
+                continue                         # Tor repeats it every second for as long as it runs: once is enough
             level = "warn" if "[warn]" in line else "error" if "[err]" in line else "info"
             if "[debug]" in line or "[info]" in line:
                 level = "debug"

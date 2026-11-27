@@ -152,10 +152,11 @@ def test_country_bridges_are_parsed_from_the_bridge_service_reply():
     old = urllib.request.urlopen
     urllib.request.urlopen = lambda req, timeout=30: Resp(body)
     try:
-        sets = tormanager.fetch_bridges_for_country("IR")
+        got = tormanager.fetch_bridges_for_country("IR")
     finally:
         urllib.request.urlopen = old
-    assert sets == [{"type": "obfs4", "lines": ["obfs4 1.2.3.4:443 AA cert=x iat-mode=0"]}]
+    assert got["country"] == "ir" and got["source"] == "country"
+    assert got["sets"] == [{"type": "obfs4", "lines": ["obfs4 1.2.3.4:443 AA cert=x iat-mode=0"]}]
 
 
 def test_small_installer_helpers():
