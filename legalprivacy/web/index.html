@@ -2192,7 +2192,7 @@ $('#scOpen').onclick=async()=>{try{const r=await api('/api/scrape/open',{which:'
 $('#scStop').onclick=async()=>{try{scShow(await api('/api/scrape/stop',{}))}catch(e){}};
 scPoll();
 let pxT=null;
-function pxShow(d){const p=d.progress||{};$('#pxNote').textContent=p.running?`Testing… ${p.tested}/${p.total}: ${p.kept} kept, ${p.thrown_out} thrown out`:(p.total?`Last run: ${p.kept} kept, ${p.thrown_out} thrown out`:'');
+function pxShow(d){const p=d.progress||{};$('#pxNote').textContent=p.running?`Testing ${p.tested}/${p.total} (of ${p.found||p.total} found)… ${p.kept} kept, ${p.thrown_out} thrown out`:(p.total?`Last run: ${p.kept} kept of ${p.total} tested${p.found?` (${p.found} found)`:''}, ${p.thrown_out} thrown out`:'');
   const rows=(d.fastest||[]).slice(0,12).map(r=>`<tr><td><code>${esc(r.proxy)}</code></td><td>${r.ms} ms</td></tr>`).join('');
   $('#pxOut').innerHTML=`<div><b>${d.kept}</b> working proxies kept (answer within ${d.max_ms} ms).</div>`+(rows?`<table style="margin-top:6px"><tbody>${rows}</tbody></table>`:'')+
    `<div class="mute" style="margin-top:6px">Sources:</div>`+(d.sources||[]).map(s=>`<div class="small">${esc(s.name)} — ${s.error?'<span class="bad">'+esc(s.error)+'</span>':(s.found==null?'not read yet':s.found+' found')}${(d.extra_sources||[]).includes(s.url)?` <a data-rm="${esc(s.url)}" role="button" tabindex="0">remove</a>`:''}</div>`).join('');

@@ -639,7 +639,8 @@ class ToolsTab(Tab):
     @staticmethod
     def _proxy_text(d: dict) -> str:
         p = d.get("progress") or {}
-        head = (f"Testing… {p.get('tested')}/{p.get('total')}: {p.get('kept')} kept, {p.get('thrown_out')} thrown out"
+        head = (f"Testing {p.get('tested')}/{p.get('total')} (of {p.get('found') or p.get('total')} found)… "
+                f"{p.get('kept')} kept, {p.get('thrown_out')} thrown out"
                 if p.get("running") else f"{d.get('kept', 0)} working proxies kept (each answers within {d.get('max_ms')} ms).")
         fast = "\n".join(f"  {r['proxy']}  {r['ms']} ms" for r in (d.get("fastest") or [])[:10])
         src = "\n".join(f"  {s['name']}: " + (s["error"] if s.get("error") else ("not read yet" if s.get("found") is None

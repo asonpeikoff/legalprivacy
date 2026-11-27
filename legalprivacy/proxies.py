@@ -186,20 +186,22 @@ class ProxyManager:
             self.proxies.pop(proxy, None)
             return False
 
-    def refresh(self, max_new: int = 400, workers: int = 48, stop: threading.Event | None = None) -> dict:
+    def refresh(self, max_new: int = 2500, workers: int = 48, stop: threading.Event | None = None) -> dict:
         """Fetch the sources, test new candidates (up to `max_new`, chosen at random) and every kept proxy that is due, and
         throw out whatever fails. Safe to call from a thread; progress is in `self.progress`."""
         with self.lock:
             if self.progress["running"]:
                 return dict(self.progress)
-            self.progress = {"running": True, "tested": 0, "total": 0, "kept": 0, "thrown_out": 0}
+            self.progress = {"running": True, "tested": 0, "total": 0, "kept": 0, "thrown_out": 0, "found": 0}
         try:
             now = self.clock()
             cand = [c for c in self.fetch_candidates() if c not in self.proxies]
             self.rng.shuffle(cand)
             due = [p for p, r in self.proxies.items() if now - r.get("checked", 0) > RETEST_AFTER_S]
             todo = due + cand[:max_new]
-            self.progress["total"] = len(todo)
+            with self.lock:
+                self.progress["found"] = len(cand) + len(self.proxies)     # candidates discovered this run (new + known)
+                self.progress["total"] = len(todo)
 
             def one(p: str) -> None:
                 if stop is not None and stop.is_set():
