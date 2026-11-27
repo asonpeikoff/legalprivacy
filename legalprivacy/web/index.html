@@ -476,7 +476,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
 
 <!-- ACTIVITY -->
 <section id="t-act" class="tab">
-  <p class="small mute" style="margin:0 0 8px"><b>Activity</b> lists every request legalPrivacy has sent (a search, a page visit, a name lookup) and how it went. Use it to see what the noise looks like.</p>
+  <p class="small mute" style="margin:0 0 8px"><b>Activity</b> lists every request legalPrivacy has sent (a search, a page visit, a name lookup) and how it went. Use it to see what the noise looks like. <b>Newest is at the top.</b></p>
   <div class="row">
     <select id="aLane"><option value="">All lanes</option><option>clearnet</option><option>tor</option></select>
     <select id="aEng"><option value="">All engines</option><option>search</option><option>crawl</option><option>dns</option><option>onion</option></select>
@@ -492,7 +492,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
 
 <!-- LOG -->
 <section id="t-log" class="tab">
-  <p class="small mute" style="margin:0 0 8px"><b>Live Log</b> shows the app's own messages: starting, stopping, Tor status and errors. Use it to find out why something is not working. (For the requests themselves, see Activity.)</p>
+  <p class="small mute" style="margin:0 0 8px"><b>Live Log</b> shows the app's own messages: starting, stopping, Tor status and errors. Use it to find out why something is not working. (For the requests themselves, see Activity.) <b>Newest is at the bottom.</b></p>
   <div class="row">
     <select id="lLevel"><option value="debug">Debug+</option><option value="info" selected>Info+</option><option value="warn">Warnings+</option><option value="error">Errors</option></select>
     <span id="lChips"></span>
@@ -1544,7 +1544,7 @@ function render(){
 function laneCard(l){
   const EN={search:'Web searches',crawl:'Visits to websites',dns:'Name (DNS) lookups',onion:'Visits to .onion sites (Tor)',packages:'Package installs (pip, npm)'};
   const isT=l.name==='tor';
-  const rows=Object.entries(l.engines).map(([e,b])=>`<tr><td style="width:90px" title="${esc(EN[e]||e)}">${e==='onion'?'🧅 ':''}${esc(e)}</td><td><div class="bar ${isT?'tor':''}"><i style="width:${Math.min(100,100*b.spent/Math.max(1,b.per_day))}%"></i></div></td><td style="width:150px" class="mute"><span title="Requests of this kind used so far, out of the limit for this hour">${b.spent}/${b.per_day} this hour</span></td></tr>`).join('');
+  const rows=Object.entries(l.engines).map(([e,b])=>`<tr><td style="width:90px" title="${esc(EN[e]||e)}">${e==='onion'?'🧅 ':''}${esc(e)}</td><td><div class="bar ${isT?'tor':''}"><i style="width:${Math.min(100,100*b.spent/Math.max(1,b.per_day))}%"></i></div></td><td style="width:150px" class="mute"><span title="Done so far this hour, out of the most allowed this hour (a ceiling, not a plan). Onion and file ceilings are low on purpose, so Tor traffic is sparse.">${b.spent} of ${b.per_day} max this hour</span></td></tr>`).join('');
   const st=!l.open?'<span class="pill warn" title="Tor is still starting. This lane begins as soon as Tor is ready.">waiting for Tor</span>':l.linger==='away'?'<span class="pill" title="Long session: a page was left open as if you stepped away. This route stays quiet for a few hours, then comes back to the same page.">stepped away</span>':l.linger==='work'?'<span class="pill ok" title="Long session: it keeps going back to the same page for a while, like working on something.">long session</span>':l.dimmed?'<span class="pill warn" title="A website pushed back, so noise moves on to other sites and this route is used a little less for a while. Normal; it recovers by itself.">slowed down</span>':'<span class="pill ok">active</span>';
   return `<div class="card"><h3>${isT?'🧅 Through Tor':'Regular internet'} ${st}</h3><table><tbody>${rows}</tbody></table>${l.last_error?`<div class="small warnc" style="margin-top:6px">last error: ${esc(l.last_error)}</div>`:''}</div>`
 }
