@@ -397,6 +397,11 @@ class TorManager:
         self.dns_port = (_pick_udp_port(self.dns_host, self.dns_port_cfg or tordns.DEFAULT_PORT)
                          if self.dns_port_cfg else 0)
         self.cookie_path = str(tor_dir() / "control_auth_cookie")
+        try:                                       # a Tor left by an earlier run would hold the data folder and the ports
+            from .procclean import kill_stale_tors
+            kill_stale_tors(self.log)
+        except Exception as exc:
+            self.log.info("tor", f"Leftover-Tor check failed: {exc!r}")
         torrc = self._write_torrc(data_dir)
         env = os.environ.copy()
         libdir = str(Path(self.binary).parent)

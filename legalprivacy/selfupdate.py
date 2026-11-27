@@ -135,4 +135,19 @@ def _restart(ctl) -> None:
         ctl.stop(stop_tor=True)
     except Exception:
         pass
-    os.execv(sys.executable, [sys.executable, *sys.argv[1:]])
+    try:                                      # nothing of ours may still hold the Tor folders or ports when the new one starts
+        from .procclean import kill_stale_tors
+        kill_stale_tors(getattr(ctl, "log", None))
+    except Exception:
+        pass
+    env = dict(os.environ)
+    env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"   # the new program unpacks itself afresh instead of reusing the old one's folder
+    try:
+        os.execve(sys.executable, [sys.executable, *sys.argv[1:]], env)
+    except OSError as exc:
+        try:
+            ctl.log.error("app", f"Could not restart on the new version ({exc}). The old one keeps running; restart it by hand.")
+        except Exception:
+            pass
+        if os.environ.get("INVOCATION_ID"):   # under systemd: leave, and it starts the new file (Restart=always)
+            os._exit(0)

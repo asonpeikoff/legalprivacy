@@ -149,6 +149,8 @@ class RelayManager:
             parent = " ".join(psutil.Process(proc.ppid()).cmdline()).lower()
         except Exception:
             parent = ""
+        if proc.ppid() == os.getpid():               # this very process started it (an update restart keeps the pid): ours
+            parent = ""
         if "legalprivacy" in parent:
             raise RuntimeError("Another legalPrivacy window is already running the relay. Use that window, or close it "
                                "first.")
