@@ -25,7 +25,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from .config import valid_bridge_line
+from .config import BANNED_RELAYS, valid_bridge_line
 from .events import EventLog
 from .paths import tor_dir
 from . import tordns
@@ -151,11 +151,10 @@ class TorManager:
                  bridge_mode: str = "off", bridge_auto: bool = True,
                  auto_install: bool = True, dns_port: int = 0, dns_lan: bool = False,
                  dns_lan_addr: str = "", exclude_nodes: list[str] | None = None, exclude_strict: bool = False,
-                 exclude_gov_names: bool = False, share_browser: bool = False):
+                 share_browser: bool = False):
         self.log = log
         self.share_browser = bool(share_browser)
         self.user_socks_port = 0
-        self.exclude_gov_names = bool(exclude_gov_names)
         self.exclude_nodes = [e.strip() for e in (exclude_nodes or []) if e.strip()]
         self.exclude_strict = bool(exclude_strict)
         self.mode = mode                      # managed | external
@@ -378,10 +377,6 @@ class TorManager:
                 self.log.warn("tor", self.alert)
             self.state = "starting"
         self._maybe_update_bundle()
-        if self.exclude_gov_names:
-            from . import relayfilter
-            found = relayfilter.refresh(tor_dir() / "avoid_by_name.json")
-            self.log.info("tor", f"Avoiding {len(found)} relay(s) that look governmental by name or contact.")
         if self._stop_evt.is_set():
             return
         self.state = "starting"
@@ -446,13 +441,11 @@ class TorManager:
             lines.append(dns_line)
         from .config import valid_exclude_entry
         excl = [e if e.startswith("{") else "$" + e.lstrip("$") for e in self.exclude_nodes if valid_exclude_entry(e)]
-        if self.exclude_gov_names:
-            from . import relayfilter
-            excl += ["$" + r["fingerprint"] for r in relayfilter.cached(tor_dir() / "avoid_by_name.json")]
+        excl += ["$" + fp for fp in BANNED_RELAYS if "$" + fp not in excl]     # relays banned for good (see config.BANNED_RELAYS)
         if excl:                                  # relays you don't trust: Tor avoids them for every hop it can
-            lines += ["ExcludeNodes " + ",".join(excl), f"StrictNodes {1 if self.exclude_strict else 0}"]
-            self.log.info("tor", f"Avoiding {len(excl)} relay(s)/countries you listed"
-                                 f"{' (strictly)' if self.exclude_strict else ''}.")
+            lines += ["ExcludeNodes " + ",".join(excl), "StrictNodes 1" if (self.exclude_strict or BANNED_RELAYS) else "StrictNodes 0"]
+            self.log.info("tor", f"Avoiding {len(excl)} relay(s)/countries ({len(BANNED_RELAYS)} banned for good, the rest you listed)"
+                                 f"{' (strictly)' if self.exclude_strict or BANNED_RELAYS else ''}.")
         bundle_data = Path(self.binary).resolve().parent.parent / "data"
         for name, key in (("geoip", "GeoIPFile"), ("geoip6", "GeoIPv6File")):
             if (bundle_data / name).exists():

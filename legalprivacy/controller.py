@@ -368,9 +368,8 @@ class Controller:
                 or (self.tor.dns_port_cfg, self.tor.dns_lan, self.tor.dns_lan_addr) != (
                     cfg.dns_port, cfg.dns_lan, cfg.dns_lan_addr) \
                 or self.tor.share_browser != bool(cfg.share_browser) \
-                or (self.tor.exclude_nodes, self.tor.exclude_strict, self.tor.exclude_gov_names) != (
-                    [e.strip() for e in cfg.exclude_nodes if e.strip()], bool(cfg.exclude_strict),
-                    bool(cfg.exclude_gov_names)):
+                or (self.tor.exclude_nodes, self.tor.exclude_strict) != (
+                    [e.strip() for e in cfg.exclude_nodes if e.strip()], bool(cfg.exclude_strict)):
             if self.tor and self.tor.state not in ("stopped",):
                 self.tor.stop()
             self.tor = TorManager(self.log, mode=mode, socks=cfg.socks, control=cfg.control,
@@ -379,7 +378,7 @@ class Controller:
                                   bridge_mode=cfg.bridge_mode, bridge_auto=cfg.bridge_auto,
                                   dns_port=cfg.dns_port, dns_lan=cfg.dns_lan, dns_lan_addr=cfg.dns_lan_addr,
                                   exclude_nodes=cfg.exclude_nodes, exclude_strict=cfg.exclude_strict,
-                                  exclude_gov_names=cfg.exclude_gov_names, share_browser=cfg.share_browser)
+                                  share_browser=cfg.share_browser)
         return self.tor
 
     # ── DNS resolver table: health + verification ──────────────────────────
@@ -1055,20 +1054,6 @@ class Controller:
                      "Tor DNS test: " + (f"{res['name']} -> {', '.join(res['answers'])} in {res['ms']} ms"
                                          if res["ok"] else res["error"]))
         return res
-
-    def avoid_info(self, refresh: bool = False) -> dict:
-        """Relays currently avoided because they look governmental (from the last daily scan)."""
-        from . import relayfilter
-        from .paths import tor_dir
-        path = tor_dir() / "avoid_by_name.json"
-        if refresh:
-            relayfilter.refresh(path, max_age=0)
-        found = relayfilter.cached(path)
-        try:
-            at = json.loads(path.read_text()).get("at") if path.exists() else None
-        except (OSError, ValueError):
-            at = None
-        return {"count": len(found), "at": at, "relays": found[:60]}
 
     # ── is this copy out of date? ────────────────────────────────────────────
     def update_state(self) -> dict:

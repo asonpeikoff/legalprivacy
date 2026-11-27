@@ -794,18 +794,16 @@ class TorTab(Tab):
         rc.grid(row=row, column=0, sticky="ew", pady=(0, GAP))
         self.relay_card = rc
         Banner(rc.body, "A relay passes other people's encrypted Tor traffic along, which helps the network. It is not an "
-                        "exit: it never connects to websites for anyone, and legalPrivacy can never make it one. A relay or "
-                        "bridge also does not provide DNS (only exit relays look up names). Relay addresses are public by "
-                        "design: the Tor network publishes them in a list anyone can read. The relay runs as its own "
-                        "separate Tor program; it starts with the app in practice mode (nothing published) unless you untick that.", "tor", host=rc.body).pack(fill="x", pady=(0, 6))
+                        "exit: it never connects to websites for anyone, and legalPrivacy can never make it one. It does not "
+                        "look up names for the open internet either (only exit relays do, and this app never runs one). Serving "
+                        "DNS inside Tor: onion addresses need no DNS, but a public middle relay that stays up for several days "
+                        "gets the HSDir flag, and HSDir relays store and serve the descriptors that make onion addresses "
+                        "findable. Relay addresses are public by design: the Tor network publishes them in a list anyone can "
+                        "read. It is on by default as a public middle relay and starts with the app; turn it off below.", "tor", host=rc.body).pack(fill="x", pady=(0, 6))
         self.r_inputs: list = []
         self.r_mode = tk.StringVar(value="middle")
         for val, txt, hint in (("middle", "Middle relay", "Listed publicly; carries traffic between other relays."),
-                               ("bridge", "Bridge", "Not listed publicly; helps people whose network blocks Tor."),
-                               ("dns", "DNS helper", "An exit that does only DNS: answers other Tor users' name lookups and lets "
-                                "nothing else out except port 53 of two public resolvers (Quad9). Few clients pick it (no web "
-                                "ports, so no Exit label), so it helps modestly. Starts in practice mode; going public asks "
-                                "you to confirm.")):
+                               ("bridge", "Bridge", "Not listed publicly; helps people whose network blocks Tor.")):
             self.r_inputs.append(rc.radio(self.r_mode, val, txt, hint, command=self._relay_changed))
         r = rc.row((8, 2))
         self.r_nick, self.r_bw, self.r_port = (tk.StringVar() for _ in range(3))
@@ -833,10 +831,10 @@ class TorTab(Tab):
         for v in (self.r_nick, self.r_bw, self.r_port, self.r_mode):
             v.trace_add("write", lambda *_a: self._relay_changed())
         self.r_practice = tk.BooleanVar(value=False)
-        self.r_inputs.append(rc.check(self.r_practice, "Practice mode (not published)",
+        self.r_inputs.append(rc.check(self.r_practice, "Advanced: practice mode (off by default; nothing published)",
                                       "The relay only listens on this computer and never announces itself, so nobody can use "
                                       "it. It still downloads Tor's public relay list like any Tor program. Needs no checklist. "
-                                      "Untick it only when you are ready to join the network.", command=self._relay_changed,
+                                      "Off by default: the relay is a real, public one. Tick it only to try the relay without joining the network.", command=self._relay_changed,
                                       tooltip='A dry run. The relay starts and you can watch how it behaves, but it only listens on this computer and never announces itself to the Tor network, so nobody can send traffic through it. Untick it when you are ready to become a real, public relay.'))
         rc.heading("Before a public relay", "all ticked for you; untick any that is not true")
         self.r_checks: dict[str, tk.BooleanVar] = {}

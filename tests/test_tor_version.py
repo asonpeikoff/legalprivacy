@@ -93,3 +93,33 @@ def test_the_firefox_path_you_set_is_used_or_explained(tmp_path):
     TransportConfig(firefox_path=str(fx)).validate("clearnet")
     with pytest.raises(ConfigError, match="does not exist"):
         TransportConfig(firefox_path=str(tmp_path / "nope")).validate("clearnet")
+
+
+def test_the_banned_relay_is_always_excluded_and_strictly(tmp_path):
+    from legalprivacy.events import EventLog
+    from legalprivacy.tormanager import TorManager as TM
+    tm = TM(EventLog(), exclude_nodes=[], exclude_strict=False)
+    tm.binary = "/usr/bin/tor"
+    tm.socks_port, tm.control_port, tm.cookie_path = 19050, 19051, str(tmp_path / "cookie")
+    text = tm._write_torrc(tmp_path).read_text()
+    assert "5C62A7A4BFD24D61034499857C4B5E437CD2361F" in text.split("ExcludeNodes", 1)[1].splitlines()[0]
+    assert "StrictNodes 1" in text
+
+
+def test_the_dns_only_exit_is_gone_and_an_old_saved_one_becomes_a_middle_relay():
+    from legalprivacy.config import ConfigError, Profile, RelayConfig, apply_overrides
+    from legalprivacy.relay import RelayConfigError, RelaySpec, generate_torrc
+    with pytest.raises(RelayConfigError):
+        generate_torrc(RelaySpec(mode="dns"))
+    with pytest.raises(ConfigError):
+        RelayConfig(mode="dns").validate()
+    p = apply_overrides(Profile(name="old"), {"contribute": {"relay": {"mode": "dns", "practice": True}}})
+    assert p.relay.mode == "middle"                                   # an old settings file still loads
+    t = generate_torrc(RelaySpec(mode=p.relay.mode, practice=False))
+    assert "ExitRelay 0" in t and "ExitPolicy accept" not in t
+
+
+def test_the_relay_is_a_public_middle_relay_by_default_and_practice_is_off():
+    from legalprivacy.config import Profile
+    r = Profile(name="d").relay
+    assert (r.mode, r.practice, r.enabled, r.autostart) == ("middle", False, True, True)
