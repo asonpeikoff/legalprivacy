@@ -122,3 +122,44 @@ def test_the_tor_the_app_runs_is_replaced_when_a_newer_official_one_exists(monke
     assert tm.refresh_if_newer() is True and tm.calls == ["install", "restart"]
     tm2, _ = _tm("16.0.3", "16.0.3")
     assert tm2.refresh_if_newer() is False and tm2.calls == []                             # already current
+
+
+def test_install_now_installs_and_restarts_after_replying(tmp_path, monkeypatch):
+    import threading
+    from legalprivacy import selfupdate as S
+    monkeypatch.setattr(S, "can_self_update", lambda: True)
+    rel = {"version": "9.9.9", "url": "https://github.com/asonpeikoff/legalprivacy/releases/download/v9.9.9/x", "size": 5, "sha256": "0" * 64}
+    monkeypatch.setattr(S, "newest", lambda current, http=None: rel)
+    done = threading.Event()
+    applied = []
+
+    class Ctl:
+        class log:
+            info = warn = staticmethod(lambda *a, **k: None)
+        profile_path = str(tmp_path / "profile.yaml")
+    r = S.install_now(Ctl(), "1.0.0", apply=lambda rel, exe, log=None: applied.append(rel["version"]),
+                      restart=lambda ctl: done.set(), delay=0.05)
+    assert r == {"ok": True, "version": "9.9.9", "installed": True} and applied == ["9.9.9"]
+    assert done.wait(3)
+    assert (tmp_path / "selfupdate.stamp").exists()
+
+
+def test_install_now_says_why_it_cannot(monkeypatch):
+    import pytest
+    from legalprivacy import selfupdate as S
+    monkeypatch.setattr(S, "can_self_update", lambda: False)
+    with pytest.raises(RuntimeError, match="cannot update itself"):
+        S.install_now(object(), "1.0.0")
+    monkeypatch.setattr(S, "can_self_update", lambda: True)
+    monkeypatch.setattr(S, "newest", lambda current, http=None: None)
+    assert S.install_now(object(), "1.0.0")["installed"] is False       # already the newest: nothing to do
+
+    def boom(rel, exe, log=None):
+        raise RuntimeError("checksum")
+    monkeypatch.setattr(S, "newest", lambda current, http=None: {"version": "2.0.0"})
+
+    class Ctl:
+        class log:
+            info = warn = staticmethod(lambda *a, **k: None)
+    with pytest.raises(RuntimeError, match="Could not install 2.0.0"):
+        S.install_now(Ctl(), "1.0.0", apply=boom)

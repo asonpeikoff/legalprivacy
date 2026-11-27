@@ -436,7 +436,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
 <div id="upgBar" class="banner" hidden><span class="bi">⬆</span><span id="upgTx"></span><small><button id="upgKeep" class="small pri">Keep my settings</button> <button id="upgReset" class="small">Start from the new defaults</button></small></div>
 <div id="recBar" class="banner warn" hidden><span class="bi">⚠</span><span id="recTx"></span><small><button id="recGo" class="small">Use the built-in bridges</button></small></div>
   <div id="dashNote"></div>
-  <div id="updBar" class="banner warn" hidden><span class="bi">⬆</span><span id="updTx"></span><small><button id="updGo" class="small">Check again</button></small></div>
+  <div id="updBar" class="banner warn" hidden><span class="bi">⬆</span><span id="updTx"></span><small><button id="updInstall" class="small pri" hidden>Install and restart</button> <button id="updGo" class="small">Check again</button></small></div>
   <div class="card" id="quick">
     <h3>Quick controls</h3>
     <div class="row">
@@ -1731,12 +1731,23 @@ async function pollRelay(){if(!$('#t-tor').classList.contains('on'))return;try{R
 setInterval(pollRelay,2500);$$('#nav button').forEach(b=>{if(b.dataset.t==='tor')b.addEventListener('click',()=>setTimeout(pollRelay,0))});
 async function updRefresh(check){try{const u=await api(check?'/api/update/check':'/api/update',check?{}:undefined);
   const bar=$('#updBar');bar.hidden=u.status!=='behind';
-  if(u.status==='behind')$('#updTx').textContent='A newer legalPrivacy is available'+(u.behind_by?` (${u.behind_by} update${u.behind_by===1?'':'s'} ahead of yours)`:'')+(u.latest_message?`: “${u.latest_message}”`:'')+(u.how?'. To update, run: git pull':'. Download it from GitHub.');
+  $('#updInstall').hidden=!(u.status==='behind'&&u.can_install);
+  if(u.status==='behind')$('#updTx').textContent=u.can_install?`A newer legalPrivacy is available${u.latest_version?` (${u.latest_version})`:''}. Install it now: the app restarts by itself and this page reloads.`:'A newer legalPrivacy is available'+(u.behind_by?` (${u.behind_by} update${u.behind_by===1?'':'s'} ahead of yours)`:'')+(u.latest_message?`: “${u.latest_message}”`:'')+(u.how?'. To update, run: git pull':'. Download it from GitHub.');
   const t=u.status==='current'?'Up to date.':u.status==='behind'?'A newer version is out.':(u.error||'Not checked yet.');
   $('#updInfo').textContent=`${u.version} · ${t}`;return u}catch(e){$('#updInfo').textContent=e.message}}
 $('#updGo').onclick=async()=>{await updRefresh(true);toast($('#updBar').hidden?'You have the newest version.':'A newer version is available.')};
 $('#updNow').onclick=async()=>{await updRefresh(true)};
-setTimeout(updRefresh,4000);setInterval(updRefresh,600000);
+$('#updInstall').onclick=async()=>{const btn=$('#updInstall');btn.disabled=true;
+  let old='';try{old=(await api('/api/update')).version}catch(e){}
+  $('#updTx').textContent='Downloading the new version and checking it…';
+  try{await api('/api/update/install',{})}catch(e){$('#updTx').textContent='Could not install it: '+e.message;btn.disabled=false;return}
+  $('#updTx').textContent='Installed. Restarting and reloading this page…';
+  const t0=Date.now();
+  const poll=async()=>{try{const u=await api('/api/update');if(u&&u.version&&u.version!==old){location.reload();return}}catch(e){}
+    if(Date.now()-t0>240000){$('#updTx').textContent='It is taking longer than expected. Reload this page in a minute.';btn.disabled=false;return}
+    setTimeout(poll,1500)};
+  setTimeout(poll,3000)};
+setTimeout(async()=>{const u=await updRefresh();if(u&&u.enabled&&u.status==='unchecked')updRefresh(true)},3000);setInterval(updRefresh,600000);
 let tbTimer=null;
 async function tbRefresh(){try{const s=await api('/api/torbrowser');
   const o=$('#tbOpen');o.textContent=s.supported?(s.installed?'Open Tor Browser':'Install and open Tor Browser'):'Get Tor Browser (torproject.org)';

@@ -1267,8 +1267,18 @@ class Controller:
 
     # ── is this copy out of date? ────────────────────────────────────────────
     def update_state(self) -> dict:
+        from . import selfupdate
         return {"enabled": bool(self.app.get("update_check", True)), "version": __version__,
+                "can_install": selfupdate.can_self_update(),
                 **(getattr(self, "_update", None) or {"status": "unchecked"})}
+
+    def update_install(self) -> dict:
+        """Install the newest release now and restart on it (the dashboard's button)."""
+        from . import selfupdate
+        try:
+            return selfupdate.install_now(self, __version__)
+        except RuntimeError as exc:
+            raise ConfigError(str(exc)) from None
 
     def update_check(self, fn=None) -> dict:
         from . import updatecheck
@@ -1288,7 +1298,10 @@ class Controller:
         """Ask GitHub once at start-up and then twice a day."""
         def loop():
             from . import selfupdate
-            time.sleep(600)                                   # not while everything is starting
+            time.sleep(30)                                    # the banner needs an answer soon after start-up
+            if self.app.get("update_check", True):
+                self.update_check()
+            time.sleep(570)                                   # automatic installs wait a while longer: not while starting
             while True:
                 if self.app.get("update_check", True):
                     self.update_check()

@@ -130,6 +130,38 @@ def run_once(ctl, current: str, http=_get, apply=download_and_swap, restart=None
     return rel["version"]
 
 
+def install_now(ctl, current: str, http=_get, apply=download_and_swap, restart=None, delay: float = 1.0) -> dict:
+    """The button: install the newest release now (no daily limit, no matter what the automatic setting says), then restart
+    on it a moment later so the reply reaches the page first. Raises RuntimeError with a plain message on any problem."""
+    if not can_self_update():
+        raise RuntimeError("This copy cannot update itself (only the downloaded Linux program can). "
+                           "From git use: git pull. From pip use: pip install -U git+https://github.com/asonpeikoff/legalPrivacy")
+    try:
+        rel = newest(current, http)
+    except Exception as exc:
+        raise RuntimeError(f"Could not reach GitHub: {exc}") from None
+    if rel is None:
+        return {"ok": True, "version": current, "installed": False, "note": "You already have the newest version."}
+    ctl.log.info("app", f"Installing legalPrivacy {rel['version']} (this is {current}). Downloading it and checking its checksum…")
+    try:
+        apply(rel, Path(sys.executable), log=ctl.log)
+    except Exception as exc:
+        ctl.log.warn("app", f"Could not update to {rel['version']}: {exc}")
+        raise RuntimeError(f"Could not install {rel['version']}: {exc}") from None
+    try:
+        Path(ctl.profile_path).with_name("selfupdate.stamp").write_text(str(time.time()))
+    except OSError:
+        pass
+    ctl.log.info("app", f"Installed legalPrivacy {rel['version']}. Restarting on it in a moment.")
+    import threading
+
+    def later():
+        time.sleep(delay)
+        (restart or _restart)(ctl)
+    threading.Thread(target=later, daemon=True, name="update-restart").start()
+    return {"ok": True, "version": rel["version"], "installed": True}
+
+
 def _restart(ctl) -> None:
     try:
         ctl.stop(stop_tor=True)

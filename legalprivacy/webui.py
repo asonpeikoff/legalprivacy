@@ -369,6 +369,8 @@ class UIServer:
                         return self._json(ctl.torbrowser_open())
                     elif path == "/api/update/check":
                         return self._json(ctl.update_check())
+                    elif path == "/api/update/install":
+                        return self._json(ctl.update_install())
                     elif path == "/api/torbrowser/check":
                         return self._json(ctl.torbrowser_check())
                     elif path == "/api/defaults/recommended":
@@ -487,6 +489,21 @@ def _start_rest(ctl) -> None:
     ctl.relay_autostart()                 # "start the relay with the app" is on by default, as a public middle relay
 
 
+def _stop_on_sigterm() -> None:
+    """`kill` / `killall` (SIGTERM) stop the app the same tidy way Ctrl+C does: Tor and the relay are stopped too."""
+    import signal
+    import threading
+    if threading.current_thread() is not threading.main_thread():
+        return
+
+    def term(*_a):
+        raise KeyboardInterrupt
+    try:
+        signal.signal(signal.SIGTERM, term)
+    except (ValueError, OSError):
+        pass
+
+
 def run_ui(profile_path: str | None = None, port: int | None = None, open_browser: bool | None = None,
            print_fn=lambda *a: print(*a, flush=True)) -> int:
     """Start controller + dashboard; block until Quit. Returns exit code."""
@@ -502,7 +519,11 @@ def run_ui(profile_path: str | None = None, port: int | None = None, open_browse
                 pass
         return 0
     srv = UIServer(ctl, want)
-    print_fn(f"\n  ⚖️ legalPrivacy dashboard: {srv.url}\n  (keep this window open; use Quit in the page, or Ctrl+C, to stop)\n")
+    if os.environ.get("LEGALPRIVACY_BACKGROUND") == "1":
+        print_fn(f"\n  ⚖️ legalPrivacy dashboard: {srv.url}\n  (running in the background; stop it with: killall legalprivacy)\n")
+    else:
+        print_fn(f"\n  ⚖️ legalPrivacy dashboard: {srv.url}\n  (keep this window open; use Quit in the page, or Ctrl+C, to stop)\n")
+    _stop_on_sigterm()
     ctl.log.info("app", f"Dashboard listening on 127.0.0.1:{srv.port}")
     start_services(ctl)
     if open_browser if open_browser is not None else ctl.app.get("open_browser", True):
