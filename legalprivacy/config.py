@@ -262,6 +262,7 @@ class ExtrasConfig:
     file_transfers: bool = True   # now and then download a real file (photo, video, zip...) and throw it away, or upload random bytes
     duck_chat: bool = True        # made-up chats on duck.ai, often (accepts duck.ai's terms for you; switch it off here if you do not want that)
     duck_images: bool = True      # in some of those chats, attach a made-up picture through the page's own file button and ask about it
+    geoban: bool = True           # never visit, route through or keep anything at an address in Virginia or a government range
     multi_tab: bool = True        # now and then open a link in a second tab, read the first, then glance at it
     long_sessions: bool = True    # now and then stay on one page a long time, or leave it open for hours and come back
     interest_salt: str = ""       # random, set on first use: keeps your themes yours
@@ -582,7 +583,7 @@ def apply_overrides(profile: Profile, raw: dict[str, Any]) -> Profile:
             persona=_persona_name(m.get("persona")), persona_share=float(m.get("persona_share", 0.8)),
             packages=str(m.get("packages") or "auto"))
         profile.extras.spray_level = str(m.get("spray_level") or "medium")
-        for _k, _d in (("long_sessions", True), ("multi_tab", True), ("duck_chat", True), ("duck_images", True), ("file_transfers", True), ("keep_alive", True), ("spray", False)):    # fields the call above does not take
+        for _k, _d in (("long_sessions", True), ("multi_tab", True), ("duck_chat", True), ("duck_images", True), ("file_transfers", True), ("keep_alive", True), ("geoban", True), ("spray", False)):    # fields the call above does not take
             setattr(profile.extras, _k, bool(m.get(_k, _d)))
         if (profile.extras.interests or profile.extras.household) and not profile.extras.interest_salt:
             import secrets as _s

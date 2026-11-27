@@ -193,6 +193,8 @@ class Controller:
                            lambda: bool(self.running and not (self.runner and self.runner.paused)),
                            self._spray_resolvers, log=self.log)
         threading.Thread(target=lambda: self.spray.loop(lambda: False), daemon=True, name="spray").start()
+        from . import geoban
+        threading.Thread(target=lambda: geoban.maintain(self.log), daemon=True, name="geoban").start()
         self.log.info("app", f"legalPrivacy {__version__} on {platform.system()} {platform.release()} "
                              f"(Python {platform.python_version()})")
         self.log.info("app", f"Config: {self.profile_path}")
@@ -379,6 +381,7 @@ class Controller:
                                   dns_port=cfg.dns_port, dns_lan=cfg.dns_lan, dns_lan_addr=cfg.dns_lan_addr,
                                   exclude_nodes=cfg.exclude_nodes, exclude_strict=cfg.exclude_strict,
                                   share_browser=cfg.share_browser)
+        self.tor.geoban = bool(self.profile.extras.geoban)
         return self.tor
 
     # ── DNS resolver table: health + verification ──────────────────────────
@@ -1745,6 +1748,9 @@ class Controller:
         if dns.mode == "system":
             return dnsplan.system_resolvers()
         ips = [r["ip"] for r in dns.resolvers if r.get("enabled", True) and r.get("ip")] or ["9.9.9.9"]
+        if self.profile.extras.geoban:
+            from . import geoban
+            ips = [i for i in ips if not geoban.shared().contains(i)] or ["9.9.9.9"]
         if DNS_OPTIONS["encrypted"]:
             ips = [i for i in ips if i in DOT_HOSTS] or list(DOT_HOSTS)
         return ips

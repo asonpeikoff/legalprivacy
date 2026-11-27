@@ -79,6 +79,7 @@ class ProxyManager:
         self.sources: dict[str, dict] = {}              # name -> {"found": n, "error": str|None, "at": ts}
         self.progress: dict = {"running": False, "tested": 0, "total": 0, "kept": 0, "thrown_out": 0}
         self.my_ip: str | None = None
+        self.avoid_banned = True              # drop proxies in Virginia or a government range (geoban.py)
         self._load()
 
     # ── persistence ───────────────────────────────────────────────────────
@@ -154,6 +155,13 @@ class ProxyManager:
         except Exception as exc:
             return {"ok": False, "ms": None, "error": str(exc).splitlines()[0][:100]}
         ms = round((time.time() - t0) * 1000)
+        try:
+            from . import geoban
+            why = geoban.shared().reason(proxy.split("//")[-1].rsplit(":", 1)[0]) if self.avoid_banned else None
+        except Exception:
+            why = None
+        if why:
+            return {"ok": False, "ms": ms, "error": f"in {why}: not used"}
         seen = _trace_ip(text)
         if status != 200 or not seen or "h=" not in text:
             return {"ok": False, "ms": ms, "error": "the test page came back wrong"}

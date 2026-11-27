@@ -442,6 +442,12 @@ class TorManager:
         from .config import valid_exclude_entry
         excl = [e if e.startswith("{") else "$" + e.lstrip("$") for e in self.exclude_nodes if valid_exclude_entry(e)]
         excl += ["$" + fp for fp in BANNED_RELAYS if "$" + fp not in excl]     # relays banned for good (see config.BANNED_RELAYS)
+        if getattr(self, "geoban", True):                                      # government ranges and Virginia relays (see geoban.py)
+            try:
+                from . import geoban
+                excl += [e for e in geoban.shared().tor_excludes() if e not in excl]
+            except Exception as exc:
+                self.log.info("tor", f"Address ban not applied to Tor: {exc!r}")
         if excl:                                  # relays you don't trust: Tor avoids them for every hop it can
             lines += ["ExcludeNodes " + ",".join(excl), "StrictNodes 1" if (self.exclude_strict or BANNED_RELAYS) else "StrictNodes 0"]
             self.log.info("tor", f"Avoiding {len(excl)} relay(s)/countries ({len(BANNED_RELAYS)} banned for good, the rest you listed)"
