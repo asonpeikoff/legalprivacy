@@ -97,7 +97,8 @@ class TransportConfig:
     dns_lan_addr: str = ""            # which of this computer's private addresses, when dns_lan is on
     exclude_nodes: list[str] = field(default_factory=lambda: ["{us}"])   # relays (fingerprints) or countries Tor avoids
     share_browser: bool = True        # Tor Browser (opened from this app) uses this app's Tor, so your own browsing and the noise share one Tor
-    anon_os: str = "auto"             # auto: on Whonix / Qubes-Whonix use the Whonix-Gateway's Tor (never Tor over Tor) | off
+    anon_os: str = "off"              # off (default) | auto: on Whonix / Qubes-Whonix use the Whonix-Gateway's Tor. Off because a
+                                      # qube behind sys-whonix already reaches the internet through the gateway's Tor
 
     def validate(self, name: str) -> None:
         if self.browser not in ("auto", "on", "off"):

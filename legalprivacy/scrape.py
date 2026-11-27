@@ -34,6 +34,64 @@ KINDS = {
     "archives": {".zip", ".tar", ".gz", ".tgz", ".bz2", ".xz", ".7z", ".rar"},
 }
 ALL_KINDS = ["tables", *KINDS]
+# Words in an image's file name, class, id or alt text that mark page furniture rather than content.
+UI_WORDS = ("banner", "icon", "logo", "sprite", "favicon", "avatar", "button", "btn", "badge", "spinner", "loader",
+            "loading", "spacer", "pixel", "blank", "placeholder", "arrow", "chevron", "caret", "emoji", "social",
+            "share", "header", "footer", "navbar", "nav-", "menu", "bullet", "divider", "separator", "background",
+            "bg-", "watermark", "tracking", "1x1", "transparent", "thumbnail-placeholder", "rating")
+# whole words only (an "s" may follow): "icons.png" and "site-logo.svg" match, "closeup.jpg" and "starfish.png" do not
+_UI_RE = re.compile(r"(?<![a-z])(" + "|".join(re.escape(w) for w in UI_WORDS) + r")s?(?![a-z])", re.I)
+
+
+def looks_like_ui(url: str, hint: str = "") -> bool:
+    """True for an image that is probably part of the page's look (a banner, icon, logo, sprite...), going by its file
+    name and by the class, id and alt text of its tag."""
+    name = Path(urllib.parse.urlparse(url).path).name
+    return bool(_UI_RE.search(name) or (hint and _UI_RE.search(hint)))
+
+
+def image_size(path: Path) -> tuple[int, int] | None:
+    """Width and height of a PNG, GIF, JPEG or WebP file from its header, or None when it cannot tell."""
+    try:
+        with open(path, "rb") as fh:
+            head = fh.read(64 * 1024)
+    except OSError:
+        return None
+    import struct
+    if head[:8] == b"\x89PNG\r\n\x1a\n" and len(head) >= 24:
+        return struct.unpack(">II", head[16:24])
+    if head[:6] in (b"GIF87a", b"GIF89a") and len(head) >= 10:
+        return struct.unpack("<HH", head[6:10])
+    if head[:4] == b"RIFF" and head[8:12] == b"WEBP" and len(head) >= 30:
+        chunk = head[12:16]
+        if chunk == b"VP8X":
+            return 1 + int.from_bytes(head[24:27], "little"), 1 + int.from_bytes(head[27:30], "little")
+        if chunk == b"VP8 " and len(head) >= 30:
+            w, h = struct.unpack("<HH", head[26:30])
+            return w & 0x3FFF, h & 0x3FFF
+        if chunk == b"VP8L" and len(head) >= 25:
+            b = head[21:25]
+            return 1 + (((b[1] & 0x3F) << 8) | b[0]), 1 + (((b[3] & 0xF) << 10) | (b[2] << 2) | ((b[1] & 0xC0) >> 6))
+    if head[:2] == b"\xff\xd8":
+        i = 2
+        while i + 9 < len(head):
+            if head[i] != 0xFF:
+                i += 1
+                continue
+            marker = head[i + 1]
+            if marker in (0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF):
+                h, w = struct.unpack(">HH", head[i + 5:i + 9])
+                return w, h
+            if marker in (0xD8, 0x01) or 0xD0 <= marker <= 0xD7:
+                i += 2
+                continue
+            i += 2 + struct.unpack(">H", head[i + 2:i + 4])[0]
+    return None
+
+
+def _px(v) -> int:
+    m = re.match(r"\s*(\d+)", str(v or ""))
+    return int(m.group(1)) if m else 0
 USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
 
 
@@ -42,6 +100,7 @@ class _Page(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.links: list[str] = []
         self.files: list[str] = []
+        self.meta: dict[str, dict] = {}           # an image's declared width/height and its class, id and alt text
         self.tables: list[list[list[str]]] = []
         self.title = ""
         self._in_title = False
@@ -58,6 +117,9 @@ class _Page(HTMLParser):
             self.links.append(a["href"])
         elif tag in ("img", "source", "video", "audio", "embed", "track") and a.get("src"):
             self.files.append(a["src"])
+            if tag == "img":
+                self.meta[a["src"]] = {"w": _px(a.get("width")), "h": _px(a.get("height")),
+                                       "hint": " ".join(str(a.get(k) or "") for k in ("class", "id", "alt"))}
         if tag in ("img", "source") and a.get("srcset"):
             self.files.extend(p.strip().split()[0] for p in a["srcset"].split(",") if p.strip())
         if tag == "video" and a.get("poster"):
@@ -113,7 +175,8 @@ def extract(html: str, base: str) -> dict:
     return {"title": " ".join(p.title.split())[:200],
             "links": list(dict.fromkeys(x for x in map(absolute, p.links) if x)),
             "files": list(dict.fromkeys(x for x in map(absolute, p.files + p.links) if x)),
-            "tables": p.tables}
+            "tables": p.tables,
+            "meta": {full: m for u, m in p.meta.items() if (full := absolute(u))}}
 
 
 def kind_of(url: str) -> str | None:
@@ -164,7 +227,8 @@ class ScrapeJob:
                  noise_fn: Callable[[], None] | None = None,
                  next_proxy: Callable[[str], str | None] | None = None,
                  get: Callable[..., tuple[int, str, dict]] | None = None, sleep: Callable[[float], None] = time.sleep,
-                 rng: random.Random | None = None):
+                 rng: random.Random | None = None, skip_ui: bool = True, min_kb: float = 8.0, max_kb: float = 0.0,
+                 min_px: int = 100, max_px: int = 0):
         if not re.match(r"^https?://[^\s/]+", url or ""):
             raise ValueError("The start address must begin with http:// or https://")
         self.url, self.out = url, Path(out_dir)
@@ -175,10 +239,14 @@ class ScrapeJob:
         self.proxy, self.noise_fn, self.sleep = proxy, noise_fn, sleep
         self.next_proxy = next_proxy          # drops a proxy that failed and gives another tested one (None: none left)
         self.rng = rng or random.Random()
+        # image filters: skip page furniture, tiny files and images outside a size range (0 = no limit)
+        self.skip_ui, self.min_bytes, self.max_img_bytes = bool(skip_ui), int(max(0.0, min_kb) * 1000), int(max(0.0, max_kb) * 1000)
+        self.min_px, self.max_px = max(0, int(min_px)), max(0, int(max_px))
         self._get = get or self._requests_get
         self.stop = threading.Event()
         self.status = {"running": False, "done": False, "pages": 0, "tables": 0, "files": 0, "bytes": 0, "noise": 0,
-                       "errors": [], "current": "", "folder": str(self.out), "skipped_robots": 0}
+                       "errors": [], "current": "", "folder": str(self.out), "skipped_robots": 0,
+                       "skipped_filter": 0}
         self._robots: dict[str, urllib.robotparser.RobotFileParser | None] = {}
         self._seen_files: set[str] = set()
 
@@ -322,21 +390,54 @@ class ScrapeJob:
             if st["bytes"] >= self.max_bytes or self.stop.is_set():
                 return
             self._seen_files.add(f)
+            meta = page.get("meta", {}).get(f, {})
+            if k == "images" and not self._image_wanted_before(f, meta):
+                st["skipped_filter"] += 1
+                continue
             if not self._allowed(f):
                 st["skipped_robots"] += 1
                 continue
             name = _slug(Path(urllib.parse.urlparse(f).path).stem or "file")[:60] + \
                 "-" + hashlib.sha1(f.encode()).hexdigest()[:6] + Path(urllib.parse.urlparse(f).path).suffix.lower()
             dest = self.out / k / name
+            limit = min(self.file_bytes, self.max_bytes - st["bytes"])
+            if k == "images" and self.max_img_bytes:
+                limit = min(limit, self.max_img_bytes)
             try:
-                status, _t, meta = self._get(f, stream_to=dest, limit=min(self.file_bytes, self.max_bytes - st["bytes"]))
+                status, _t, meta = self._get(f, stream_to=dest, limit=limit)
             except Exception as exc:
                 st["errors"].append(f"{f}: {explain(exc)}")
+                continue
+            if k == "images" and (meta.get("skipped") == "too large" and self.max_img_bytes or
+                                  status == 200 and meta.get("bytes") and not self._image_wanted_after(dest, int(meta["bytes"]))):
+                dest.unlink(missing_ok=True)
+                st["skipped_filter"] += 1
                 continue
             if status == 200 and meta.get("bytes"):
                 st["files"] += 1
                 st["bytes"] += int(meta["bytes"])
             self.sleep(self.rng.uniform(0.1, 0.6) if self.delay else 0)
+
+
+    def _image_wanted_before(self, url: str, meta: dict) -> bool:
+        """Before downloading: no UI-looking names, and no declared size below the minimum."""
+        if self.skip_ui and looks_like_ui(url, meta.get("hint", "")):
+            return False
+        w, h = meta.get("w") or 0, meta.get("h") or 0
+        return not (self.min_px and ((w and w < self.min_px) or (h and h < self.min_px)))
+
+    def _image_wanted_after(self, path: Path, size: int) -> bool:
+        """After downloading: inside the file-size range, and (when the header tells) the pixel range."""
+        if size < self.min_bytes or (self.max_img_bytes and size > self.max_img_bytes):
+            return False
+        dims = image_size(path) if (self.min_px or self.max_px) else None
+        if dims:
+            w, h = dims
+            if self.min_px and min(w, h) < self.min_px:
+                return False
+            if self.max_px and max(w, h) > self.max_px:
+                return False
+        return True
 
 
 def _slug(s: str) -> str:

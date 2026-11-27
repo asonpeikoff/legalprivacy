@@ -405,8 +405,8 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
 <nav id="nav">
 <div class="ng" data-g="Monitor"><div class="gh" role="button" tabindex="0" aria-expanded="true">Monitor<span class="gc" aria-hidden="true">▾</span></div><div class="gb">
   <button data-t="dash" class="on" title="Dashboard"><svg class="ic" aria-hidden="true"><use href="#i-dash"/></svg><span class="tl">Dashboard</span></button>
-  <button data-t="act" title="Activity"><svg class="ic" aria-hidden="true"><use href="#i-act"/></svg><span class="tl">Activity</span></button>
-  <button data-t="log" title="Live Log"><svg class="ic" aria-hidden="true"><use href="#i-log"/></svg><span class="tl">Live Log</span><span id="errBadge" class="badge" style="display:none">0</span></button>
+  <button data-t="act" title="Requests"><svg class="ic" aria-hidden="true"><use href="#i-act"/></svg><span class="tl">Requests</span></button>
+  <button data-t="log" title="App log"><svg class="ic" aria-hidden="true"><use href="#i-log"/></svg><span class="tl">App log</span><span id="errBadge" class="badge" style="display:none">0</span></button>
   <button data-t="proof" title="Proof"><svg class="ic" aria-hidden="true"><use href="#i-proof"/></svg><span class="tl">Proof</span></button>
 </div></div>
 <div class="ng" data-g="Privacy"><div class="gh" role="button" tabindex="0" aria-expanded="true">Privacy<span class="gc" aria-hidden="true">▾</span></div><div class="gb">
@@ -445,14 +445,14 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
       <button id="qDefSave" title="Remember the settings you have right now, so My settings can bring them back later.">Save these as my settings</button>
       <button id="qSetup" title="Go through the first-time questions again: how much noise, Tor, and starting automatically.">Setup questions…</button>
       <span class="sp"></span>
-      <button id="bTest" title="Sends one noise request right now and shows it in Activity.">Send a test visit</button>
+      <button id="bTest" title="Sends one noise request right now and shows it in Requests.">Send a test visit</button>
     </div>
     <div class="row qlinks"><b class="small mute">Go to:</b>
       <button data-go="set" title="Change how much noise, when, and what kind">Settings</button>
       <button data-go="tor" title="Tor, bridges and your relay">Tor</button>
       <button data-go="remote" title="Run the noise on other computers you own, over SSH">Remote</button>
-      <button data-go="act" title="Every request legalPrivacy has sent">Activity</button>
-      <button data-go="log" title="The app's own messages and errors">Live Log</button>
+      <button data-go="act" title="Every request legalPrivacy has sent">Requests</button>
+      <button data-go="log" title="The app's own messages and errors">App log</button>
       <button data-go="tools" title="Privacy check, DNS leak check, speed test and data-use estimate">Tools</button>
       <button data-go="health" title="Is everything working?">Health</button>
       <button data-go="help" title="Plain-language help">Help</button>
@@ -470,13 +470,13 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div class="card" title="How long ago the most recent request worked."><h3>Last hit</h3><div class="big" id="kLast">—</div><div class="small mute" id="kLastSub"></div></div>
     <div class="card" title="About how much internet data noise has used today."><h3>Data today</h3><div class="big" id="kData">—</div><div class="small mute" id="kDataSub">approximate</div></div>
   </div>
-  <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-act"/></svg>Hits per minute (last 30 min)</h3><div class="spark-wrap"><span id="sparkPeak" class="small"></span><svg id="spark" class="spark" viewBox="0 0 300 60" preserveAspectRatio="none" role="img" aria-label="Successful hits per minute, last 30 minutes"></svg><div id="sparkEmpty" class="empty" hidden><svg class="ic" aria-hidden="true"><use href="#i-act"/></svg><b>No hits yet</b><span>Bars appear here once the noise is running. Press Start, or send a test hit.</span></div></div></div>
+  <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-act"/></svg>Hits per minute, last 30 min</h3><div class="spark-wrap"><span id="sparkPeak" class="small"></span><svg id="spark" class="spark" viewBox="0 0 300 60" preserveAspectRatio="none" role="img" aria-label="Successful hits per minute, last 30 minutes"></svg><div id="sparkEmpty" class="empty" hidden><svg class="ic" aria-hidden="true"><use href="#i-act"/></svg><b>No hits yet</b><span>Bars appear here once the noise is running. Press Start, or send a test hit.</span></div></div></div>
     <div id="lanes"></div>
 </section>
 
 <!-- ACTIVITY -->
 <section id="t-act" class="tab">
-  <p class="small mute" style="margin:0 0 8px"><b>Activity</b> lists every request legalPrivacy has sent (a search, a page visit, a name lookup) and how it went. Use it to see what the noise looks like. <b>Newest is at the top.</b></p>
+  <p class="small mute" style="margin:0 0 8px"><b>Requests</b> lists every request the noise has sent (a search, a page visit, a name lookup) and how it went. Use it to see what the noise looks like. For what the app itself says (starts, stops, Tor, errors), see App log. Newest is at the top.</p>
   <div class="row">
     <select id="aLane"><option value="">All lanes</option><option>clearnet</option><option>tor</option></select>
     <select id="aEng"><option value="">All engines</option><option>search</option><option>crawl</option><option>dns</option><option>onion</option></select>
@@ -492,12 +492,12 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
 
 <!-- LOG -->
 <section id="t-log" class="tab">
-  <p class="small mute" style="margin:0 0 8px"><b>Live Log</b> shows the app's own messages: starting, stopping, Tor status and errors. Use it to find out why something is not working. (For the requests themselves, see Activity.) <b>Newest is at the bottom.</b></p>
+  <p class="small mute" style="margin:0 0 8px"><b>App log</b> is what the app itself says: starting, stopping, settings applied, Tor's messages, warnings and errors. Use it to find out why something is not working. For the requests the noise sent, see Requests. Newest is at the top.</p>
   <div class="row">
     <select id="lLevel"><option value="debug">Debug+</option><option value="info" selected>Info+</option><option value="warn">Warnings+</option><option value="error">Errors</option></select>
     <span id="lChips"></span>
     <input type="text" id="lQ" placeholder="search log…" style="flex:1;min-width:140px">
-    <label class="chk" style="margin:0"><input type="checkbox" id="lFollow" checked> follow</label>
+    <label class="chk" style="margin:0"><input type="checkbox" id="lFollow" checked> stay on the newest</label>
     <button id="lClear">Clear view</button>
     <a href="#" id="lDl"><button>Download</button></a>
   </div>
@@ -520,16 +520,16 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
       <button id="tInstall"><svg class="ic sm" aria-hidden="true"><use href="#i-dl"/></svg>Install / update Tor</button>
       <button id="tTest"><svg class="ic sm" aria-hidden="true"><use href="#i-check"/></svg>Test Tor</button>
     </div>
-    <div class="small mute"><b>Restart</b> stops and starts Tor itself, reconnecting to the network from scratch (use it if Tor seems stuck). <b>New identity</b> keeps Tor running and switches to fresh circuits, so new connections take a different path. <b>Ready</b> means Tor is connected; individual .onion sites are often offline, and those show in Activity as “site offline” and are skipped for a while.</div>
+    <div class="small mute"><b>Restart</b> stops and starts Tor itself, reconnecting to the network from scratch (use it if Tor seems stuck). <b>New identity</b> keeps Tor running and switches to fresh circuits, so new connections take a different path. <b>Ready</b> means Tor is connected; individual .onion sites are often offline, and those show in Requests as “site offline” and are skipped for a while.</div>
     <div class="small mute" id="tInstallNote"></div>
     <label class="chk"><input type="checkbox" id="tEnable"><span><b>Use Tor</b> — turn the Tor lane on. Starting noise will automatically start (and if needed, install) Tor.</span></label>
     <label class="chk"><input type="checkbox" id="tOnion"><span><b>🧅 Visit onion sites</b> (darknet noise) — only .onion addresses, never leaves the Tor network.</span></label>
     <label class="chk"><input type="checkbox" id="tManage"><span><b>Let legalPrivacy manage Tor</b> (recommended, default). Untick to use an existing Tor at the address below instead.</span></label>
-    <label class="chk"><input type="checkbox" id="tAnon"><span><b>On Whonix / Qubes-Whonix, use the gateway's Tor</b> (recommended, default). The app detects a Whonix-Workstation (or a Qubes qube behind sys-whonix) and uses the gateway's Tor instead of starting a second one, which would be Tor over Tor. Relays to avoid and bridges are then set on the gateway.</span></label>
+    <label class="chk"><input type="checkbox" id="tAnon"><span><b>On Whonix / Qubes-Whonix, use the gateway's Tor</b> (off by default). Usually not needed: a qube whose network qube is sys-whonix already reaches the internet through the gateway's Tor, with nothing to set here. When on, the app detects a Whonix-Workstation (or a Qubes qube behind sys-whonix) and points its own Tor settings at the gateway's Tor instead of starting a second one. Relays to avoid and bridges are then set on the gateway.</span></label>
     <div class="row" id="tExt" style="display:none">SOCKS <input type="text" id="tSocks" size="16"> Control <input type="text" id="tCtl" size="16"></div>
     <div class="row"><button id="tSave" style="display:none" class="pri">Save Tor settings</button><span class="small mute" id="tSaved"></span></div>
   </div>
-  <div class="card"><h3>Circuits (<span id="cCount">0</span> built)</h3>
+  <div class="card"><h3>Circuits: <span id="cCount">0 built</span></h3>
     <div class="scroll" style="max-height:240px"><table><thead><tr><th>ID</th><th>Status</th><th>Purpose</th><th>Path</th></tr></thead><tbody id="cBody"></tbody></table></div>
     <div class="small mute">Purposes starting with HS_CLIENT are onion-service connections.</div>
   </div>
@@ -563,11 +563,11 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div class="small mute" id="tbSig"></div>
     <label class="small"><input type="checkbox" id="tbShare"> Share this app's Tor with Tor Browser <details class="why"><summary>ⓘ</summary><div>On by default. Without sharing, Tor Browser runs its own Tor, so your real browsing and the noise reach the Tor network through two separate connections, and the real one stands out. Shared, both use the same Tor and the same entry relay, with separate circuits so pages and noise never mix. Things to know: (1) the New Identity button in this app is disabled while sharing, so your open pages aren't cut off; (2) your relay-avoid list and bridges, set here, apply to Tor Browser too; (3) Tor Browser's own connection and bridge screens are replaced by this tab; (4) Tor Browser can send commands to this Tor, so its New Identity button resets noise circuits too. Turning it on restarts this app's Tor.</div></details></label>
   </div>
-  <div class="card" id="exclCard"><h3><svg class="ic" aria-hidden="true"><use href="#i-tor"/></svg>Relays to avoid (optional) <details class="why"><summary>ⓘ</summary><div>Tor picks relays you cannot vet. If you know of relays or whole countries you do not trust, list them here and the app's Tor will avoid them for every step it can, including looking up onion addresses. One per line: a relay's 40-letter fingerprint, or a country in braces such as {ru}. Lists published by network researchers can be pasted in. Without "strict", Tor may still use them if it cannot connect otherwise.</div></details></h3>
+  <div class="card" id="exclCard"><h3><svg class="ic" aria-hidden="true"><use href="#i-tor"/></svg>Relays to avoid <details class="why"><summary>ⓘ</summary><div>Tor picks relays you cannot vet. If you know of relays or whole countries you do not trust, list them here and the app's Tor will avoid them for every step it can, including looking up onion addresses. One per line: a relay's 40-letter fingerprint, or a country in braces such as {ru}. Lists published by network researchers can be pasted in. Without "strict", Tor may still use them if it cannot connect otherwise.</div></details></h3>
     <textarea id="tExcl" rows="4" placeholder="{ru}&#10;0123456789ABCDEF0123456789ABCDEF01234567"></textarea>
     <div class="small mute">Saved with the other Tor settings. Takes effect the next time Tor starts.</div>
   </div>
-  <div class="card" id="relayCard"><h3><svg class="ic" aria-hidden="true"><use href="#i-tor"/></svg>Contribute to Tor: run a relay (optional)</h3>
+  <div class="card" id="relayCard"><h3><svg class="ic" aria-hidden="true"><use href="#i-tor"/></svg>Contribute to Tor: run a relay</h3>
     <div class="note tor">A relay passes other people's encrypted Tor traffic along, which helps the network. It is <b>not an exit</b>: it never connects to websites for anyone, and legalPrivacy can never make it one. It also does <b>not</b> look up names for the open internet (only exit relays do that, and this app never runs one). <b>Serving DNS inside Tor:</b> onion addresses need no DNS, but a public middle relay that stays up for several days is given the HSDir flag by Tor, and HSDir relays store and serve the descriptors that make onion addresses findable: that is the part of Tor that plays the role of DNS for onion sites. Relay addresses are <b>public by design</b>: the Tor network publishes them in a list anyone can read. It is <b>on by default as a public middle relay</b> and starts with the app; turn it off below.</div>
     <div class="row"><label class="opt t" style="flex:1;min-width:210px"><input type="radio" name="rmode" value="middle"> <b>Middle relay</b> <span class="mute">— listed publicly; carries traffic between other relays</span></label>
       <label class="opt t" style="flex:1;min-width:210px"><input type="radio" name="rmode" value="bridge"> <b>Bridge</b> <span class="mute">— not listed publicly; helps people whose network blocks Tor</span></label></div>
@@ -597,7 +597,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
       <p>The status shows "reachable" only after Tor itself tests the port from outside, which can take a while for a new relay. See the Tor Project's relay documentation: <a href="https://community.torproject.org/relay/" target="_blank" rel="noopener">community.torproject.org/relay</a>.</p></div></details>
   </div>
   <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-log"/></svg>Tor log <button id="tLogClear" class="ghost" style="float:right;font-size:12px" title="Empty this box so you can see only what comes next">Clear</button></h3><div class="scroll" style="max-height:260px"><div id="tLog" class="logbox"></div></div></div>
-  <div class="card mute" id="dnsCard"><details><summary class="small">Advanced, not recommended: use Tor to look up ordinary website names for other programs</summary><h3><svg class="ic" aria-hidden="true"><use href="#i-wave"/></svg>Tor as a name resolver for other programs (advanced) <details class="why"><summary>ⓘ</summary><div><b>This is not about .onion addresses</b>: those need no DNS lookup and are always handled inside Tor, whatever you set here. This is only for ordinary website names such as example.com, asked by other programs on this computer. Tor can answer DNS lookups on a local port. Names are looked up by Tor <b>exit relays</b>, so this is a deliberate, narrow use of exits for DNS only. It does not change the Tor lane for noise, which stays onion-only. Only A (IPv4), AAAA (IPv6) and PTR (reverse) lookups work; other kinds, such as MX or TXT, are not handled.</div></details></h3>
+  <div class="card mute" id="dnsCard"><details><summary class="small">Advanced, not recommended: use Tor to look up ordinary website names for other programs</summary><h3><svg class="ic" aria-hidden="true"><use href="#i-wave"/></svg>Tor as a name resolver for other programs <details class="why"><summary>ⓘ</summary><div><b>This is not about .onion addresses</b>: those need no DNS lookup and are always handled inside Tor, whatever you set here. This is only for ordinary website names such as example.com, asked by other programs on this computer. Tor can answer DNS lookups on a local port. Names are looked up by Tor <b>exit relays</b>, so this is a deliberate, narrow use of exits for DNS only. It does not change the Tor lane for noise, which stays onion-only. Only A (IPv4), AAAA (IPv6) and PTR (reverse) lookups work; other kinds, such as MX or TXT, are not handled.</div></details></h3>
     <label class="chk"><input type="checkbox" id="dnsOn"><span><b>Answer ordinary (clearnet) website-name lookups through Tor exit relays</b> <span class="mute">(off by default and <b>not recommended</b>: slower, and it puts your name lookups in the hands of exit relays. The noise never uses it. Needs the Tor that legalPrivacy manages)</span></span></label>
     <div id="dnsBody" style="display:none">
       <div class="kv" id="dnsKv"></div>
@@ -611,8 +611,8 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
       <div class="small mute" id="dnsNote"></div>
     </div>
   </details></div>
-  <div class="card mute" id="obCard"><details><summary class="small">Advanced: use the real Tor Browser for onion visits (off by default)</summary>
-    <label class="chk"><input type="checkbox" id="tOnionBrowser"><span><b>Use the real Tor Browser for onion visits</b> <span class="mute">(off by default: it opens a Tor Browser window) — scrolls, reads and clicks like a person, through this app's Tor, at security level Safest. If it can't start (not installed yet, no display), the plain lane is used and the Live Log says why.</span></span></label>
+  <div class="card mute" id="obCard"><details><summary class="small">Advanced: use the real Tor Browser for onion visits</summary>
+    <label class="chk"><input type="checkbox" id="tOnionBrowser"><span><b>Use the real Tor Browser for onion visits</b> <span class="mute">(off by default: it opens a Tor Browser window) — scrolls, reads and clicks like a person, through this app's Tor, at security level Safest. If it can't start (not installed yet, no display), the plain lane is used and the App log says why.</span></span></label>
   </details></div>
 </section>
 
@@ -640,7 +640,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div class="small mute">Package installs run automatically for the Default mix, Data scientist and Developer personas, one package at a time or a whole requirements file at once, and everything downloaded is deleted straight afterwards.</div>
   </div>
   <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-wave"/></svg>DNS lookups</h3>
-    <div class="small mute">In Activity and the Live Log each lookup shows the site looked up and which resolver answered, e.g. <code>www.reddit.com [via your normal DNS]</code>.</div>
+    <div class="small mute">In Requests and the App log each lookup shows the site looked up and which resolver answered, e.g. <code>www.reddit.com [via your normal DNS]</code>.</div>
     <label class="chk"><input type="checkbox" id="dEnc"><span><b>Encrypt the DNS lookups</b> <span class="mute">(on by default — maximum DNS security) — lookups to the secure resolvers go over TLS (DNS over TLS, port 853) with the resolver's certificate checked, never in plain text; a resolver that cannot do that is swapped for Quad9 or Cloudflare (both validate DNSSEC). Onion visits never use your own DNS at all: the name is looked up by Tor.</span></span></label>
     <label class="opt"><input type="radio" name="dnsm" value="system"> <b>Your normal DNS</b> <span class="mute">— whatever your router, ISP, VPN or system already uses, so the noise lands exactly where your real lookups do</span></label>
     <label class="opt"><input type="radio" name="dnsm" value="secure"> <b>Secure resolvers only</b> <span class="mute">(recommended, default) — only the resolvers listed below</span></label>
@@ -755,7 +755,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <label class="chk"><input type="checkbox" id="sAuto"><span>Start noise automatically when legalPrivacy opens</span></label>
     <label class="chk"><input type="checkbox" id="sAutoUpd"><span><b>Keep legalPrivacy up to date by itself</b> (on by default) — the downloaded Linux program checks GitHub every six hours and, when a newer release exists, downloads it, checks its SHA-256 against the digest GitHub publishes for that file, swaps it in (the old one is kept as <code>.previous</code>) and restarts on it. The Tor the app runs is kept current the same way (signature checked). It is off for pip and git copies, which keep the update notice.</span></label>
     <label class="chk"><input type="checkbox" id="sUpd"><span>Check GitHub for a newer legalPrivacy when it opens, and twice a day (sends nothing about you) <button id="updNow" class="small" type="button">Check now</button> <span class="small mute" id="updInfo"></span></span></label>
-    <label class="chk"><input type="checkbox" id="sClearLogs"><span>Each time noise starts, clear Live Log and Activity entries older than <input type="number" id="sKeepDays" min="0" max="365" style="width:60px"> days <span class="mute">(recommended, default: 7; 0 clears everything)</span>. They're kept in memory only and always cleared when legalPrivacy quits.</span></label>
+    <label class="chk"><input type="checkbox" id="sClearLogs"><span>Each time noise starts, clear App log and Requests entries older than <input type="number" id="sKeepDays" min="0" max="365" style="width:60px"> days <span class="mute">(recommended, default: 7; 0 clears everything)</span>. They're kept in memory only and always cleared when legalPrivacy quits.</span></label>
     <details style="margin-top:8px"><summary class="small"><b>Testing only</b></summary>
       <div class="row">Time compression <input type="number" id="sScale" step="0.5" min="0.01" style="width:90px">× <span class="small mute">leave at 1 for real use. Makes every wait this many times shorter, to watch a day's behaviour quickly. It does not change how much noise an hour: the level does.</span></div></details>
   </div>
@@ -797,7 +797,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <label class="chk"><input type="checkbox" id="fAuto"><span>Refresh automatically when the lists are ~3 months old <span class="mute">(contacts those sites from your connection)</span></span></label>
     <div class="row" style="margin-top:8px"><button id="fRefresh">↻ Refresh sources now</button><span class="small mute" id="fNote"></span></div>
   </div>
-  <div class="card" id="accCard"><h3><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg>Accounts (optional, off by default) <details class="why"><summary>ⓘ</summary><div>Lets the noise browser browse while signed in to <b>your own</b> Google and Microsoft accounts, so the noise looks like a logged-in person. You sign in yourself, in a normal browser window that opens on this computer; legalPrivacy never sees, stores or types your password or a code. Only the browser's session (cookies) is kept, in legalPrivacy's own folder with owner-only permissions, apart from the ordinary noise browser's cookies. Signed-in visits only <b>load and scroll</b> a few pages (a Google search, the Gmail inbox, YouTube; the Outlook inbox and calendar, Bing, microsoft.com). They never click, open a message, send, delete, archive, label, mark, reply, forward, accept or decline, sign out or change a setting. They go through the normal internet connection, never through Tor. Panic (medium and hard) deletes these sessions. <b>429</b> means a site answered “too many requests, slow down”; a <b>robot-check page</b> is the site asking whether you are a person. Either one, or a sign-in page, pauses that account's signed-in visits for a random while (hours; longer if it keeps happening) and the ordinary noise carries on.</div></details></h3>
+  <div class="card" id="accCard"><h3><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg>Accounts <details class="why"><summary>ⓘ</summary><div>Lets the noise browser browse while signed in to <b>your own</b> Google and Microsoft accounts, so the noise looks like a logged-in person. You sign in yourself, in a normal browser window that opens on this computer; legalPrivacy never sees, stores or types your password or a code. Only the browser's session (cookies) is kept, in legalPrivacy's own folder with owner-only permissions, apart from the ordinary noise browser's cookies. Signed-in visits only <b>load and scroll</b> a few pages (a Google search, the Gmail inbox, YouTube; the Outlook inbox and calendar, Bing, microsoft.com). They never click, open a message, send, delete, archive, label, mark, reply, forward, accept or decline, sign out or change a setting. They go through the normal internet connection, never through Tor. Panic (medium and hard) deletes these sessions. <b>429</b> means a site answered “too many requests, slow down”; a <b>robot-check page</b> is the site asking whether you are a person. Either one, or a sign-in page, pauses that account's signed-in visits for a random while (hours; longer if it keeps happening) and the ordinary noise carries on.</div></details></h3>
     <div class="small warnc" style="margin-bottom:8px"><b>Please read:</b> these are your <b>real</b> accounts. The searches and visits become part of that account's history and affect its ads and recommendations. Google or Microsoft may ask you to verify, or restrict, an account that looks automated. A spare account is safer. Nothing is ever sent, deleted or changed in the mailbox.</div>
     <div id="accRows"></div>
     <div class="small mute" id="accNoDisplay" style="display:none">This computer has no display, so a sign-in window can't open here. Sign in from a computer with a screen.</div>
@@ -811,7 +811,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
 
 <!-- REMOTE MACHINES -->
 <section id="t-remote" class="tab">
-  <div class="card" id="remCard"><h3><svg class="ic" aria-hidden="true"><use href="#i-remote"/></svg>Remote machines (optional) <details class="why"><summary>ⓘ</summary><div>Runs the same kind of noise (page visits, searches, DNS lookups, downloads) on other computers you log in to over SSH. The app copies one small file into a private folder in your account on that computer (<code>~/.cache/legalprivacy</code>), starts it, shows its log here, and deletes the folder when you remove the machine. No root, no service, no display needed: a headless Linux server works (a headless browser is used if one is installed, otherwise plain HTTP). Each machine draws its own random identities, rhythm, daily peak, budgets and sites, so no two follow the same schedule. It stops when this app closes or the connection drops. The machine needs Python 3.</div></details></h3>
+  <div class="card" id="remCard"><h3><svg class="ic" aria-hidden="true"><use href="#i-remote"/></svg>Remote machines <details class="why"><summary>ⓘ</summary><div>Runs the same kind of noise (page visits, searches, DNS lookups, downloads) on other computers you log in to over SSH. The app copies one small file into a private folder in your account on that computer (<code>~/.cache/legalprivacy</code>), starts it, shows its log here, and deletes the folder when you remove the machine. No root, no service, no display needed: a headless Linux server works (a headless browser is used if one is installed, otherwise plain HTTP). Each machine draws its own random identities, rhythm, daily peak, budgets and sites, so no two follow the same schedule. It stops when this app closes or the connection drops. The machine needs Python 3.</div></details></h3>
     <div class="note warn" id="remAuth"><b>Only add computers you own or are authorised to use.</b> This app logs in to them and makes web, search, DNS and download traffic from them.</div>
     <div class="note" id="remMissing" style="display:none">Remote machines need the <code>paramiko</code> package, which is not installed. Install it with <code>pip install "paramiko&gt;=3.4"</code> (or <code>pip install legalprivacy[remote]</code>) and restart the app.</div>
     <p class="small mute" id="remSecretNote"></p>
@@ -826,7 +826,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
       <label class="small" id="remPassRow">Password <input type="password" id="remPass" autocomplete="new-password" style="width:100%"></label>
       <label class="small" id="remPhraseRow" style="display:none">Key passphrase (if it has one) <input type="password" id="remPhrase" autocomplete="new-password" style="width:100%"></label>
     </div>
-    <details style="margin-top:8px"><summary class="small"><b>What this machine does</b> (settings)</summary>
+    <details style="margin-top:8px"><summary class="small"><b>What this machine does</b></summary>
       <div class="row small" style="margin-top:6px">Intensity <select id="remInt"><option value="light">Light (about 10 actions an hour)</option><option value="normal" selected>Normal (about 30)</option><option value="busy">Busy (about 80)</option></select>
         Browser <select id="remBrowser"><option value="auto">Headless browser if installed</option><option value="off">Plain HTTP only</option></select>
         Daily data limit <input type="number" id="remMb" min="1" max="2000" value="200" style="width:80px"> MB</div>
@@ -850,8 +850,8 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
 <!-- HELP -->
 <section id="t-help" class="tab">
   <details class="card hp" open><summary>What this does</summary>
-    <p>legalPrivacy makes believable searches, page visits and DNS lookups in the background, so that bulk analysis of your real browsing tells much less about you. Every request shows in <b>Activity</b>; everything the app and Tor report is in <b>Live Log</b>. Both are kept in memory only and cleared when you quit.</p>
-    <p><b>Activity vs Live Log.</b> Activity lists each request the noise made and what happened on it. Live Log is everything the app says, including starts and stops, Tor's own messages and warnings.</p>
+    <p>legalPrivacy makes believable searches, page visits and DNS lookups in the background, so that bulk analysis of your real browsing tells much less about you. Every request shows in <b>Requests</b>; everything the app and Tor report is in <b>App log</b>. Both are kept in memory only and cleared when you quit.</p>
+    <p><b>Requests vs App log.</b> Requests lists each request the noise made and what happened on it. App log is everything the app says, including starts and stops, Tor's own messages and warnings.</p>
   </details>
   <details class="card hp"><summary>Getting started</summary>
     <p>Everything already has the recommended setting. Press <b>Start</b>; the first action comes within seconds. Settings save themselves. The <b>Health</b> tab lists anything that would make the noise easier to spot, with one-click fixes.</p>
@@ -859,14 +859,14 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
   <details class="card hp"><summary>Look like yourself</summary>
     <p>Add the sites you really use on <b>My List</b>, then check the <b>ML</b> tab: it shows how easily your traffic can be told apart from the noise, and which settings help. The <b>Proof</b> tab compares the rhythm of the noise with yours and, with <b>Adjust to my rhythm</b> on, corrects the difference.</p>
   </details>
-  <details class="card hp"><summary>Remote machines (optional)</summary>
+  <details class="card hp"><summary>Remote machines</summary>
     <p>The Remote tab runs the noise on other computers you own or are authorised to use, over SSH (<code>user@host[:port]</code> with a password or a private key). The app copies one small file into <code>~/.cache/legalprivacy</code> on that machine, runs it, shows its log, and deletes it when you remove the machine. Needs <code>paramiko</code> here and Python 3 there; no root and no display. The first time, you must confirm the machine's host key fingerprint; a changed key is refused. Passwords are kept in memory only.</p>
   </details>
-  <details class="card hp"><summary>Tor (optional)</summary>
+  <details class="card hp"><summary>Tor</summary>
     <p>Off by default. With Tor on, legalPrivacy can visit .onion sites through its own private Tor, which it downloads, checks and starts for you. Many .onion sites are offline at any moment; those are skipped for a while, which is normal. Ordinary web noise never goes through Tor; the Tor lane visits only .onion sites.</p>
     <p><b>Contribute to Tor.</b> <code>legalprivacy relay gen</code> writes a middle-relay or bridge configuration; it never runs an exit. The Tor tab has two optional cards, both off by default: <b>Tor DNS</b> (Tor answers A, AAAA and PTR lookups on a local port; exit relays resolve the names, so it is slower and is a deliberate, narrow use of exits for DNS only) and <b>Contribute to Tor: run a relay</b> (a middle relay or bridge as a separate Tor program; start with Practice mode, which publishes nothing). A relay is not an exit and does not provide DNS.</p>
   </details>
-  <details class="card hp"><summary>Antivirus (optional)</summary>
+  <details class="card hp"><summary>Antivirus</summary>
     <p>The <b>Antivirus</b> tab manages the ClamAV you installed yourself, offline-first. Only <code>freshclam</code>, the signature updater, ever contacts the internet, and only when you press Update and confirm. Scans use <code>clamscan</code> with this app's own signature folder, with the network removed where the system allows it (Linux) and the scanner watched for any connection everywhere; a connection marks the scan NOT OFFLINE and stops it. Nothing is ever deleted or moved except by your explicit Quarantine click.</p>
   </details>
   <details class="card hp"><summary>Menu and shortcuts</summary>
@@ -981,9 +981,9 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
       <button id="harHosts" title="Keep the counts but delete the list of site names">Delete site list</button>
       <button id="harForget" title="Delete everything imported from the file">Forget imported data</button></div>
     <div id="harMsg" class="small" role="status" aria-live="polite"></div>
-    <details class="small" id="harTopWrap" style="display:none"><summary>Sites in your recording (names and counts only)</summary><div id="harTop" class="mute"></div></details>
+    <details class="small" id="harTopWrap" style="display:none"><summary>Sites in your recording: names and counts only</summary><div id="harTop" class="mute"></div></details>
   </div>
-  <div class="card act"><h3>1. Intended pattern <span class="mute small">(for reference)</span> <details class="why"><summary>ⓘ</summary><div>What your current settings are meant to produce: expected requests per hour of the day. It comes from the same planner the noise uses (level, random or steady, how random, active hours), run over many simulated days. The shaded band is the usual spread (10th to 90th percentile), the line the middle. Persona changes which sites are visited, not how many or when.</div></details></h3>
+  <div class="card act"><h3>1. Intended pattern <details class="why"><summary>ⓘ</summary><div>What your current settings are meant to produce: expected requests per hour of the day. It comes from the same planner the noise uses (level, random or steady, how random, active hours), run over many simulated days. The shaded band is the usual spread (10th to 90th percentile), the line the middle. Persona changes which sites are visited, not how many or when.</div></details></h3>
     <div id="aIntended"></div><div class="small"><span class="lgd"><i style="background:var(--acc);opacity:.35"></i>planned range</span><span class="lgd"><i style="background:var(--ink)"></i>typical hour</span></div>
     <div id="aIntendedV" class="gv neutral"></div></div>
   <div class="card act"><h3>2. This session: actual vs intended <details class="why"><summary>ⓘ</summary><div>Requests the noise really made in each 10 minutes over the last 6 hours, over the planned range for that hour. Whole hours where the noise ran well above or below the plan are drawn in red. The teal line is how many different addresses your own apps were connected to (a different measure from requests, shown for rhythm only).</div></details></h3>
@@ -1031,7 +1031,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <table><thead><tr><th>Path</th><th>Signature</th><th>Size</th><th></th></tr></thead><tbody id="avRes"></tbody></table>
     <div class="note small" id="avResEmpty">Nothing found yet. Infected files appear here after a scan.</div>
   </div>
-  <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Self-test (EICAR)</h3>
+  <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>EICAR self-test</h3>
     <p class="small mute">Writes the standard, harmless EICAR antivirus test string to a temporary file, scans it with this app's signatures, shows whether it was detected, and deletes it. <b>Your own antivirus may react to that file.</b></p>
     <div class="row"><button id="avSelf"><svg class="ic sm" aria-hidden="true"><use href="#i-play"/></svg>Run the self-test</button></div>
     <div class="small" id="avSelfTxt"></div>
@@ -1075,7 +1075,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div id="toolMacOut" class="small" style="margin-top:8px"></div>
     <div class="small mute" style="margin-top:6px"><code>sudo legalprivacy mac randomize --all</code> &nbsp; <code>sudo legalprivacy mac restore --all</code></div>
   </div>
-  <div class="card"><h3>Load test (your own target)</h3>
+  <div class="card"><h3>Load test</h3>
     <p class="small mute">Generates load from <b>this one computer</b> against a target you run, and graphs it. L7 sends real HTTP requests; L4 opens TCP connections. It never spoofs addresses or forges packets, there is no way to drive other machines from here (run the app on each of your own boxes to load from several), and it will not aim at government address ranges. Capped (shown below); raise the caps with the LEGALPRIVACY_LOADTEST_* environment variables. Only use it on infrastructure you own or are authorised to test — unauthorised load testing is illegal.</p>
     <div class="row"><input type="text" id="ltTarget" placeholder="https://your-host/path  (L7)  ·  10.0.0.5:8080  (L4)" style="flex:1"></div>
     <div class="row" style="flex-wrap:wrap;gap:10px;margin-top:6px">
@@ -1095,10 +1095,11 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div class="row"><input type="text" id="scUrl" placeholder="https://example.com/page" style="flex:1"></div>
     <div class="row" style="flex-wrap:wrap;gap:10px;margin-top:6px"><label class="chk"><input type="checkbox" class="scK" value="tables" checked><span>Tables</span></label><label class="chk"><input type="checkbox" class="scK" value="images" checked><span>Images</span></label><label class="chk"><input type="checkbox" class="scK" value="video"><span>Video</span></label><label class="chk"><input type="checkbox" class="scK" value="audio"><span>Audio</span></label><label class="chk"><input type="checkbox" class="scK" value="documents" checked><span>Documents</span></label><label class="chk"><input type="checkbox" class="scK" value="archives"><span>Archives</span></label></div>
     <div class="row" style="flex-wrap:wrap;gap:10px;margin-top:6px"><label class="small">Link depth <select id="scDepth"><option>0</option><option selected>1</option><option>2</option><option>3</option></select></label><label class="small">Pages up to <input type="number" id="scPages" value="20" min="1" max="500" style="width:70px"></label><label class="chk"><input type="checkbox" id="scMix" checked><span>Mix in noise</span></label><label class="chk"><input type="checkbox" id="scProxy"><span>Through a tested proxy</span></label></div>
+    <div class="row" style="flex-wrap:wrap;gap:10px;margin-top:6px" title="Image filters. 0 means no limit."><label class="chk"><input type="checkbox" id="scSkipUi" checked><span>Skip page furniture: banners, icons, logos, sprites, buttons</span></label><label class="small">Images from <input type="number" id="scMinKb" value="8" min="0" style="width:64px"> KB to <input type="number" id="scMaxKb" value="0" min="0" style="width:72px"> KB</label><label class="small">and <input type="number" id="scMinPx" value="100" min="0" style="width:64px"> to <input type="number" id="scMaxPx" value="0" min="0" style="width:72px"> pixels on a side</label><span class="small mute">0 means no limit</span></div>
     <div class="row" style="margin-top:8px"><button id="scGo">Start</button><button id="scStop">Stop</button><button id="scOpen" title="Open the folder with the scraped files in your file manager">Open folder</button><span class="small mute" id="scNote"></span></div>
     <div id="scOut" class="small" style="margin-top:8px"></div>
   </div>
-  <div class="card"><h3>Proxies (tested)</h3>
+  <div class="card"><h3>Proxies</h3>
     <p class="small mute">Pulls free proxy lists from public GitHub files (and any page you add), tests every candidate through a real HTTPS request, and throws out the slow, dead, wrong-answer and transparent ones. Used only for jobs you start, such as scraping, never for the noise or for logins: free proxies are run by strangers and can read plain traffic.</p>
     <div class="row"><button id="pxGo">Fetch and test</button><button id="pxClear" title="Throw out every tested proxy">Clear</button><span class="small mute" id="pxNote"></span></div>
     <div id="pxOut" class="small" style="margin-top:8px"></div>
@@ -1110,8 +1111,8 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div class="small mute" id="pwBits"></div><div id="pwOut" class="small" style="margin-top:8px;font-family:monospace;word-break:break-all"></div>
   </div>
   <div class="card"><h3>Live log</h3>
-    <p class="small mute">The live log is kept in memory only. Nothing is written to disk, and it is cleared when legalPrivacy quits.</p>
-    <div class="row"><button id="toolClearLog">Clear live log now</button><span class="small mute" id="toolLogNote"></span></div>
+    <p class="small mute">The app log is kept in memory only. Nothing is written to disk, and it is cleared when legalPrivacy quits.</p>
+    <div class="row"><button id="toolClearLog">Clear app log now</button><span class="small mute" id="toolLogNote"></span></div>
   </div>
   <div class="card"><h3>Related checks</h3>
     <p class="small mute">Outside links, opened only when you click them, in a new tab.</p>
@@ -1172,7 +1173,7 @@ async function runApply(){
   if(applying){applyAgain=true;return}
   applying=true;applyMsg('<span class="spin">⟳</span> Applying your change to the running noise…');
   try{await api('/api/apply',{});await poll();const st=(S&&S.settings)||{};
-    if(st.in_effect)applyMsg(`✓ <b>Live and verified</b> — the running settings match what you saved (id ${esc(st.saved)}, ${fmtT(st.applied_at)}). Details are in the Live Log.`,'var(--acc)');
+    if(st.in_effect)applyMsg(`✓ <b>Live and verified</b> — the running settings match what you saved (id ${esc(st.saved)}, ${fmtT(st.applied_at)}). Details are in the App log.`,'var(--acc)');
     else applyMsg('⚠ Applied, but the running settings do not match what you saved. Press Stop, then Start.','var(--bad)')}
   catch(e){applyMsg('Could not apply: '+esc(e.message),'var(--bad)')}
   applying=false;try{await poll()}catch(e){}
@@ -1205,7 +1206,7 @@ $('#qSetup').onclick=$('#sSetup').onclick=()=>showWiz(true);
 $('#qDefRec').onclick=()=>{if(window.confirm('Put all settings back to the recommended values? Your list, sign-ins, relay and Tor set-up are kept.'))api('/api/defaults/recommended',{}).then(()=>afterDefaults('Recommended settings applied')).catch(e=>toast(e.message,1))};
 $('#qDefSave').onclick=()=>api('/api/defaults/save',{}).then(()=>toast('Saved. My settings will bring these back.')).catch(e=>toast(e.message,1));
 $('#qDefMine').onclick=()=>api('/api/defaults/mine',{}).then(()=>afterDefaults('Your saved settings applied')).catch(e=>toast(e.message,1));
-$('#bTest').onclick=()=>{act('/api/test');toast('Test hit sent — see Activity')};
+$('#bTest').onclick=()=>{act('/api/test');toast('Test hit sent — see Requests')};
 $('#bQuit').onclick=async()=>{if(confirm('Stop everything and quit legalPrivacy?')){try{await api('/api/shutdown',{})}catch(e){}document.body.innerHTML='<main><div class="card"><h2>legalPrivacy has quit.</h2><p>You can close this tab.</p></div></main>'}};
 ['tStart','tStop','tRestart','tNym','tInstall'].forEach(id=>$('#'+id).onclick=()=>act('/api/tor/'+{tStart:'start',tStop:'stop',tRestart:'restart',tNym:'newnym',tInstall:'install'}[id]));
 
@@ -1488,7 +1489,7 @@ function renderNudge(){
 }
 $('#nudgeRows').onclick=async e=>{const b=e.target.closest('button[data-n]');if(!b||nudging)return;
   nudging=true;renderNudge();
-  try{S.mix=await api('/api/nudge',{what:b.dataset.n,direction:parseInt(b.dataset.d)});toast('Mix nudged'+(S.running?' and applied':''));await poll();fillSettings(true)}
+  try{S.mix=await api('/api/nudge',{what:b.dataset.n,direction:parseInt(b.dataset.d)});toast(S.mix.note||'Mix nudged',/plain HTTP|nothing changed/.test(S.mix.note||''));await poll();fillSettings(true)}
   catch(err){toast(err.message||'Could not nudge the mix',true)}
   finally{nudging=false;renderNudge()}};
 function render(){
@@ -1594,11 +1595,12 @@ function renderLog(full){
   const lv=LV[$('#lLevel').value],q=$('#lQ').value.toLowerCase();
   const ok=e=>LV[e.level]>=lv&&srcOn.has(e.source)&&(!q||e.message.toLowerCase().includes(q));
   const box=$('#lBox');
-  if(full||!lastRendered){box.innerHTML=logs.filter(ok).slice(-1500).map(logLine).join('')}
-  else{const add=logs.filter(e=>e.id>lastRendered&&ok(e));if(add.length)box.insertAdjacentHTML('beforeend',add.map(logLine).join(''));while(box.childNodes.length>2000)box.removeChild(box.firstChild)}
+  // newest at the top, the same as Requests
+  if(full||!lastRendered){box.innerHTML=logs.filter(ok).slice(-1500).reverse().map(logLine).join('')}
+  else{const add=logs.filter(e=>e.id>lastRendered&&ok(e));if(add.length)box.insertAdjacentHTML('afterbegin',add.reverse().map(logLine).join(''));while(box.childNodes.length>2000)box.removeChild(box.lastChild)}
   lastRendered=logs.length?logs[logs.length-1].id:0;scrollLog();
 }
-function scrollLog(){if($('#lFollow').checked){const s=$('#lScroll');s.scrollTop=s.scrollHeight}}
+function scrollLog(){if($('#lFollow').checked){const s=$('#lScroll');s.scrollTop=0}}
 let torLogFrom=0;
 $('#tLogClear').onclick=()=>{torLogFrom=logs.length?logs[logs.length-1].id:0;renderTorLog()};
 function renderTorLog(){
@@ -1635,6 +1637,11 @@ function renderBridges(t){
     (t.bridges?`Tor is using ${t.bridges} bridge(s).`:'');
 }
 $('#tSeedsReset').onclick=()=>{$('#tSeeds').value=S.builtin_onion_seeds.map(b=>b.url).join('\n');dirty.tor=true;$('#tSaved').textContent='unsaved changes';toast('Recommended onion sites restored — they save automatically or with Save')};
+function circuitsBuiltText(t){
+  const n=(t.circuits||[]).filter(c=>String(c.status).toUpperCase()==='BUILT').length;
+  if(t.circuits_built==null&&!n&&t.state==='ready')return 'count not available';
+  return Math.max(n,t.circuits_built||0)+' built';
+}
 function renderTorStatus(){
   const t=S.tor;
   renderBridges(t);
@@ -1644,7 +1651,7 @@ function renderTorStatus(){
   $('#tBar').style.width=(t.state==='installing'?t.install_progress*100:t.bootstrap_pct)+'%';
   $('#tSum').textContent=(t.error?t.error:t.state==='installing'?'Downloading & verifying the official Tor bundle…':t.bootstrap_summary||'')+(t.hint?'  ⚠ '+t.hint:'');
   $('#tKv').innerHTML=[['Mode',t.anon_os?t.anon_os+' gateway':t.mode],['Bridge',t.bridge_label||'—'],['Version',t.version||'—'],['SOCKS',t.socks||'—'],['Control',t.control||'—'],['PID',t.pid||'—'],['Uptime',t.uptime?fmtDur(t.uptime):'—'],['Downloaded',fmtB(t.read)],['Uploaded',fmtB(t.written)],['Program',t.binary||'not installed']].map(([k,v])=>`<b>${k}</b><span style="word-break:break-all">${esc(v)}</span>`).join('');
-  $('#cCount').textContent=t.circuits_built||0;
+  $('#cCount').textContent=circuitsBuiltText(t);
   $('#cBody').innerHTML=(t.circuits||[]).map(c=>`<tr><td>${esc(c.id)}</td><td class="${c.status==='BUILT'?'ok':''}">${esc(c.status)}</td><td>${esc(c.purpose)}</td><td class="url">${esc(c.path.join(' → '))}</td></tr>`).join('')||'<tr><td colspan=4 class="mute">no circuits</td></tr>';
   $('#tInstallNote').textContent=!t.supported_platform?'Automatic install is not available on this platform — install Tor with your package manager.':t.installed_bundle?'Official Tor bundle installed by legalPrivacy.':t.binary?'Using Tor found on this computer.':'Tor is not installed yet — it will be downloaded automatically when needed.';
   const busy=['starting','bootstrapping','installing'].includes(t.state);
@@ -2175,7 +2182,7 @@ let scT=null;
 function scFiles(d){const f=d.files||[];return f.length?`<details style="margin-top:6px"><summary class="small">${f.length}${f.length>=40?'+':''} newest files</summary><div class="small mute" style="max-height:220px;overflow:auto">${f.map(x=>`<div><code>${esc(x.name)}</code> · ${fmtB(x.bytes)}</div>`).join('')}</div></details>`:''}
 function scShow(d){const j=d.job;if(!j){$('#scOut').innerHTML=`<span class="mute">Saved under ${esc(d.folder)}. ${d.proxies} tested proxies available.</span>`+scFiles(d);return}
   $('#scNote').textContent=j.running?'Running…':(j.done?'Finished':'');
-  $('#scOut').innerHTML=`<div>${j.pages} pages · ${j.tables} tables · ${j.files} files (${(j.bytes/1e6).toFixed(1)} MB)${j.noise?` · ${j.noise} noise visits`:''}${j.skipped_robots?` · ${j.skipped_robots} skipped by robots.txt`:''}</div>${j.current?`<div class="mute">${esc(j.current)}</div>`:''}<div class="mute">Folder: <code>${esc(j.folder)}</code></div>${j.errors.length?`<div class="warnc">${j.errors.length} problems, e.g. ${esc(j.errors[0])}</div>`:''}`+scFiles(d);
+  $('#scOut').innerHTML=`<div>${j.pages} pages · ${j.tables} tables · ${j.files} files (${(j.bytes/1e6).toFixed(1)} MB)${j.noise?` · ${j.noise} noise visits`:''}${j.skipped_robots?` · ${j.skipped_robots} skipped by robots.txt`:''}${j.skipped_filter?` · ${j.skipped_filter} images filtered out`:''}</div>${j.current?`<div class="mute">${esc(j.current)}</div>`:''}<div class="mute">Folder: <code>${esc(j.folder)}</code></div>${j.errors.length?`<div class="warnc">${j.errors.length} problems, e.g. ${esc(j.errors[0])}</div>`:''}`+scFiles(d);
   if(j.running&&!scT)scT=setInterval(scPoll,1500);if(!j.running&&scT){clearInterval(scT);scT=null}}
 async function scPoll(){try{scShow(await api('/api/scrape'))}catch(e){}}
 let ltT=null;
@@ -2200,7 +2207,7 @@ $('#ltGo').onclick=async()=>{if(!$('#ltAuth').checked){$('#ltNote').textContent=
   try{ltShow(await api('/api/loadtest/start',{target:$('#ltTarget').value.trim(),mode:$('#ltMode').value,method:$('#ltMethod').value,rps:parseInt($('#ltRps').value),concurrency:parseInt($('#ltConc').value),duration:parseInt($('#ltDur').value),authorized:true}))}catch(e){$('#ltNote').textContent=String(e.message||e)}};
 $('#ltStop').onclick=async()=>{try{ltShow(await api('/api/loadtest/stop',{}))}catch(e){}};
 ltPoll();
-$('#scGo').onclick=async()=>{try{scShow(await api('/api/scrape/start',{url:$('#scUrl').value.trim(),kinds:$$('.scK:checked').map(x=>x.value),depth:parseInt($('#scDepth').value),max_pages:parseInt($('#scPages').value),mix_noise:$('#scMix').checked,use_proxy:$('#scProxy').checked}))}catch(e){$('#scNote').textContent=String(e.message||e)}};
+$('#scGo').onclick=async()=>{try{scShow(await api('/api/scrape/start',{url:$('#scUrl').value.trim(),kinds:$$('.scK:checked').map(x=>x.value),depth:parseInt($('#scDepth').value),max_pages:parseInt($('#scPages').value),mix_noise:$('#scMix').checked,use_proxy:$('#scProxy').checked,skip_ui:$('#scSkipUi').checked,min_kb:+$('#scMinKb').value||0,max_kb:+$('#scMaxKb').value||0,min_px:+$('#scMinPx').value||0,max_px:+$('#scMaxPx').value||0}))}catch(e){$('#scNote').textContent=String(e.message||e)}};
 $('#scOpen').onclick=async()=>{try{const r=await api('/api/scrape/open',{which:'last'});toast('Opened '+r.folder)}catch(e){toast(e.message,1)}};
 $('#scStop').onclick=async()=>{try{scShow(await api('/api/scrape/stop',{}))}catch(e){}};
 scPoll();
@@ -2286,7 +2293,7 @@ $('#wNext').onclick=async()=>{
   const v=n=>document.querySelector(`input[name=${n}]:checked`).value;
   try{await api('/api/wizard',{rate_mode:v('rmode'),level:parseFloat($('#wLevel').value),tor:v('tor'),autostart:v('auto')==='1'});$('#wiz').classList.remove('on');dirty={set:false,tor:false};
     if(wizRerun){if(S&&S.running){await api('/api/stop',{});await api('/api/start',{})}toast('Setup answers saved');poll();return}
-    await api('/api/start',{});toast('Running! Watch it live on the Activity and Live Log tabs.');poll()}catch(e){toast(e.message,1)}
+    await api('/api/start',{});toast('Running! Watch it live on the Requests and App log tabs.');poll()}catch(e){toast(e.message,1)}
 };
 poll();
 </script>

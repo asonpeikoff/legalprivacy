@@ -69,10 +69,12 @@ legalPrivacy is headless too: `legalprivacy run`, and `legalprivacy ui --no-brow
 ## Qubes OS
 
 The MAC that other people see is the **physical NIC's**, and that NIC belongs to **sys-net**. An AppVM only has a Xen virtual
-interface (`vif`), so spoofing there would change nothing on the wire and could break the qube's networking.
+interface (`vif`). It has its own MAC, and `mac randomize eth0 --force` changes it (it carries the default route, hence
+`--force`), but only the network qube (sys-firewall) ever sees that address, and Qubes may drop traffic from an address it did
+not assign: if the qube loses its network, `mac restore --all` puts it back.
 
 - **Run `mac` in sys-net**, not in the app qube that runs the noise generator (the VPN qube, sys-vpn, sits between them and is not
-  involved). legalPrivacy detects Xen virtual NICs and refuses to touch them, even with `--force`, and `mac status` says so.
+  involved). legalPrivacy detects Xen virtual NICs and `mac status` says what changing them does and does not reach.
   Never run it in dom0.
 - **Getting it into sys-net:** it is stdlib-only, so `qvm-copy` the `legalprivacy/` folder in (or install it in the template).
   The qube needs `ethtool`, and `nmcli` if it uses NetworkManager. Check what your sys-net's NetworkManager already sets for

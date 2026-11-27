@@ -1,4 +1,4 @@
-"""Dashboard, Activity, Live Log, Tor and Proof tabs of the native app. Each tab reads what it shows from the
+"""Dashboard, Requests, App log, Tor and Proof tabs of the native app. Each tab reads what it shows from the
 state the app polls (`update_state`), reports edits with `app.edited()` and never blocks: slow work goes
 through `app.work(...)`."""
 from __future__ import annotations
@@ -69,7 +69,7 @@ class DashboardTab(Tab):
             Kpi(kp, app, t) for t in ("Hits today", "Failures", "Running for", "Last hit", "Data today"))
         grid_cards(kp, [self.k_hits, self.k_fail, self.k_up, self.k_last, self.k_data], 5)
 
-        sc = Card(f, app, "Hits per minute (last 30 minutes)", "act")
+        sc = Card(f, app, "Hits per minute, last 30 minutes", "act")
         sc.grid(row=2, column=0, sticky="ew", pady=(0, GAP))
         self.spark = Sparkline(sc.body, app)
         self.spark.pack(fill="x")
@@ -77,7 +77,7 @@ class DashboardTab(Tab):
         lc = Card(f, app, "Lanes", "list", help="Each lane is one kind of noise with its own daily budgets.")
         lc.grid(row=3, column=0, sticky="ew", pady=(0, GAP))
         app.btn(lc.actions, "Send one test hit", "play", "secondary", self.test_hit,
-                "Fires a single noise request immediately and shows it in Activity.").pack()
+                "Fires a single noise request immediately and shows it in Requests.").pack()
         cols = ("lane", "does", "hits", "fails", "budget", "problem")
         self.tree = ttk.Treeview(lc.body, columns=cols, show="headings", height=3, selectmode="none")
         for c, t, w in (("lane", "Lane", 120), ("does", "What it does", 200), ("hits", "Hits", 60), ("fails", "Failed", 60),
@@ -237,7 +237,7 @@ class DashboardTab(Tab):
         self.app.edited()
 
     def test_hit(self) -> None:
-        self.app.work(self.app.ctl.test_once, done=lambda _r: self.app.flash("Sent one test hit; see Activity."))
+        self.app.work(self.app.ctl.test_once, done=lambda _r: self.app.flash("Sent one test hit; see Requests."))
 
     def nudge(self, what: str, direction: int) -> None:
         if self.nudge_busy:
@@ -248,7 +248,7 @@ class DashboardTab(Tab):
         def done(m):
             self.nudge_busy = False
             self._show_nudge(m)
-            self.app.flash("Mix nudged" + (" and applied." if self.app.ctl.running else "."))
+            self.app.flash(m.get("note") or "Mix nudged.", 8000)
 
         def error(exc):
             self.nudge_busy = False
@@ -306,7 +306,7 @@ class DashboardTab(Tab):
 
 # ── Activity ────────────────────────────────────────────────────────────────
 class ActivityTab(Tab):
-    title, icon = "Activity", "act"
+    title, icon = "Requests", "act"
 
     def __init__(self, nb, app):
         super().__init__(nb, app)
@@ -419,9 +419,9 @@ class ActivityTab(Tab):
         self.app.work(go, done=lambda _r: self.app.flash(f"Saved {len(rows)} rows."), error=lambda e: self.app.error("Export", e))
 
 
-# ── Live Log ────────────────────────────────────────────────────────────────
+# ── App log ─────────────────────────────────────────────────────────────────
 class LogTab(Tab):
-    title, icon = "Live Log", "log"
+    title, icon = "App log", "log"
 
     def __init__(self, nb, app):
         super().__init__(nb, app)
@@ -437,8 +437,8 @@ class LogTab(Tab):
         self.level_box.pack(side="left", padx=8)
         self.level_box.bind("<<ComboboxSelected>>", lambda _e: self.render_all())
         self.hold = tk.BooleanVar(value=False)
-        ttk.Checkbutton(bar, text="Pause scrolling", variable=self.hold).pack(side="left", padx=10)
-        app.btn(bar, "Clear", None, "ghost", self.clear, "Forget everything in the live log").pack(side="right")
+        ttk.Checkbutton(bar, text="Hold the view (don't jump to the newest)", variable=self.hold).pack(side="left", padx=10)
+        app.btn(bar, "Clear", None, "ghost", self.clear, "Forget everything in the app log").pack(side="right")
         app.btn(bar, "Copy", None, "ghost", self.copy, "Copy the selection, or the whole log, to the clipboard").pack(side="right")
         self.text = tk.Text(self, wrap="none", height=10, state="disabled", relief="flat", borderwidth=0,
                             highlightthickness=1, font=app.fonts["mono"], padx=10, pady=8)
@@ -471,14 +471,14 @@ class LogTab(Tab):
         if not evs:
             return
         self.text.configure(state="normal")
-        for e in evs:
-            self.text.insert("end", L.fmt_log_line(e) + "\n", e["level"] if e["level"] in L.LOG_LEVEL_ORDER else "info")
+        for e in evs:                                   # newest at the top, the same as Requests
+            self.text.insert("1.0", L.fmt_log_line(e) + "\n", e["level"] if e["level"] in L.LOG_LEVEL_ORDER else "info")
         lines = int(self.text.index("end-1c").split(".")[0])
         if lines > L.LOG_MAX_LINES:
-            self.text.delete("1.0", f"{lines - L.LOG_MAX_LINES + 1}.0")
+            self.text.delete(f"{L.LOG_MAX_LINES + 1}.0", "end")
         self.text.configure(state="disabled")
         if not self.hold.get():
-            self.text.see("end")
+            self.text.see("1.0")
 
     def render_all(self) -> None:
         self.text.configure(state="normal")
@@ -585,8 +585,9 @@ class TorTab(Tab):
         self._mix_text(v_tor.get(), v_onion.get())
         self.f_check(cc, "tor_manage", "Let legalPrivacy manage Tor (recommended)",
                      "Untick to use an existing Tor at the addresses below instead.")
-        self.f_radios(cc, "tor_anon_os", [("auto", "On Whonix / Qubes-Whonix, use the gateway's Tor (recommended; never Tor over Tor)"),
-                                          ("off", "Ignore Whonix / Qubes and use the setting above")])
+        self.f_radios(cc, "tor_anon_os", [("off", "Ignore Whonix / Qubes and use the setting above (default; a qube behind "
+                                                  "sys-whonix already goes through the gateway's Tor)"),
+                                          ("auto", "On Whonix / Qubes-Whonix, use the gateway's Tor")])
         r = cc.row((6, 0))
         cc.lbl(r, "SOCKS").pack(side="left")
         self.f_entry(r, "tor_socks", 20).pack(side="left", padx=(6, 14))
@@ -680,7 +681,7 @@ class TorTab(Tab):
         ob.grid(row=8, column=0, sticky="ew", pady=(0, GAP))
         self.f_check(ob, "tor_onion_browser", "Use the real Tor Browser for onion visits",
                      "Off by default (it opens a Tor Browser window). Scrolls, reads and clicks like a person, through this app's Tor, at security level "
-                     "Safest. If it can't start (not installed yet, no display), the plain lane is used and the Live Log "
+                     "Safest. If it can't start (not installed yet, no display), the plain lane is used and the App log "
                      "says why.")
         self.tor: dict = {}
         self.retheme()
@@ -802,7 +803,7 @@ class TorTab(Tab):
 
     def _build_relay(self, f, row: int) -> None:
         app = self.app
-        rc = Card(f, app, "Contribute to Tor: run a relay (optional)", "tor")
+        rc = Card(f, app, "Contribute to Tor: run a relay", "tor")
         rc.grid(row=row, column=0, sticky="ew", pady=(0, GAP))
         self.relay_card = rc
         Banner(rc.body, "A relay passes other people's encrypted Tor traffic along, which helps the network. It is not an "
@@ -1118,7 +1119,7 @@ class TorTab(Tab):
         self._update_dns(t)
         self._update_relay()
         circs = t.get("circuits") or []
-        self.circ_head.configure(text=f"{t.get('circuits_built') or 0} built. Purposes starting with HS_CLIENT are onion-service connections.")
+        self.circ_head.configure(text=f"{L.circuits_built_text(t)}. Purposes starting with HS_CLIENT are onion-service connections.")
         self.circ.delete(*self.circ.get_children())
         for c in circs:
             self.circ.insert("", "end", values=(c.get("id"), c.get("status"), c.get("purpose"), " → ".join(c.get("path") or [])))

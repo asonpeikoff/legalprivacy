@@ -63,12 +63,12 @@ existing settings, start-up commands (`cricket`, `cricket-launch`) and `CRICKET_
 private *copy* of your profile: your settings, add-ons and bookmarks, so it looks like your browser. Logins, cookies and the
 list of pages you visited are never copied, your real profile is only read, and the copy is deleted when the browser closes.
 This uses Selenium and geckodriver (installed with the app); Firefox from Snap or Flatpak can't be driven, so there it falls
-back to the app's own browsers (the Live Log says why).
+back to the app's own browsers (the App log says why).
 
 **Start it in the background (Linux).** `./start-legalprivacy.sh` now starts legalPrivacy detached from the terminal, so closing
 the window does not stop it, prints the dashboard link and returns. The running program is named `legalprivacy`, so
 `killall legalprivacy` (or `./start-legalprivacy.sh --stop`) stops it, Tor and the relay included; `--foreground` gives the
-old behaviour (run in this window until Ctrl+C). It keeps no log file (read the Live Log in the dashboard).
+old behaviour (run in this window until Ctrl+C). It keeps no log file (read the App log in the dashboard).
 
 **Run it as a background service (Linux).** `./start-legalprivacy.sh --service` installs a systemd user service that
 starts when you log in and keeps legalPrivacy running with no window. The dashboard is still the same web page: run
@@ -87,15 +87,15 @@ already has the recommended value, and settings save themselves as you change th
 | Tab | What it's for |
 |---|---|
 | **Dashboard** | Hits, failures, uptime, data used today, hits per minute, a test hit |
-| **Activity** | Every request: time, lane, engine, address, what the browser did (scrolls, depth, time on page, clicks, downloads), result, load time. A "Now" line shows the visit in progress. Download as CSV or JSON. |
-| **Live Log** | Everything the app and Tor report, with level and source filters and search. Kept in memory only and cleared when the app quits. |
+| **Requests** | Every request the noise sent, newest first: time, lane, engine, address, what the browser did (scrolls, depth, time on page, clicks, downloads), result, load time. A "Now" line shows the visit in progress. Download as CSV or JSON. |
+| **App log** | Everything the app and Tor report, newest first, with level and source filters and search. Kept in memory only and cleared when the app quits. |
 | **🧅 Tor** | Tor status and progress, Start / Stop / Restart / New identity / Install, live circuits, Tor's own log, onion sites, bridges |
 | **Settings** | Amount and randomness, mix of activity, DNS, traffic mix and phones, user agent, extras, realism |
 | **Health** | Plain-language self-checks |
 | **Help** | What each part does |
 | **My List** | Your own sites, which the noise visits most (see below) |
 | **ML** | How easily your traffic can be told apart from the noise (see below) |
-| **Tools** | Data-use estimate, privacy check, DNS leak check, speed test, clear the live log |
+| **Tools** | Data-use estimate, privacy check, DNS leak check, speed test, clear the App log |
 | **Proof** | A live EtherApe-style map of every machine this computer talks to, 6 hours of traffic per minute with the noise on/off periods shaded, and whether the noise's rhythm looks like yours |
 
 **Nudge the mix.** The Dashboard tab has a "Nudge the mix" card: minus and plus buttons for web pages in a real browser,
@@ -319,7 +319,7 @@ from the saved counts and site names, so revisit habits are approximate.
 - **Pauses.** "429" means the site answered "too many requests, slow down"; a robot-check page is the site asking
   whether you are a person. Either one (or finding itself on a sign-in page) pauses that account's signed-in visits for a
   random while: 3-12 hours the first time, 12-36 hours if it happens again within 3 days, 1-4 days if it keeps happening
-  within a week. The dashboard shows "Paused until about ..." with a "Resume now" button, and the Live Log says why. The
+  within a week. The dashboard shows "Paused until about ..." with a "Resume now" button, and the App log says why. The
   ordinary signed-out noise carries on exactly as before. Per account you can choose "Keep going" after a robot check or
   429 instead (not recommended); a dead session still pauses.
 - **Please be aware:** these are your real accounts. The searches and visits become part of that account's history and
@@ -361,7 +361,7 @@ If Tk is missing it says so and opens the web dashboard instead.
 
 <p align="center"><img src="docs/screenshots/native-nudge.png" alt="The desktop app's Dashboard: the wordmark header with Start, Pause and Stop, and the Nudge the mix card" width="760"></p>
 
-- **Activity:** recent hits, newest first (site names only), with filters and CSV/JSON export. **Live Log:** coloured by
+- **Requests:** recent hits, newest first (site names only), with filters and CSV/JSON export. **App log:** coloured by
   level, filter, pause scrolling, copy, clear.
 - **Tor:** status and progress, details, Start / Stop / Restart / New identity / Install / Test, the circuits table,
   the onion seed editor (with Reset), bridges (modes, your own lines, auto-fallback, Get bridges for my country) and the
@@ -404,7 +404,7 @@ of the noise lookups. This covers the DNS noise on your normal connection. The T
 | **Your normal DNS** | Your computer's own resolver: router, ISP, VPN or your system's encrypted DNS |
 | **Secure resolvers only** | Only the resolvers in the list in Settings. By default: OpenNIC ns2.de `80.152.203.134`, ns3.de `193.31.24.55` and ns4.de `80.153.146.105` as primaries, and Quad9 `9.9.9.9` as a fallback used only when they're down or slower than 250 ms. Every row is editable; extras: the whole OpenNIC directory, Quad9's pair, your own IPs. |
 
-Each lookup in Activity shows which resolver answered it. **Check now** times each resolver and asks it for `whoami.akamai.net`, which reveals the machine that really answered. If something on your network secretly answers in their place (some ISPs, workplaces, hotels and cloud hosts do), the list says **⚠ intercepted**.
+Each lookup in Requests shows which resolver answered it. **Check now** times each resolver and asks it for `whoami.akamai.net`, which reveals the machine that really answered. If something on your network secretly answers in their place (some ISPs, workplaces, hotels and cloud hosts do), the list says **⚠ intercepted**.
 
 ## Extras (Settings)
 
@@ -449,7 +449,7 @@ On Tor, failures are handled like a person would: sometimes reload the page a mi
 | **Tor** | off | When on, legalPrivacy runs its own private Tor (it finds `tor` on your computer or downloads and verifies the official Tor Expert Bundle). Your own Tor and Tor Browser are never touched. |
 | **🧅 Onion sites** | on when Tor is on | Visits real v3 `.onion` addresses: official mirrors of lawful public sites, plus links found on them. Uses Tor Browser's uniform headers so it blends in. |
 
-Many `.onion` sites are offline at any moment. Those show in Activity as "site offline" and are
+Many `.onion` sites are offline at any moment. Those show in Requests as "site offline" and are
 skipped for a while; this is normal and doesn't mean Tor is broken.
 
 - **Restart** stops and starts Tor itself, reconnecting to the network from scratch.
@@ -507,7 +507,7 @@ Tested: Linux, against a real SSH server (paramiko's server side, on loopback) w
 
 ## Privacy
 
-- The live log and Activity are kept in memory only and cleared when the app quits; no log file
+- The App log and Requests are kept in memory only and cleared when the app quits; no log file
   is written.
 - History, bookmarks and files you import are read on your computer; only site names and counts
   are used, and nothing is kept until you approve it.

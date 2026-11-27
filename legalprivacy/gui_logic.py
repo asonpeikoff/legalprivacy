@@ -549,3 +549,13 @@ class LiveApply:
             self.report("error", str(exc) or exc.__class__.__name__, "bad")
 
         self._run(work, self.post, done, failed, "gui-apply")
+
+
+def circuits_built_text(t: dict) -> str:
+    """'12 built' for the Circuits card. Counted from the circuit list as well as Tor's own figure, and 'count not
+    available' (never a false 0) when a connected Tor would not list its circuits."""
+    circs = t.get("circuits") or []
+    n = sum(1 for c in circs if str(c.get("status", "")).upper() == "BUILT")
+    if t.get("circuits_built") is None and not n and t.get("state") == "ready":
+        return "count not available"
+    return f"{max(n, t.get('circuits_built') or 0)} built"

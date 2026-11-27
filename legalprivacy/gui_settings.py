@@ -77,7 +77,7 @@ class SettingsTab(Tab):
     # ── DNS ────────────────────────────────────────────────────────────────
     def build_dns(self) -> None:
         c = self.card("dns", "DNS lookups", "web")
-        c.note("In Activity and the Live Log each lookup shows the site looked up and which resolver answered.")
+        c.note("In Requests and the App log each lookup shows the site looked up and which resolver answered.")
         self.f_check(c, "dns_encrypted", "Encrypt the DNS lookups (DNS over TLS)",
                      "Recommended (maximum DNS security). Lookups to the secure resolvers go over TLS on port 853 with the "
                      "resolver's certificate checked, never in plain text; a resolver that cannot do that is swapped for one "
@@ -534,7 +534,7 @@ class SettingsTab(Tab):
 
     # ── accounts ───────────────────────────────────────────────────────────
     def build_accounts(self) -> None:
-        c = self.card("accounts", "Accounts (optional, off by default)", "proof",
+        c = self.card("accounts", "Accounts", "proof",
                       help="Lets the noise browser browse while signed in to your own Google and Microsoft accounts, so the "
                            "noise looks like a logged-in person. You sign in yourself, in a normal browser window; "
                            "legalPrivacy never sees, stores or types your password or a code. Signed-in visits only load and "
@@ -632,7 +632,7 @@ class SettingsTab(Tab):
                      "downloads it, checks its SHA-256 against the digest GitHub publishes for that file, swaps it in (the old one "
                      "is kept as .previous) and restarts on it. The Tor the app runs is kept current the same way (signature "
                      "checked). Off for pip and git copies, which keep the update notice.")
-        self.f_check(c, "clear_logs_on_restart", "Each time noise starts, clear old Live Log and Activity entries",
+        self.f_check(c, "clear_logs_on_restart", "Each time noise starts, clear old App log and Requests entries",
                      "Recommended. They are kept in memory only and always cleared when legalPrivacy quits.")
         r = c.row()
         c.lbl(r, "Clear entries older than").pack(side="left")
@@ -686,7 +686,7 @@ class SettingsTab(Tab):
 
     def panic(self, level: str) -> None:
         what = {"soft": "Stop the noise now?",
-                "medium": "Stop the noise, clear the live log and delete the noise browser's cookies and any signed-in "
+                "medium": "Stop the noise, clear the app log and delete the noise browser's cookies and any signed-in "
                           "account sessions?",
                 "hard": "Stop the noise and Tor, and delete everything legalPrivacy recorded (Proof data, cookies, logs)? "
                         "Your settings stay."}[level]

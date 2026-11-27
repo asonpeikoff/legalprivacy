@@ -52,9 +52,10 @@ def wipe_old_log_files() -> None:
 APP_DEFAULTS = {"migrated_ason": False, "migrated_share": False, "migrated_tb_lane": False, "migrated_cookie_day": False, "observe": True, "update_check": True, "auto_update": True, "autostart": True, "open_browser": True, "port": 8765, "intensity": "normal",
                 "auto_refresh_sources": False,   # off: use the snapshot shipped with the app (no lookups)
                 "ml_auto": False, "ml_history": [],
-                "clear_logs_on_restart": True,   # on start, clear Live Log and Activity entries older than…
+                "clear_logs_on_restart": True,   # on start, clear App log and Requests entries older than…
                 "log_keep_days": 7,              # …this many days (0 = clear everything)
                 "migrated_defaults_v3": False, "migrated_defaults_v4": False, "migrated_defaults_v5": False,
+                "migrated_anon_off": False,
                 "settings_version": ""}          # the version that last saved these settings (an update asks keep or reset)
 
 
@@ -134,10 +135,54 @@ def move_old_defaults_v4(profile) -> list[str]:
     return moved
 
 
+
+MIX_HOLD_S = 2 * 3600        # how long a nudged traffic mix is held exactly as set
+FILE_MANAGERS = ("xdg-open", "gio", "nautilus", "thunar", "dolphin", "nemo", "caja", "pcmanfm", "pcmanfm-qt")
+
+
+def open_folder(target: Path) -> str:
+    """Open a folder in this computer's file manager and say which program did it. The old way (a bare xdg-open with its
+    output thrown away) failed silently: in the packaged app every child inherits PyInstaller's LD_LIBRARY_PATH and the
+    file manager cannot start, and with no xdg-open handler nothing happens either. Now the original environment is
+    handed back, each opener's exit status is checked, and the next one is tried; if none works the error says so."""
+    import os
+    import shutil
+    import subprocess
+    import tempfile
+    from .torbrowser import clean_env
+    if sys.platform == "darwin":
+        cands = [["open", str(target)]]
+    else:
+        cands = [[n, "open", str(target)] if n == "gio" else [n, str(target)] for n in FILE_MANAGERS if shutil.which(n)]
+        if not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
+            raise ConfigError(f"No desktop session to open a file manager in (the app runs without a display). "
+                              f"The folder is {target}")
+    env = clean_env()
+    errors = []
+    for cmd in cands:
+        with tempfile.TemporaryFile() as err_f:          # an opener that keeps running never fills a pipe
+            try:
+                p = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=err_f, env=env, start_new_session=True)
+            except OSError as exc:
+                errors.append(f"{cmd[0]}: {exc}")
+                continue
+            try:
+                rc = p.wait(timeout=4)                  # xdg-open and gio hand off and exit; a file manager keeps running
+            except subprocess.TimeoutExpired:
+                return cmd[0]                           # still running: it is the window
+            if rc == 0:
+                return cmd[0]
+            err_f.seek(0)
+            err = err_f.read().decode(errors="replace").strip().splitlines()
+        errors.append(f"{cmd[0]} exited {rc}" + (f": {err[-1][:160]}" if err else ""))
+    why = "; ".join(errors) if errors else "no file manager found (install xdg-utils or a file manager)"
+    raise ConfigError(f"Could not open a file manager ({why}). The folder is {target}")
+
+
 class Controller:
     def __init__(self, profile_path: str | None = None):
         wipe_old_log_files()                      # older versions wrote cricket.log to disk
-        self.log = EventLog()                     # live log is memory-only (never written to disk)
+        self.log = EventLog()                     # app log is memory-only (never written to disk)
         self._save_lock = threading.RLock()       # autosave: concurrent saves are serialised
         self.profile_path = profile_path or str(config_path())
         self.first_run = not Path(self.profile_path).exists()
@@ -249,6 +294,11 @@ class Controller:
             if not self.app.get("migrated_defaults_v5"):
                 self._moved_defaults = list(getattr(self, "_moved_defaults", None) or []) + move_old_defaults_v5(self.profile)
                 self.app["migrated_defaults_v5"] = True
+            if not self.app.get("migrated_anon_off"):
+                tor = self.profile.transports.get("tor")
+                if tor is not None and tor.anon_os == "auto":
+                    tor.anon_os = "off"                    # the old default: using the Whonix gateway's Tor is now off by default
+                self.app["migrated_anon_off"] = True
             if not self.app.get("migrated_cookie_day"):
                 cl = self.profile.transports.get("clearnet")
                 if cl is not None and cl.cookie_hours == 1.0:
@@ -964,23 +1014,20 @@ class Controller:
 
     def scrape_open(self, which: str = "last") -> dict:
         """Open the scrape folder (the last job's, or all of them) in this computer's file manager."""
-        import subprocess
         root = (app_dir() / "scrapes").resolve()
         st = self.scrape_state()
         target = Path(st["last_folder"] if which == "last" and st["last_folder"] else root).resolve()
         if target != root and root not in target.parents:
             raise ConfigError("Only the app's scrape folder can be opened.")
         target.mkdir(parents=True, exist_ok=True)
-        try:
-            if sys.platform == "win32":
-                import os
+        if sys.platform == "win32":
+            import os
+            try:
                 os.startfile(str(target))                    # noqa: S606 - a folder of ours, opened in Explorer
-            else:
-                subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", str(target)],
-                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except OSError as exc:
-            raise ConfigError(f"Could not open a file manager ({exc}). The folder is {target}") from None
-        return {"ok": True, "folder": str(target)}
+            except OSError as exc:
+                raise ConfigError(f"Could not open a file manager ({exc}). The folder is {target}") from None
+            return {"ok": True, "folder": str(target)}
+        return {"ok": True, "folder": str(target), "with": open_folder(target)}
 
     def scrape_start(self, body: dict) -> dict:
         """Start one polite crawl of a site the user named. Tables become CSV; images, video, audio, documents and archives are
@@ -1023,7 +1070,10 @@ class Controller:
                 url, out, kinds=kinds, depth=int(body.get("depth", 1)), max_pages=int(body.get("max_pages", 20)),
                 delay=float(body.get("delay", 2.0)), max_mb=float(body.get("max_mb", 200)),
                 same_site=body.get("same_site", True) is not False, respect_robots=body.get("respect_robots", True) is not False,
-                mix_noise=body.get("mix_noise", True) is not False, proxy=proxy, noise_fn=noise, next_proxy=next_proxy)
+                mix_noise=body.get("mix_noise", True) is not False, proxy=proxy, noise_fn=noise, next_proxy=next_proxy,
+                skip_ui=body.get("skip_ui", True) is not False, min_kb=float(body.get("min_kb", 8) or 0),
+                max_kb=float(body.get("max_kb", 0) or 0), min_px=int(body.get("min_px", 100) or 0),
+                max_px=int(body.get("max_px", 0) or 0))
         except (ValueError, TypeError) as exc:
             raise ConfigError(str(exc)) from None
         threading.Thread(target=self._scrape.run, daemon=True, name="scrape").start()
@@ -1741,6 +1791,7 @@ class Controller:
                                  dns_plan=self._fresh_dns_plan(),
                                  mix=True, side_streams=("dns", "packages", "files"))
             self.runner.on_tor_trouble = self._tor_trouble
+            self.runner.mix_hold_until = float(self.app.get("mix_hold_until", 0) or 0)
             if prev is not None:                  # request numbers keep counting across restarts
                 self.runner._hit_seq = prev._hit_seq
                 if not clearing:
@@ -2080,15 +2131,36 @@ class Controller:
             raw = {"traffic": new}
         else:
             raise ConfigError(f"traffic mix: unknown part '{what}'")
-        self.apply_config(raw)
+        before = dict(mix["shares"], phones=mix["phones"])
+        # The hourly pattern (drift, alternate) used to swamp a 10-point step, so a nudge often seemed to do nothing.
+        # Now the mix is held exactly as set for the next two hours, then the pattern carries on from it.
+        self.app["mix_hold_until"] = time.time() + MIX_HOLD_S
+        self.apply_config(raw)                       # saves the app settings too
         if self.running:
             self.reapply()
+            if self.runner is not None:
+                self.runner.mix_hold_until = self.app["mix_hold_until"]
+                self.runner._update_mix()
         after = self.mix_status()
+        now = dict(after["shares"], phones=after["phones"])
         label = {"browser": "web pages in a real browser", "plain": "web pages over plain HTTP",
                  "onion": ".onion sites", "phones": "phones"}[what]
-        self.log.info("app", f"Traffic mix nudged {'up' if d > 0 else 'down'}: {label}. Now "
-                             + ", ".join(f"{k} {v:g}%" for k, v in after["shares"].items() if v or k == "browser")
-                             + f"; phones {after['phones']:g}%.")
+        notes = []
+        if all(abs(now.get(k, 0) - before.get(k, 0)) < 0.05 for k in now):
+            notes.append(f"It is already at its {'top' if d > 0 else 'bottom'}, so nothing changed.")
+        if what in ("browser", "plain") and not self.browser_info()["active"]:
+            notes.append("No real browser is running here, so every web page goes over plain HTTP whatever this split "
+                         "says: it is saved and takes effect once a browser is available (Settings → Browser).")
+        if not self.running:
+            notes.append("Saved. It takes effect when you press Start.")
+        elif not notes:
+            notes.append("Applied now and held for two hours, then your traffic pattern carries on from it.")
+        after["note"] = " ".join(notes)
+        msg = (f"Traffic mix nudged {'up' if d > 0 else 'down'}: {label}. Now "
+               + ", ".join(f"{k} {v:g}%" for k, v in after["shares"].items() if v or k == "browser")
+               + f"; phones {after['phones']:g}%. {after['note']}")
+        (self.log.warn if len(notes) > 1 or "nothing changed" in after["note"] or "plain HTTP" in after["note"]
+         else self.log.info)("app", msg)
         return after
 
     # ── state / diagnostics ─────────────────────────────────────────────────

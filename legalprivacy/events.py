@@ -76,7 +76,7 @@ class EventLog:
             self._buf.extend(keep)
 
     def clear(self) -> None:
-        """Forget everything in the live log. Ids keep counting up so open UIs stay in sync."""
+        """Forget everything in the app log. Ids keep counting up so open UIs stay in sync."""
         with self._lock:
             self._buf.clear()
 

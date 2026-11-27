@@ -352,7 +352,7 @@ def _tab(app, title):
 def test_window_builds_polls_and_saves_a_change(tk_app):
     app = tk_app
     app.pump_for(1.6)
-    assert [t.title for t in app.tabs] == ["Dashboard", "Activity", "Live Log", "Tor", "Remote", "Settings", "My List", "ML",
+    assert [t.title for t in app.tabs] == ["Dashboard", "Requests", "App log", "Tor", "Remote", "Settings", "My List", "ML",
                                            "Proof", "Antivirus", "Tools", "Health", "Help"]
     assert app.state.get("version") and app.status_var.get() == "Stopped"
     assert str(app.b_start.cget("state")) != "disabled" and "disabled" in app.b_stop.state()

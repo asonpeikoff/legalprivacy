@@ -244,9 +244,9 @@ def describe_ip(ip: str) -> str:
     except ValueError:
         return ""
     if a.is_loopback:
-        return "a resolver running on this computer (it forwards to the next one)"
+        return "a resolver running on this computer, which forwards to the next one"
     if a.is_private:
-        return "your router or local network (it forwards to your ISP or VPN)"
+        return "your router or local network, which forwards to your ISP or VPN"
     return ""
 
 

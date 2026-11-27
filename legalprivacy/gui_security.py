@@ -144,7 +144,7 @@ class SecurityTab(Tab):
         self.b_quar.pack(side="left", padx=(6, 0))
 
         # 5. self-test
-        c = add_card(self, app, "Self-test (EICAR)", "check")
+        c = add_card(self, app, "EICAR self-test", "check")
         c.note("Writes the standard, harmless EICAR antivirus test string to a temporary file, scans it with this app's "
                "signatures, shows whether it was detected, and deletes it. Your own antivirus may react to that file.")
         self.b_self = app.btn(c.row(), "Run the self-test", "play", "secondary", self.selftest)
