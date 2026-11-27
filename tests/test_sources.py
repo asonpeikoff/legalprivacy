@@ -158,6 +158,7 @@ def test_nudge_mix_saves_and_refuses_onion_without_tor(tmp_path, monkeypatch):
     from legalprivacy.controller import Controller
     monkeypatch.setenv("HOME", str(tmp_path))
     c = Controller(str(tmp_path / "p.yaml"))
+    c.apply_config({"transports": {"tor": {"enabled": False}}})          # Tor is on by default now
     m = c.nudge_mix("browser", -1)
     assert m["shares"]["browser"] == 90.0 and c.profile.traffic.plain == 10.0
     with pytest.raises(ConfigError):

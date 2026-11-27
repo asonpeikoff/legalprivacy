@@ -1,7 +1,7 @@
 from pathlib import Path
 import pytest
 
-from legalprivacy.config import ConfigError
+from legalprivacy.config import ConfigError, Profile
 from legalprivacy.controller import Controller
 
 
@@ -142,7 +142,7 @@ def test_health_strongly_recommends_bridges_and_tor_dns_with_one_click_fixes(tmp
     from legalprivacy.controller import Controller
     monkeypatch.setenv("HOME", str(tmp_path))
     c = Controller(str(tmp_path / "p.yaml"))
-    c.apply_config({"transports": {"tor": {"enabled": True}}})
+    c.apply_config({"transports": {"tor": {"enabled": True, "bridge_mode": "off"}}})      # the old defaults
     by = {x["name"]: x for x in c.doctor()}
     br, dn = by["Tor bridges"], by["Tor DNS (ordinary sites)"]
     assert br["status"] == "warn" and "Strongly recommended" in br["detail"] and br["fix"]["config"]["transports"]["tor"]["bridge_mode"] == "obfs4"
@@ -193,3 +193,14 @@ def test_health_offers_to_restore_the_recommended_behaviour_switches_and_nothing
     c.profile.extras.persona = "Data scientist"           # a persona choice is not a behaviour switch
     row = next(r for r in c.doctor() if r["name"] == "Recommended settings")
     assert row["status"] == "warn" and row["fix"]["config"] == {"extras": {"multi_tab": True}}
+
+
+def test_old_defaults_move_to_tor_on_with_obfs4_once():
+    from legalprivacy.controller import move_old_defaults_v5
+    p = Profile(name="old")
+    tor = p.transports["tor"]
+    tor.enabled, tor.bridge_mode = False, "off"
+    assert move_old_defaults_v5(p) == ["Tor: on", "Tor bridges: built-in obfs4"]
+    assert tor.enabled is True and tor.bridge_mode == "obfs4"
+    tor.bridge_mode = "snowflake"                       # a bridge you chose is left alone
+    assert move_old_defaults_v5(p) == [] and tor.bridge_mode == "snowflake"

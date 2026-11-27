@@ -506,7 +506,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
 
 <!-- TOR -->
 <section id="t-tor" class="tab">
-  <div class="note tor"><b>Tor is optional.</b> When on, it visits real <b>🧅 .onion sites</b> (darknet noise); ordinary web noise never goes through Tor. legalPrivacy runs its <i>own private Tor</i> in the background — it never touches your system Tor or Tor Browser.</div>
+  <div class="note tor"><b>Tor is on by default.</b> It visits real <b>🧅 .onion sites</b> (darknet noise); ordinary web noise never goes through Tor. legalPrivacy runs its <i>own private Tor</i> in the background — it never touches your system Tor or Tor Browser.</div>
   <div class="grid">
     <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-tor"/></svg>Status</h3><div class="big" id="tState">—</div><div class="bar tor" style="margin:8px 0"><i id="tBar" style="width:0"></i></div><div class="small mute" id="tSum"></div></div>
     <div class="card"><h3>Details</h3><div class="kv" id="tKv"></div></div>
@@ -524,7 +524,6 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div class="small mute" id="tInstallNote"></div>
     <label class="chk"><input type="checkbox" id="tEnable"><span><b>Use Tor</b> — turn the Tor lane on. Starting noise will automatically start (and if needed, install) Tor.</span></label>
     <label class="chk"><input type="checkbox" id="tOnion"><span><b>🧅 Visit onion sites</b> (darknet noise) — only .onion addresses, never leaves the Tor network.</span></label>
-    <label class="chk"><input type="checkbox" id="tOnionBrowser"><span><b>Use the real Tor Browser for onion visits</b> <span class="mute">(off by default: it opens a Tor Browser window) — scrolls, reads and clicks like a person, through this app's Tor, at security level Safest. If it can't start (not installed yet, no display), the plain lane is used and the Live Log says why.</span></span></label>
     <label class="chk"><input type="checkbox" id="tManage"><span><b>Let legalPrivacy manage Tor</b> (recommended, default). Untick to use an existing Tor at the address below instead.</span></label>
     <label class="chk"><input type="checkbox" id="tAnon"><span><b>On Whonix / Qubes-Whonix, use the gateway's Tor</b> (recommended, default). The app detects a Whonix-Workstation (or a Qubes qube behind sys-whonix) and uses the gateway's Tor instead of starting a second one, which would be Tor over Tor. Relays to avoid and bridges are then set on the gateway.</span></label>
     <div class="row" id="tExt" style="display:none">SOCKS <input type="text" id="tSocks" size="16"> Control <input type="text" id="tCtl" size="16"></div>
@@ -611,6 +610,9 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
         <p>Tor DNS is slower than normal DNS (every name goes through Tor and an exit relay) and handles only A, AAAA and PTR lookups.</p></div></details>
       <div class="small mute" id="dnsNote"></div>
     </div>
+  </details></div>
+  <div class="card mute" id="obCard"><details><summary class="small">Advanced: use the real Tor Browser for onion visits (off by default)</summary>
+    <label class="chk"><input type="checkbox" id="tOnionBrowser"><span><b>Use the real Tor Browser for onion visits</b> <span class="mute">(off by default: it opens a Tor Browser window) — scrolls, reads and clicks like a person, through this app's Tor, at security level Safest. If it can't start (not installed yet, no display), the plain lane is used and the Live Log says why.</span></span></label>
   </details></div>
 </section>
 

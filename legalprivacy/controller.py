@@ -54,7 +54,7 @@ APP_DEFAULTS = {"migrated_ason": False, "migrated_share": False, "migrated_tb_la
                 "ml_auto": False, "ml_history": [],
                 "clear_logs_on_restart": True,   # on start, clear Live Log and Activity entries older than…
                 "log_keep_days": 7,              # …this many days (0 = clear everything)
-                "migrated_defaults_v3": False, "migrated_defaults_v4": False,
+                "migrated_defaults_v3": False, "migrated_defaults_v4": False, "migrated_defaults_v5": False,
                 "settings_version": ""}          # the version that last saved these settings (an update asks keep or reset)
 
 
@@ -95,6 +95,21 @@ def move_old_defaults(profile) -> list[str]:
         if base and dns.budget_per_day < 3 * base:
             dns.budget_per_day = 3 * base
             moved.append("DNS lookups: More")
+    return moved
+
+
+def move_old_defaults_v5(profile) -> list[str]:
+    """Tor on and the built-in obfs4 bridges are the defaults now (they were off): settings still on those old defaults move
+    over once, and the log says so. Turn either off again in Settings and it stays off."""
+    moved = []
+    tor = profile.transports.get("tor")
+    if tor is not None:
+        if not tor.enabled:
+            tor.enabled = True
+            moved.append("Tor: on")
+        if tor.bridge_mode == "off":
+            tor.bridge_mode = "obfs4"
+            moved.append("Tor bridges: built-in obfs4")
     return moved
 
 
@@ -231,6 +246,9 @@ class Controller:
             if not self.app.get("migrated_defaults_v4"):
                 self._moved_defaults = list(getattr(self, "_moved_defaults", None) or []) + move_old_defaults_v4(self.profile)
                 self.app["migrated_defaults_v4"] = True
+            if not self.app.get("migrated_defaults_v5"):
+                self._moved_defaults = list(getattr(self, "_moved_defaults", None) or []) + move_old_defaults_v5(self.profile)
+                self.app["migrated_defaults_v5"] = True
             if not self.app.get("migrated_cookie_day"):
                 cl = self.profile.transports.get("clearnet")
                 if cl is not None and cl.cookie_hours == 1.0:

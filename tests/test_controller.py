@@ -51,7 +51,7 @@ def test_apply_config_validates_onion_seeds_and_bridges():
 
 def test_start_stop_with_nothing_enabled_errors():
     c = _ctl()
-    c.apply_config({"transports": {"clearnet": {"enabled": False}}})
+    c.apply_config({"transports": {"clearnet": {"enabled": False}, "tor": {"enabled": False}}})
     try:
         c.start()
         raise AssertionError("expected ConfigError")
@@ -78,7 +78,7 @@ def test_web_api_requires_token_and_serves_state():
     try:
         assert _call(base, "wrong", "/api/state")[0] == 401
         code, st = _call(base, srv.token, "/api/state")
-        assert code == 200 and st["first_run"] and st["tor"]["enabled"] is False
+        assert code == 200 and st["first_run"] and st["tor"]["enabled"] is True
         assert _call(base, srv.token, "/api/doctor")[0] == 200
         assert _call(base, srv.token, "/api/config", {"daily_max_failures": 5})[1]["profile"]["daily_max_failures"] == 5
         assert _call(base, srv.token, "/api/tor/bogus", {})[0] == 400
