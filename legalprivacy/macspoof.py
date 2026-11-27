@@ -20,8 +20,11 @@ Headless by design: this module needs only the Python standard library (no dashb
 third-party packages), so `python3 -m legalprivacy.macspoof ...` (or `legalprivacy-mac`) works on a
 minimal install, over SSH, from a systemd unit, or inside a Qubes OS sys-net.
 
-Qubes OS: the MAC that matters is the physical NIC's, which lives in sys-net. Inside an AppVM
-the only NIC is a Xen virtual interface (vif), which this tool refuses to touch.
+Qubes OS: the MAC the outside network sees is the physical NIC's, which lives in sys-net. Inside an
+AppVM the only NIC is a Xen virtual interface (vif). It has its own MAC and this tool changes it like any
+other (it carries the default route, so name it and pass --force), but only the qube's network qube
+(sys-firewall) ever sees that address, and Qubes may drop traffic from an address it did not assign
+until you `restore` it.
 
 Exit codes: 0 ok, 1 error, 2 bad arguments, 3 permission denied.
 """
@@ -211,9 +214,6 @@ class MacSpoofer:
             reason = "bridge or bond member"
         elif not physical:
             reason = "virtual interface"
-        elif self.driver(iface) in XEN_DRIVERS:
-            reason = ("Xen virtual NIC (Qubes AppVM): the MAC on the wire belongs to the NIC in "
-                      "sys-net; run this tool there")
         elif self._read(iface, "type") not in (None, "1"):
             reason = "not an Ethernet-type interface"
         return {"iface": iface, "kind": "wifi" if wifi else ("ethernet" if physical else "virtual"),
@@ -678,9 +678,9 @@ def cmd_mac(args, spoofer: MacSpoofer | None = None) -> int:
                           f"permanent={r['permanent']} {tag}{' [default route]' if r['default_route'] else ''}")
                 if env["qubes_vm_type"]:
                     print(f"qubes: {env['qubes_vm_type']}")
-                if env["xen_virtual_interfaces"] and not any(r["eligible"] for r in rows):
-                    print("note: only Xen virtual NICs here (a Qubes AppVM). Spoof the physical NIC "
-                          "from sys-net instead.")
+                if env["xen_virtual_interfaces"]:
+                    print("note: Xen virtual NICs here (a Qubes qube). They can be changed (name one and pass --force), "
+                          "but only the network qube sees them: the outside network sees the physical NIC in sys-net.")
                 print(f"rotation: {'on, every ' + str(rot['interval']) + ' min' if rot['enabled'] else 'off'}")
             return EXIT_OK
         if cmd == "rotate":

@@ -166,6 +166,7 @@ class Runner:
         tc = getattr(self.profile, "traffic", None)
         self._mobile_now = tc.mobile_share if tc else 0.35
         self._lane_factor: dict[str, float] = {}
+        self.mix_hold_until = 0.0          # after a nudge: keep the mix exactly as set (no drift or alternating) until then
         self._lane_wobble: dict[str, float] = {}
         self._engine_factor: dict[str, float] = {}
         self._engine_wobble: dict[str, float] = {}
@@ -231,7 +232,10 @@ class Runner:
         for e in {e for lane in self.lanes for e in lane.engines}:
             self._engine_wobble[e] = 0.6 * self._engine_wobble.get(e, 0.0) + self.rng.gauss(0, 0.25)
             self._engine_factor[e] = math.exp(self._engine_wobble[e])
-        if tc.pattern == "drift":                         # wander slowly; each hour keeps most of the last
+        if time.time() < self.mix_hold_until:            # just nudged: give the person the mix they asked for
+            self._lane_factor = {n: 1.0 for n in base}
+            self._mobile_now = tc.mobile_share
+        elif tc.pattern == "drift":                       # wander slowly; each hour keeps most of the last
             for n in base:
                 self._lane_wobble[n] = 0.7 * self._lane_wobble.get(n, 0.0) + self.rng.gauss(0, 0.35)
                 self._lane_factor[n] = math.exp(self._lane_wobble[n])
@@ -534,7 +538,7 @@ class Runner:
 
     @staticmethod
     def _burst_text(hosts: list[str]) -> str | None:
-        """Shown with the lookup in Activity and the Live Log, so the burst is visible."""
+        """Shown with the lookup in Requests and the App log, so the burst is visible."""
         if not hosts:
             return None
         more = f" and {len(hosts) - 4} more" if len(hosts) > 4 else ""

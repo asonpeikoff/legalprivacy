@@ -165,3 +165,40 @@ def test_nudge_mix_saves_and_refuses_onion_without_tor(tmp_path, monkeypatch):
         c.nudge_mix("onion", 1)
     with pytest.raises(ConfigError):
         c.nudge_mix("bogus", 1)
+
+
+def test_a_nudge_is_held_as_set_and_says_when_it_cannot_take_effect(tmp_path, monkeypatch):
+    import time
+    from legalprivacy.controller import Controller
+    monkeypatch.setenv("HOME", str(tmp_path))
+    c = Controller(str(tmp_path / "p.yaml"))
+    c.apply_config({"transports": {"tor": {"enabled": False}}})
+    monkeypatch.setattr(c, "browser_info", lambda: {"active": False, "detail": "none"})
+    m = c.nudge_mix("plain", 1)
+    assert c.app["mix_hold_until"] > time.time() + 3600                 # held for the next two hours
+    assert "plain HTTP" in m["note"] and "press Start" in m["note"]     # no browser here; and the noise is not running
+    c.nudge_mix("browser", 1)
+    for _ in range(12):
+        m = c.nudge_mix("browser", 1)
+    assert "nothing changed" in m["note"]
+
+
+def test_while_held_the_hourly_pattern_does_not_move_the_mix():
+    import random
+    import time
+    from types import SimpleNamespace
+    from legalprivacy.scheduler import Runner
+    r = Runner.__new__(Runner)
+    r.profile = SimpleNamespace(traffic=SimpleNamespace(pattern="drift", browser=60.0, plain=40.0, onion=0.0,
+                                                        mobile_share=0.1))
+    r.lanes = [SimpleNamespace(name="clearnet", transport=None, engines={}),
+               SimpleNamespace(name="clearnet-plain", transport=None, engines={})]
+    r.rng = random.Random(1)
+    r._engine_wobble, r._engine_factor, r._lane_wobble, r._lane_factor = {}, {}, {}, {}
+    r._mobile_wobble, r._mobile_now = 0.0, 0.1
+    r.mix_hold_until = time.time() + 60
+    r._update_mix()
+    assert r._lane_factor == {"clearnet": 1.0, "clearnet-plain": 1.0} and r._mobile_now == 0.1
+    r.mix_hold_until = 0
+    r._update_mix()
+    assert r._lane_factor != {"clearnet": 1.0, "clearnet-plain": 1.0}

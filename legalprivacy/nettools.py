@@ -191,24 +191,124 @@ def speed_test(proxy: str | None = None, progress: Callable[[str], None] = lambd
 
 
 # ── local privacy check (idea from NoisyCompany's `privacy`) ────────────────
-UBO_CHROMIUM_IDS = ("cjpalhdlnbpafiamejdnhcphjbkeiagm", "ddkjiahejlhfcafbddmgiahcphecmpfh")   # uBO, uBO Lite
-UBO_FIREFOX = "uBlock0@raymondhill.net.xpi"
+UBO_CHROMIUM_IDS = ("cjpalhdlnbpafiamejdnhcphjbkeiagm", "ddkjiahejlhfcafbddmgiahcphecmpfh",   # uBO, uBO Lite (Chrome store)
+                    "odfafepnkmbhccpbejgmiehpchacaeak")                                     # uBO (Edge store)
+UBO_FIREFOX_ID = "uBlock0@raymondhill.net"
+UBO_FIREFOX = UBO_FIREFOX_ID + ".xpi"
 _VPN_IF = ("tun", "tap", "wg", "ppp", "ipsec", "nordlynx", "proton", "mullvad", "tailscale")
+# Firefox-family profile folders beyond the ones the history reader knows (forks, Flatpaks, Tor/Mullvad Browser).
+_MORE_FIREFOX_BASES = (".librewolf", ".waterfox", ".floorp", ".var/app/io.gitlab.librewolf-community/.librewolf",
+                       ".var/app/net.waterfox.waterfox/.waterfox", ".var/app/one.ablaze.floorp/.floorp")
+# Where distributions put system-wide Firefox add-ons (Fedora's mozilla-ublock-origin package, Debian's webext-ublock-origin).
+_FIREFOX_SYSTEM_EXT = ("/usr/share/mozilla/extensions", "/usr/lib/mozilla/extensions", "/usr/lib64/mozilla/extensions",
+                       "/usr/lib/firefox/distribution/extensions", "/usr/lib64/firefox/distribution/extensions",
+                       "/usr/lib/firefox-esr/distribution/extensions", "/usr/share/webext/ublock-origin")
+_MORE_CHROMIUM_BASES = (("Vivaldi", ".config/vivaldi"), ("Opera", ".config/opera"), ("Chrome Beta", ".config/google-chrome-beta"),
+                        ("Brave (Flatpak)", ".var/app/com.brave.Browser/config/BraveSoftware/Brave-Browser"))
+
+
+def _ubo_in_firefox_profile(prof: str) -> bool:
+    """uBO in one Firefox profile: as an installed .xpi or folder, its storage, or in the add-on list (extensions.json,
+    which also lists add-ons installed system-wide by a package)."""
+    import glob
+    if glob.glob(os.path.join(prof, "extensions", UBO_FIREFOX_ID + "*")) or \
+            os.path.isdir(os.path.join(prof, "browser-extension-data", UBO_FIREFOX_ID)):
+        return True
+    try:
+        with open(os.path.join(prof, "extensions.json"), encoding="utf-8", errors="replace") as fh:
+            import json
+            for a in json.load(fh).get("addons", []):
+                if a.get("id") == UBO_FIREFOX_ID and a.get("active", True) is not False:
+                    return True
+    except (OSError, ValueError, AttributeError):
+        pass
+    return False
+
+
+def _ubo_in_chromium_profile(prof: str) -> bool:
+    """uBO in one Chromium-family profile: its Extensions folder, or its entry in (Secure) Preferences, which also covers
+    unpacked and policy-installed copies."""
+    if any(os.path.isdir(os.path.join(prof, "Extensions", ext)) for ext in UBO_CHROMIUM_IDS):
+        return True
+    for name in ("Secure Preferences", "Preferences"):
+        try:
+            with open(os.path.join(prof, name), encoding="utf-8", errors="replace") as fh:
+                text = fh.read()
+        except OSError:
+            continue
+        if any(f'"{ext}"' in text for ext in UBO_CHROMIUM_IDS) or "uBlock Origin" in text:
+            return True
+    return False
 
 
 def _content_blocker() -> list[str]:
     import glob
+    from pathlib import Path
     from .history import _chromium_bases, _firefox_bases
+    home = Path.home()
     found = []
-    for name, base in _chromium_bases():
-        for ext in UBO_CHROMIUM_IDS:
-            if glob.glob(os.path.join(base, "*", "Extensions", ext)):
-                found.append(name)
+    chromium = list(_chromium_bases()) + [(n, str(home / rel)) for n, rel in _MORE_CHROMIUM_BASES]
+    for name, base in chromium:
+        if any(_ubo_in_chromium_profile(p) for p in glob.glob(os.path.join(base, "*")) if os.path.isdir(p)):
+            found.append(name)
+    firefox = [("Firefox", b) for b in _firefox_bases()] + \
+        [(Path(rel).name.lstrip(".").capitalize(), str(home / rel)) for rel in _MORE_FIREFOX_BASES]
+    for name, base in firefox:
+        if any(_ubo_in_firefox_profile(p) for p in glob.glob(os.path.join(base, "*")) if os.path.isdir(p)):
+            found.append(name)
+    if "Firefox" not in found:
+        for d in _FIREFOX_SYSTEM_EXT:                     # installed for every user by the system's package manager
+            if glob.glob(os.path.join(d, "*", UBO_FIREFOX_ID + "*")) or glob.glob(os.path.join(d, UBO_FIREFOX_ID + "*")) \
+                    or (d.endswith("ublock-origin") and os.path.isdir(d)):
+                found.append("Firefox (system add-on)")
                 break
-    for base in _firefox_bases():
-        if glob.glob(os.path.join(base, "*", "extensions", UBO_FIREFOX)):
-            found.append("Firefox")
     return sorted(set(found))
+
+
+# Who owns the address the world sees: names of VPN companies, and networks that mostly rent servers to VPNs.
+VPN_ORGS = ("proton", "nordvpn", "nord security", "tefincom", "packethub", "mullvad", "31173 services", "expressvpn", "surfshark",
+            "private internet access", "pia ", "cyberghost", "kape", "windscribe", "ivpn", "airvpn", "torguard",
+            "hide.me", "purevpn", "gz systems", "ipvanish", "strongvpn", "hotspot shield", "pango", "astrill",
+            "perfect privacy", "ovpn", "azire", "vpn")
+VPN_HOSTS = ("m247", "datacamp", "cdn77", "clouvider", "xtom", "leaseweb", "zenlayer", "hostroyale", "creanova",
+             "tzulo", "quadranet", "performive", "gsl networks", "100tb", "tier.net")
+
+
+def external_ip_owner(timeout: float = 6.0) -> dict:
+    """The address this computer reaches the internet from, and who it is registered to (ifconfig.me for the
+    address, then ipinfo.io for the owner). Sends one small request to each; no identifying data beyond the
+    address itself, which both see anyway."""
+    import json
+    out: dict = {"ip": None, "org": "", "hostname": "", "error": None}
+    hdr = {"User-Agent": "curl/8.5.0", "Accept": "application/json"}
+    try:
+        with urllib.request.urlopen(urllib.request.Request("https://ifconfig.me/ip", headers=hdr), timeout=timeout) as r:
+            ip = r.read(64).decode().strip()
+        ipaddress.ip_address(ip)
+        out["ip"] = ip
+    except Exception as exc:  # offline, blocked, odd answer: say so, don't crash the check
+        out["error"] = f"could not learn the public address: {exc}"
+        return out
+    try:
+        with urllib.request.urlopen(urllib.request.Request(f"https://ipinfo.io/{out['ip']}/json", headers=hdr),
+                                    timeout=timeout) as r:
+            d = json.loads(r.read(20000).decode("utf-8", "replace"))
+        out["org"], out["hostname"] = str(d.get("org") or ""), str(d.get("hostname") or "")
+    except Exception as exc:
+        out["error"] = f"could not look up who owns {out['ip']}: {exc}"
+    return out
+
+
+def vpn_provider(owner: dict) -> tuple[str | None, str]:
+    """('vpn' | 'host' | None, why) from external_ip_owner(): 'vpn' when the address belongs to a VPN company,
+    'host' when it is a server network that VPNs commonly rent."""
+    text = f"{owner.get('org', '')} {owner.get('hostname', '')}".lower()
+    org = re.sub(r"^as\d+\s+", "", owner.get("org") or "", flags=re.I) or "unknown"
+    if any(k in text for k in VPN_ORGS):
+        return "vpn", org
+    if any(k in text for k in VPN_HOSTS):
+        return "host", org
+    return None, org
 
 
 def _vpn_interfaces() -> list[str]:
@@ -228,9 +328,14 @@ def _mac_row(add) -> None:
         env, rows = sp.environment(), [r for r in sp.status() if r["eligible"]]
     except Exception:  # a broken sysfs must never break the whole check
         return
-    if not rows and env["xen_virtual_interfaces"]:
-        add("MAC address", "info", "Only a Xen virtual NIC here (Qubes qube): its MAC isn't what the network sees.",
-            "Change the physical NIC's MAC in sys-net: sudo legalprivacy mac randomize --all")
+    xen = [r for r in rows if r["iface"] in env["xen_virtual_interfaces"]]
+    if xen and len(xen) == len(rows):
+        names = ", ".join(r["iface"] for r in xen)
+        add("MAC address", "ok" if any(r["spoofed"] for r in xen) else "info",
+            f"Xen virtual NIC ({names}, Qubes qube). It has its own MAC, which you can randomize, but only the network "
+            "qube sees it: the outside network sees the physical NIC in sys-net.",
+            f"Here: sudo legalprivacy mac randomize {xen[0]['iface']} --force (if this qube loses its network, "
+            "sudo legalprivacy mac restore --all). For the outside world: the same in sys-net.")
     elif any(r["spoofed"] for r in rows):
         add("MAC address", "ok", "Changed from the factory address on: " + ", ".join(r["iface"] for r in rows if r["spoofed"]))
     elif rows:
@@ -239,28 +344,49 @@ def _mac_row(add) -> None:
 
 
 def privacy_check(ctl) -> list[dict]:
-    """Plain-language checks of what actually protects you, with advice. Nothing is sent."""
+    """Plain-language checks of what actually protects you, with advice. The only thing sent is the VPN check's
+    lookup of this computer's public address and its owner (ifconfig.me and ipinfo.io)."""
     out = []
 
     def add(name, status, detail, advice=""):
         out.append({"name": name, "status": status, "detail": detail, "advice": advice})
 
     blockers = _content_blocker()
-    add("Content blocker", "ok" if blockers else "warn",
-        f"uBlock Origin found in: {', '.join(blockers)}" if blockers else "uBlock Origin not found in your browsers",
-        "" if blockers else "Blocking trackers stops more profiling than any amount of noise. Install uBlock Origin first.")
     qubes = qubes_vm_type()
+    add("Content blocker", "ok" if blockers else "info" if qubes else "warn",
+        f"uBlock Origin found in: {', '.join(blockers)}" if blockers else
+        "uBlock Origin not found in this qube's browsers. Browsers in other qubes (a disposable one, say) can't be seen "
+        "from here." if qubes else "uBlock Origin not found in your browsers",
+        "" if blockers else "Blocking trackers stops more profiling than any amount of noise. Install uBlock Origin first.")
     vpn = _vpn_interfaces()
-    if qubes:
-        add("VPN", "info", f"Qubes OS ({qubes}): a VPN normally runs in its own qube (sys-vpn), outside this one, "
-            "so it can't be seen from here.",
-            "Verify it in the VPN qube. The DNS check below shows which resolver really answers.")
+    owner = external_ip_owner()
+    kind, org = vpn_provider(owner)
+    seen = f"Your public address {owner['ip']} belongs to {org}" if owner.get("ip") else ""
+    vpn_on = kind == "vpn" or (kind == "host" and bool(vpn or qubes))
+    if kind == "vpn":
+        add("VPN", "ok", f"{seen}, a VPN provider: your traffic leaves through a VPN.")
+    elif kind == "host":
+        add("VPN", "ok" if vpn_on else "info", f"{seen}, a server network many VPNs rent: very likely a VPN"
+            + (f" (interface {', '.join(vpn)})." if vpn else "."),
+            "" if vpn_on else "If you didn't turn on a VPN or proxy, check what your traffic goes through.")
+    elif vpn:
+        add("VPN", "info", f"VPN-style network interface: {', '.join(vpn)}" + (f". {seen}, not a known VPN company." if seen else ""),
+            "A VPN moves what your ISP sees to the VPN provider; noise still helps against whoever sees your traffic.")
+    elif qubes:
+        add("VPN", "info", f"Qubes OS ({qubes}): a VPN normally runs in its own qube (sys-vpn), outside this one. "
+            + (f"{seen}, not a known VPN company." if seen else (owner.get("error") or "")),
+            "If you use a VPN qube, this qube's network qube should be it (or sit behind it).")
     else:
-        add("VPN", "info", f"VPN-style network interface: {', '.join(vpn)}" if vpn else "No VPN interface seen",
+        add("VPN", "info", "No VPN seen" + (f": {seen}, not a known VPN company." if seen else
+                                             f" ({owner['error']})." if owner.get("error") else "."),
             "A VPN moves what your ISP sees to the VPN provider; noise still helps against whoever sees your traffic.")
     dot = "+DNSOverTLS" in _run(["resolvectl", "status"]) if platform.system() == "Linux" else False
     res = system_resolvers()["resolvers"]
-    if qubes:
+    if vpn_on:
+        add("Encrypted DNS", "ok", "Your lookups go through the VPN's encrypted tunnel to the VPN provider "
+            "(the usual VPN setup), so your ISP doesn't see them.",
+            "Run the DNS leak test on Proof to confirm the VPN's resolver is the one answering.")
+    elif qubes:
         add("Encrypted DNS", "info", "Set up in your network qubes (sys-net / sys-vpn), not in this one, "
             "so it can't be seen from here.", "Configure it there; this qube only forwards to its virtual DNS.")
     else:

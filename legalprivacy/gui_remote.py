@@ -32,7 +32,7 @@ class RemoteTab(Tab):
 
     # ── the "add" card ──────────────────────────────────────────────────────
     def _build_add(self, app) -> None:
-        c = add_card(self, app, "Remote machines (optional)", "tor",
+        c = add_card(self, app, "Remote machines", "tor",
                      help="Runs the same kind of noise (page visits, searches, DNS lookups, downloads) on other computers "
                           "you log in to over SSH. The app copies one small file into a private folder in your account on "
                           "that computer (~/.cache/legalprivacy), starts it, shows its log here, and deletes the folder "

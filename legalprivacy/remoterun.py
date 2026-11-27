@@ -562,7 +562,7 @@ class RemoteManager:
             self.log.warn("remote", f"{m.label}: {m.error}")
         except Exception as exc:                       # never lose a worker silently
             with m.lock:
-                m.state, m.error = "error", f"Unexpected {type(exc).__name__}; see the Live Log."
+                m.state, m.error = "error", f"Unexpected {type(exc).__name__}; see the App log."
             self.log.error("remote", f"{m.label}: unexpected {type(exc).__name__}")
         finally:
             with m.lock:

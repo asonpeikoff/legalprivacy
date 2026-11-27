@@ -146,7 +146,7 @@ def build_checks(f: dict[str, Any]) -> list[dict]:
         else:
             out.append(_c("av", "Antivirus scanner stays offline", want,
                           f"{av['connections']} connection(s) in the last {av.get('kind') or 'scan'}: NOT OFFLINE", "bad",
-                          "The scanner was stopped. Block clamscan in your firewall, and see the Live Log."))
+                          "The scanner was stopped. Block clamscan in your firewall, and see the App log."))
     return out
 
 

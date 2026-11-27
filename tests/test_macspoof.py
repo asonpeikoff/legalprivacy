@@ -390,15 +390,17 @@ def _make_qubes(f):
     Path(f.tmp, "rw").mkdir()
 
 
-def test_xen_virtual_nic_is_refused_even_with_force():
-    """Inside a Qubes AppVM the only NIC is a Xen vif; its MAC is not the one on the wire."""
+def test_xen_virtual_nic_has_a_mac_and_can_be_changed_when_named_with_force():
+    """Inside a Qubes AppVM the only NIC is a Xen vif. It has its own MAC, so it can be changed like any other;
+    it carries the default route, so only when named with --force."""
     f = Fake(default="eth0")
     drv = f.sys / "eth0" / "device"
     (Path(f.tmp, "drivers", "vif")).mkdir(parents=True)
     os.symlink(Path(f.tmp, "drivers", "vif"), drv / "driver")
+    assert f.sp.interface_info("eth0")["eligible"]
+    assert by_iface(f.sp.randomize(["eth0"]))["eth0"]["status"] == "refused"            # default route, no --force
     row = by_iface(f.sp.randomize(["eth0"], force=True))["eth0"]
-    assert row["status"] == "refused" and "sys-net" in row["reason"] and f.mac("eth0") == PERM_ETH
-    assert "eth0" not in by_iface(f.sp.randomize(all_=True, force=True))
+    assert row["status"] != "refused" and f.mac("eth0") != PERM_ETH
     assert f.sp.environment()["xen_virtual_interfaces"] == ["eth0"]
 
 

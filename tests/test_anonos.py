@@ -58,8 +58,8 @@ def test_on_the_gateway_itself_its_local_tor_is_used(tmp_path, monkeypatch):
     assert d["kind"] == "whonix-gateway" and d["socks"] == "127.0.0.1:9050"
 
 
-def test_setting_is_auto_by_default_and_validated():
-    assert TransportConfig().anon_os == "auto"
+def test_setting_is_off_by_default_and_validated():
+    assert TransportConfig().anon_os == "off"
     with pytest.raises(ConfigError):
         TransportConfig(anon_os="maybe").validate("tor")
 
@@ -75,8 +75,14 @@ def ctl(tmp_path, monkeypatch):
     return Controller(str(tmp_path / "config.yaml"))
 
 
+def test_off_by_default_so_whonix_is_ignored(ctl, monkeypatch):
+    monkeypatch.setattr(anonos, "current", lambda: WS)
+    assert ctl.anon_os() is None and ctl.tor_manager().mode == "managed"
+
+
 def test_on_whonix_the_app_attaches_to_the_gateway_instead_of_running_its_own_tor(ctl, monkeypatch):
     monkeypatch.setattr(anonos, "current", lambda: WS)
+    ctl.apply_config({"transports": {"tor": {"anon_os": "auto"}}})
     tm = ctl.tor_manager()
     assert tm.mode == "external" and tm.ext_socks == "10.152.152.10:9050" and tm.ext_control == "10.152.152.10:9051"
     assert tm.anon_os == WS and tm.bridge_label() == "set on the Whonix-Gateway"
@@ -92,6 +98,7 @@ def test_switched_off_the_settings_win(ctl, monkeypatch):
 
 def test_no_relay_on_whonix(ctl, monkeypatch):
     monkeypatch.setattr(anonos, "current", lambda: WS)
+    ctl.apply_config({"transports": {"tor": {"anon_os": "auto"}}})
     with pytest.raises(ConfigError, match="can't run on Whonix"):
         ctl.relay_start({})
 
@@ -105,3 +112,19 @@ def test_the_gateway_not_answering_says_so_plainly(monkeypatch):
     monkeypatch.setattr(tm._stop_evt, "wait", lambda t: True)        # no 90 s wait in a test
     with pytest.raises(RuntimeError, match="Whonix-Gateway's Tor does not answer"):
         tm._attach_external()
+
+
+def test_a_saved_old_default_is_moved_to_off_once(tmp_path, monkeypatch):
+    import yaml
+    from legalprivacy.controller import Controller
+    monkeypatch.setenv("LEGALPRIVACY_HOME", str(tmp_path))
+    p = tmp_path / "config.yaml"
+    Controller(str(p))._save()                                          # a settings file as a first run leaves it
+    data = yaml.safe_load(p.read_text())
+    data["profile"]["transports"]["tor"]["anon_os"] = "auto"
+    data["app"]["migrated_anon_off"] = False
+    p.write_text(yaml.safe_dump(data))
+    c = Controller(str(p))
+    assert c._tor_cfg().anon_os == "off" and c.app["migrated_anon_off"]
+    c.apply_config({"transports": {"tor": {"anon_os": "auto"}}})       # turned back on: it stays on
+    assert Controller(str(p))._tor_cfg().anon_os == "auto"

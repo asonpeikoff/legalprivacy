@@ -518,7 +518,7 @@ class ToolsTab(Tab):
         c.note("Downloads about 10 MB and uploads 2 MB once, over the normal internet (not Tor), through your clearnet proxy if "
                "you set one. Runs only when you click.")
         self.speed = self._tool(c, "Run speed test", self.speedtest)
-        c = add_card(self, app, "Load test (your own target)")
+        c = add_card(self, app, "Load test")
         c.note("Generates load from THIS computer against a target you run, and reports it. L7 sends real HTTP requests; L4 "
                "opens TCP connections. It never spoofs addresses, cannot drive other machines, and will not aim at government "
                "address ranges. Capped. Only use it on infrastructure you own or are authorised to test.")
@@ -554,6 +554,16 @@ class ToolsTab(Tab):
         self.sc_mix, self.sc_proxy = tk.BooleanVar(value=True), tk.BooleanVar(value=False)
         ttk.Checkbutton(r, text="Mix in noise", variable=self.sc_mix).pack(side="left", padx=(0, 8))
         ttk.Checkbutton(r, text="Through a tested proxy", variable=self.sc_proxy).pack(side="left", padx=(0, 8))
+        r = c.row()
+        self.sc_skip_ui = tk.BooleanVar(value=True)
+        ttk.Checkbutton(r, text="Skip banners, icons, logos, sprites", variable=self.sc_skip_ui).pack(side="left", padx=(0, 8))
+        self.sc_lim = {k: tk.StringVar(value=v) for k, v in (("min_kb", "8"), ("max_kb", "0"), ("min_px", "100"), ("max_px", "0"))}
+        for label, k in (("Images from", "min_kb"), ("to", "max_kb"), ("KB,", None), ("", "min_px"), ("to", "max_px"),
+                         ("px a side (0 = no limit)", None)):
+            if label:
+                ttk.Label(r, text=label).pack(side="left", padx=(0, 4))
+            if k:
+                ttk.Entry(r, textvariable=self.sc_lim[k], width=6).pack(side="left", padx=(0, 4))
         self.sc = self._tool(c, "Start", self.scrape_run)
         r = c.row()
         self.app.btn(r, "Stop", "stop", "secondary", lambda: self.app.work(self.app.ctl.scrape_stop, lambda d: None, lambda e: None)).pack(side="left")
@@ -572,7 +582,7 @@ class ToolsTab(Tab):
         self.app.btn(r, "Block always", None, "secondary", lambda: self.block_run("permanent")).pack(side="left", padx=(0, 6))
         self.app.btn(r, "Unblock", None, "ghost", lambda: self.block_run("unblock")).pack(side="left", padx=(0, 6))
         self.app.btn(r, "Info and firewall commands", None, "ghost", self.block_info).pack(side="left")
-        c = add_card(self, app, "Proxies (tested)")
+        c = add_card(self, app, "Proxies")
         c.note("Pulls free proxy lists from public GitHub files (and any page you add), tests every candidate through a real "
                "HTTPS request and throws out the slow, dead, wrong-answer and transparent ones. Used only for jobs you start, "
                "such as scraping, never for the noise or for logins: free proxies are run by strangers and can read plain traffic.")
@@ -591,10 +601,10 @@ class ToolsTab(Tab):
                "uses now. Changing it needs administrator rights, so run it in a terminal: sudo legalprivacy mac randomize "
                "--all (docs/MAC.md). On Qubes OS or any VM, run it where the physical card is (sys-net).")
         self.mac = self._tool(c, "Check MAC addresses", self.macstatus)
-        c = add_card(self, app, "Live log")
-        c.note("The live log is kept in memory only. Nothing is written to disk, and it is cleared when legalPrivacy quits.")
+        c = add_card(self, app, "App log")
+        c.note("The app log is kept in memory only. Nothing is written to disk, and it is cleared when legalPrivacy quits.")
         r = c.row()
-        app.btn(r, "Clear live log now", None, "secondary", self.clear_log).pack(side="left")
+        app.btn(r, "Clear app log now", None, "secondary", self.clear_log).pack(side="left")
         c = add_card(self, app, "Related checks")
         c.note("Outside links, opened in your browser only when you click them.")
         c.note("To check that your traffic really leaves through Tor, use Test Tor on the Tor tab: it asks "
@@ -657,7 +667,8 @@ class ToolsTab(Tab):
             return f"Saved under {d.get('folder')}. {d.get('proxies', 0)} tested proxies available."
         files = "".join(f"\n  {f['name']}" for f in (d.get("files") or [])[:12])
         return (f"{'Running' if j['running'] else 'Finished'}: {j['pages']} pages, {j['tables']} tables, {j['files']} files "
-                f"({j['bytes'] / 1e6:.1f} MB), {j['noise']} noise visits.\nFolder: {j['folder']}"
+                f"({j['bytes'] / 1e6:.1f} MB), {j['noise']} noise visits"
+                + (f", {j['skipped_filter']} images filtered out" if j.get("skipped_filter") else "") + f".\nFolder: {j['folder']}"
                 + (f"\n{len(j['errors'])} problems, e.g. {j['errors'][0]}" if j["errors"] else "")
                 + (f"\nNewest files:{files}" if files else ""))
 
@@ -690,7 +701,8 @@ class ToolsTab(Tab):
             if (d.get("job") or {}).get("running"):
                 self.after(1500, poll)
         body = {"url": self.sc_url.get().strip(), "kinds": [k for k, v in self.sc_kinds.items() if v.get()],
-                "mix_noise": self.sc_mix.get(), "use_proxy": self.sc_proxy.get()}
+                "mix_noise": self.sc_mix.get(), "use_proxy": self.sc_proxy.get(), "skip_ui": self.sc_skip_ui.get(),
+                **{k: _num(v.get()) for k, v in self.sc_lim.items()}}
         self.app.work(lambda: self.app.ctl.scrape_start(body), lambda d: poll(d), lambda e: self._text(self.sc, str(e)))
 
     def block_run(self, mode: str) -> None:
@@ -804,7 +816,7 @@ class ToolsTab(Tab):
 
     def clear_log(self) -> None:
         self.app.ctl.log.clear()
-        self.app.flash("Live log cleared.")
+        self.app.flash("App log cleared.")
 
 
 # ── Health ──────────────────────────────────────────────────────────────────
@@ -862,15 +874,15 @@ class HelpTab(Tab):
         c = add_card(self, app, "What this does", "help")
         for head, text in (
                 ("", "legalPrivacy makes believable searches, page visits and DNS lookups in the background, so that bulk "
-                     "analysis of your real browsing tells much less about you. Every request shows in Activity; everything the "
-                     "app and Tor report is in Live Log. Both are kept in memory only and cleared when you quit."),
-                ("Activity vs Live Log.", "Activity lists each request the noise made and what happened on it. Live Log is "
+                     "analysis of your real browsing tells much less about you. Every request shows in Requests; everything the "
+                     "app and Tor report is in App log. Both are kept in memory only and cleared when you quit."),
+                ("Requests vs App log.", "Requests lists each request the noise made and what happened on it. App log is "
                                           "everything the app says, including starts and stops, Tor's own messages and warnings."),
                 ("Getting started.", "Everything already has the recommended setting. Press Start; the first action comes "
                                      "within seconds. Settings save themselves."),
                 ("Look like yourself.", "Add the sites you really use on My List, then check the ML tab: it shows how easily "
                                         "your traffic can be told apart from the noise, and which settings help."),
-                ("Tor (optional).", "Off by default. With Tor on, legalPrivacy can visit .onion sites through its own private "
+                ("Tor.", "Off by default. With Tor on, legalPrivacy can visit .onion sites through its own private "
                                     "Tor, which it downloads, checks and starts for you. Many .onion sites are offline at any "
                                     "moment; those are skipped for a while, which is normal."),
                 ("Remote machines.", "The Remote tab runs the noise on other computers you own or are authorised to use, over SSH "
@@ -885,7 +897,7 @@ class HelpTab(Tab):
                                        "and is a deliberate, narrow use of exits for DNS only) and Contribute to Tor: run a "
                                        "relay (a middle relay or bridge as a separate Tor program; start with Practice mode, "
                                        "which publishes nothing). A relay is not an exit and does not provide DNS."),
-                ("Antivirus (optional).", "The Antivirus tab manages the ClamAV you installed yourself, offline-first. Only "
+                ("Antivirus.", "The Antivirus tab manages the ClamAV you installed yourself, offline-first. Only "
                                           "freshclam, the signature updater, ever contacts the internet, and only when you press "
                                           "Update and confirm. Scans use clamscan with this app's own signature folder, with "
                                           "the network removed where the system allows (Linux) and the scanner watched for any "
@@ -905,7 +917,15 @@ class HelpTab(Tab):
         r = c.row((8, 0))
         for text, url in (("Legalizing Privacy", BLOG), ("About the blog", BLOG + "/about"), ("Archive", BLOG + "/archive")):
             app.btn(r, text, "web", "secondary", lambda u=url: webbrowser.open(u)).pack(side="left", padx=(0, 6))
-        c = add_card(self, app, "Web dashboard (backup)", "web")
+        c = add_card(self, app, "Web dashboard", "web")
         c.note("The web dashboard has the same controls in a browser tab, and a few things that need a web view, like the "
                "animated network map. It runs on this computer only.")
         app.web_button(c.body, "Open the web dashboard")
+
+
+def _num(text: str) -> float:
+    """A number typed in a small box, or 0 (no limit) when it is empty or not a number."""
+    try:
+        return max(0.0, float(str(text).strip() or 0))
+    except ValueError:
+        return 0.0

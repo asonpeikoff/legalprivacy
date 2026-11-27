@@ -893,13 +893,21 @@ class TorManager:
                 self.bootstrap_summary = s.group(1)
             if self.bootstrap_pct >= 100 and self.state == "bootstrapping":
                 self.state = "ready"
-        circs = c.circuits()
-        self.stats.update({
-            "read": int(c.getinfo("traffic/read") or 0),
-            "written": int(c.getinfo("traffic/written") or 0),
-            "circuits": circs,
-            "circuits_built": sum(1 for x in circs if x["status"] == "BUILT"),
-        })
+        try:
+            circs: list[dict] | None = c.circuits()
+        except TorControlError:                 # a filtered control port (Whonix's onion-grater) may refuse circuit-status
+            circs = None
+        stats: dict[str, Any] = {
+            "circuits": circs or [],
+            # None, not 0, when Tor would not say: "0 built" next to a Tor that has a dozen was wrong
+            "circuits_built": None if circs is None else sum(1 for x in circs if x["status"].upper() == "BUILT"),
+        }
+        for k in ("read", "written"):
+            try:
+                stats[k] = int(c.getinfo(f"traffic/{k}") or 0)
+            except (TorControlError, ValueError):
+                pass
+        self.stats.update(stats)
         self.stats.pop("control_error", None)
         if self.effective_bridges():
             try:

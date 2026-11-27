@@ -117,3 +117,42 @@ def test_privacy_check_has_a_mac_row():
     finally:
         m.MacSpoofer.status, m.MacSpoofer.environment = saved
     assert "wlan0" in rows["MAC address"]["detail"] and "mac randomize" in rows["MAC address"]["advice"]
+
+
+def test_a_vpn_providers_address_is_recognised_and_counts_for_encrypted_dns(monkeypatch):
+    monkeypatch.setattr(nettools, "qubes_vm_type", lambda: None)
+    monkeypatch.setattr(nettools, "_vpn_interfaces", lambda: [])
+    monkeypatch.setattr(nettools, "external_ip_owner",
+                        lambda timeout=6.0: {"ip": "203.0.113.5", "org": "AS62371 Proton AG", "hostname": "", "error": None})
+    rows = {r["name"]: r for r in nettools.privacy_check(_ctl())}
+    assert rows["VPN"]["status"] == "ok" and "Proton AG" in rows["VPN"]["detail"]
+    assert rows["Encrypted DNS"]["status"] == "ok" and "VPN" in rows["Encrypted DNS"]["detail"]
+    monkeypatch.setattr(nettools, "external_ip_owner",
+                        lambda timeout=6.0: {"ip": "203.0.113.5", "org": "AS7922 Comcast Cable", "hostname": "", "error": None})
+    rows = {r["name"]: r for r in nettools.privacy_check(_ctl())}
+    assert rows["VPN"]["status"] == "info" and "not a known VPN" in rows["VPN"]["detail"]
+    assert nettools.vpn_provider({"org": "AS9009 M247 Europe SRL"})[0] == "host"
+    assert nettools.vpn_provider({"org": "AS39351 31173 Services AB"})[0] == "vpn"
+
+
+def test_ublock_origin_is_found_however_it_was_installed(tmp_path, monkeypatch):
+    import json
+    import legalprivacy.history as h
+    ff = tmp_path / "ff"
+    (ff / "abc.default-release").mkdir(parents=True)
+    (ff / "abc.default-release" / "extensions.json").write_text(json.dumps(
+        {"addons": [{"id": "uBlock0@raymondhill.net", "active": True, "location": "app-system-share"}]}))
+    ch = tmp_path / "chrome"
+    (ch / "Profile 1").mkdir(parents=True)
+    (ch / "Profile 1" / "Secure Preferences").write_text('{"extensions":{"settings":{"cjpalhdlnbpafiamejdnhcphjbkeiagm":{}}}}')
+    monkeypatch.setattr(h, "_firefox_bases", lambda: [str(ff)])
+    monkeypatch.setattr(h, "_chromium_bases", lambda: [("Chrome", str(ch))])
+    monkeypatch.setattr(nettools, "_FIREFOX_SYSTEM_EXT", ())
+    monkeypatch.setattr(nettools, "_MORE_FIREFOX_BASES", ())
+    monkeypatch.setattr(nettools, "_MORE_CHROMIUM_BASES", ())
+    assert nettools._content_blocker() == ["Chrome", "Firefox"]
+    sysext = tmp_path / "share" / "{ec8030f7-c20a-464f-9b0e-13a3a9e97384}"
+    (sysext / "uBlock0@raymondhill.net").mkdir(parents=True)
+    (ff / "abc.default-release" / "extensions.json").unlink()
+    monkeypatch.setattr(nettools, "_FIREFOX_SYSTEM_EXT", (str(tmp_path / "share"),))
+    assert "Firefox (system add-on)" in nettools._content_blocker()
