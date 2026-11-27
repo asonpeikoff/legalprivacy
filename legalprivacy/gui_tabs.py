@@ -651,8 +651,9 @@ class TorTab(Tab):
                                             "shared by many people, so they get blocked more often than your own.")
         self.bridge_var = self.f_radios(bd, "bridge_mode", [(v, lab) for v, lab in L.BRIDGE_CHOICES])
         self.f_text(bd.body, "tor_bridges", 4, 50).pack(fill="x", pady=(6, 0))
-        self.f_check(bd, "bridge_auto", "If Tor cannot connect directly, try the built-in bridges by itself",
-                     "obfs4, then Snowflake; on by default")
+        self.f_check(bd, "bridge_auto", "If Tor gets stuck, try other ways by itself",
+                     "direct, obfs4, Snowflake, meek, your saved bridges; then a full reset and again. "
+                     "Never loosens the avoid list. On by default")
         r = bd.row((6, 0))
         bd.lbl(r, "Country").pack(side="left")
         self.country = tk.StringVar()
@@ -1063,7 +1064,7 @@ class TorTab(Tab):
         def done(r):
             self.b_get.state(["!disabled"])
             if r.get("ok"):
-                self.app.flash(f"Saved {r['count']} bridge(s): {', '.join(r['types'])}. Restart Tor to use them.", 9000)
+                self.app.flash(f"{r['message']} Restart Tor to use them.", 12000)
                 self.app.resync_now()
             else:
                 messagebox.showinfo("Get bridges", r.get("message", "No bridges were found."), parent=self.app.root)
@@ -1086,7 +1087,8 @@ class TorTab(Tab):
         self.bar["value"] = (t.get("install_progress") or 0) * 100 if state == "installing" else (100 if state == "ready" else pct)
         self.sum_var.set((t.get("error") or ("Downloading and verifying the official Tor bundle…" if state == "installing"
                                               else t.get("bootstrap_summary") or "")) + (f"  ⚠ {t['hint']}" if t.get("hint") else ""))
-        kvs = [("Mode", t.get("mode")), ("Version", t.get("version") or "—"), ("SOCKS", t.get("socks") or "—"),
+        kvs = [("Mode", t.get("mode")), ("Bridge", t.get("bridge_label") or "—"), ("Version", t.get("version") or "—"),
+               ("SOCKS", t.get("socks") or "—"),
                ("Control", t.get("control") or "—"), ("PID", t.get("pid") or "—"),
                ("Uptime", L.fmt_uptime(t.get("uptime"))), ("Downloaded", L.fmt_bytes(t.get("read"))),
                ("Uploaded", L.fmt_bytes(t.get("written"))), ("Program", t.get("binary") or "not installed")]

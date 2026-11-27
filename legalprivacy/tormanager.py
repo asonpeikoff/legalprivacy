@@ -10,7 +10,9 @@ Design rules
 """
 from __future__ import annotations
 
+import bisect
 import hashlib
+import ipaddress
 import os
 import platform
 import re
@@ -141,6 +143,66 @@ def _torrc_quote(path: Path) -> str:
     return '"' + str(path).replace("\\", "/") + '"'
 
 
+# ── bridges vs. the avoid list ───────────────────────────────────────────────
+# Snowflake, meek and conjure bridge lines carry a placeholder address from TEST-NET-1: the real connection goes to a broker
+# or a CDN, never to that address. Tor's GeoIP has no country for it, so with any {country} in ExcludeNodes Tor's default
+# (GeoIPExcludeUnknown auto) refuses those bridges outright: "Not using bridge at [scrubbed]: it is in ExcludeNodes".
+PLACEHOLDER_NETS = (ipaddress.ip_network("192.0.2.0/24"), ipaddress.ip_network("2001:db8::/32"))   # webtunnel uses the IPv6 one
+_BRIDGE_ADDR = re.compile(r"^(?:[A-Za-z_][A-Za-z0-9_]*\s+)?(\d{1,3}(?:\.\d{1,3}){3}|\[[0-9A-Fa-f:.]+\]):\d+(?:\s+([0-9A-Fa-f]{40}))?")
+_geoip_cache: dict[str, tuple[list[int], list[tuple[int, str]]]] = {}
+
+
+def geoip_country(ip: str, geoip_file: Path | None) -> str:
+    """Two-letter country (lower case) of an IPv4 address in Tor's own GeoIP file, '??' if unknown or no file."""
+    try:
+        addr = ipaddress.ip_address(ip.strip("[]"))
+    except ValueError:
+        return "??"
+    if addr.version != 4 or not geoip_file:
+        return "??"
+    key = str(geoip_file)
+    if key not in _geoip_cache:
+        starts, rows = [], []
+        try:
+            with open(geoip_file, encoding="ascii", errors="ignore") as fh:
+                for ln in fh:
+                    if ln[:1].isdigit():
+                        a, b, cc = ln.strip().split(",")[:3]
+                        starts.append(int(a))
+                        rows.append((int(b), cc.lower()))
+        except (OSError, ValueError):
+            starts, rows = [], []
+        _geoip_cache[key] = (starts, rows)
+    starts, rows = _geoip_cache[key]
+    n = int(addr)
+    i = bisect.bisect_right(starts, n) - 1
+    return rows[i][1] if i >= 0 and rows[i][0] >= n else "??"
+
+
+def bridge_refusal(line: str, countries: set[str], nets: list, fingerprints: set[str], geoip_file: Path | None) -> str | None:
+    """Why Tor would refuse this bridge under the avoid list (so the app never offers it), or None if it is usable.
+    The avoid list itself is never loosened: a bridge in an avoided country, range or identity is dropped."""
+    m = _BRIDGE_ADDR.match(line.strip())
+    if not m:
+        return "not a bridge line"
+    ip, fp = m.group(1).strip("[]"), (m.group(2) or "").upper()
+    if fp and fp in fingerprints:
+        return "its relay is on the avoid list"
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return "bad address"
+    if any(addr.version == p.version and addr in p for p in PLACEHOLDER_NETS):
+        return None                                   # Snowflake/meek/webtunnel: not a real address, nothing to geolocate
+    for n in nets:
+        if addr.version == n.version and addr in n:
+            return f"its address is in {n}"
+    cc = geoip_country(ip, geoip_file)
+    if cc in countries:
+        return f"it is in {{{cc}}}"
+    return None
+
+
 # ── manager ─────────────────────────────────────────────────────────────────
 class TorManager:
     """Owns the lifecycle of the Tor the app uses. Thread-safe, non-blocking API."""
@@ -163,7 +225,12 @@ class TorManager:
         self.bridge_mode = bridge_mode          # off | obfs4 | snowflake | meek | custom (may change by itself)
         self.configured_bridge_mode = bridge_mode   # what the user chose
         self.bridge_auto = bridge_auto          # try built-in bridges if a direct connection gets stuck
-        self._auto_tried: list[str] = []
+        self._attempt = 0                       # position on the ladder (see ladder())
+        self._rounds = 0                        # full rounds of the ladder without connecting
+        self._recovering: float | None = None   # the start a recovery is already under way for
+        self._wipe_next = False
+        self._refused_since: float | None = None   # when Tor first said a bridge is in ExcludeNodes (this start)
+        self.bridge_in_use: dict | None = None  # the bridge Tor is connected through right now
         self.auto_install = auto_install
         self.dns_port_cfg, self.dns_lan, self.dns_lan_addr = dns_port, dns_lan, dns_lan_addr   # Tor DNS (optional)
         self.dns_host = tordns.bind_address(dns_lan, dns_lan_addr)
@@ -284,12 +351,26 @@ class TorManager:
             "socks": self.socks_addr if self.socks_port else None,
             "control": self.control_addr, "bridges": len(self.effective_bridges()),
             "bridge_mode": self.bridge_mode, "builtin": {k: len(v) for k, v in self.builtin_bridges().items()},
+            "bridge_in_use": self.bridge_in_use, "bridge_label": self.bridge_label(),
             "install_progress": self.install_progress,
             "dns": self.dns_info(), "shared_browser": bool(self.share_browser and self.user_socks_port),
             "supported_platform": platform_key() is not None,
             "hint": self._hint(uptime),
             **{k: self.stats.get(k) for k in ("read", "written", "circuits_built")},
         }
+
+    def bridge_label(self) -> str:
+        """For the Details card: 'none (direct)', or the bridge type and, once connected, the one in use."""
+        if self.bridge_mode == "off" or not self.effective_bridges():
+            return "none (direct)"
+        kind = "your saved" if self.bridge_mode == "custom" else f"built-in {self.bridge_mode}"
+        b = self.bridge_in_use
+        if not b:
+            return f"{kind} ({len(self.usable_bridges())} usable; connecting)" if self.state != "ready" else kind
+        where = (f"{b['address']}" + (f", {b['country'].upper()}" if b.get("country") and b["country"] != "??" else "")
+                 if b.get("address") else "via the " + b["transport"] + " network")
+        auto = " (chosen automatically)" if self.bridge_mode != self.configured_bridge_mode else ""
+        return f"{b['transport']} {where}, {b['fingerprint'][:8]}…{auto}"
 
     def dns_info(self) -> dict:
         """Tor DNS state: whether it is switched on, where it listens, whether Tor is serving it now."""
@@ -416,11 +497,10 @@ class TorManager:
         self.started_at = time.time()
         self.state = "bootstrapping"
         self.bootstrap_pct = 0
+        self._refused_since, self.bridge_in_use = None, None
         threading.Thread(target=self._pump_output, args=(self._proc,), daemon=True,
                          name="tor-log").start()
-        if self.bridge_auto and self.bridge_mode in ("off",) + tuple(self._auto_tried):
-            threading.Thread(target=self._auto_bridges_watch, args=(self.started_at,), daemon=True,
-                             name="tor-bridge-assist").start()
+        threading.Thread(target=self._watchdog, args=(self.started_at,), daemon=True, name="tor-watchdog").start()
         self._start_monitor()
 
     def _write_torrc(self, data_dir: Path) -> Path:
@@ -443,26 +523,22 @@ class TorManager:
         dns_line = tordns.torrc_line(self.dns_port, self.dns_lan, self.dns_lan_addr) if self.dns_port else None
         if dns_line:        # optional Tor DNS: loopback unless one private LAN address was explicitly chosen
             lines.append(dns_line)
-        from .config import valid_exclude_entry
-        excl = [e if e.startswith("{") else "$" + e.lstrip("$") for e in self.exclude_nodes if valid_exclude_entry(e)]
-        excl += ["$" + fp for fp in BANNED_RELAYS if "$" + fp not in excl]     # relays banned for good (see config.BANNED_RELAYS)
-        if getattr(self, "geoban", True):                                      # government ranges and Virginia relays (see geoban.py)
-            try:
-                from . import geoban
-                excl += [e for e in geoban.shared().tor_excludes() if e not in excl]
-            except Exception as exc:
-                self.log.info("tor", f"Address ban not applied to Tor: {exc!r}")
-        if excl:                                  # relays you don't trust: Tor avoids them for every hop it can
+        excl, countries, _nets, _fps = self.avoid_list()
+        if excl:                                  # relays you don't trust: Tor avoids them for every hop, bridges included
             lines += ["ExcludeNodes " + ",".join(excl), "StrictNodes 1"]
-            self.log.info("tor", f"Avoiding {len(excl)} relay(s)/countries ({len(BANNED_RELAYS)} banned for good, the rest you listed) "
-                                 "(strictly, always).")
-        bundle_data = Path(self.binary).resolve().parent.parent / "data"
+            if countries:
+                # Tor's default (GeoIPExcludeUnknown auto) would also refuse every address it cannot place in a country, which
+                # is exactly the placeholder address Snowflake and meek bridges use, so they could never connect. Unknown-country
+                # RELAYS stay excluded: they are listed one by one above (from Tor's public relay list, see geoban.py).
+                lines.append("GeoIPExcludeUnknown 0")
+            self.log.info("tor", f"Avoiding {len(excl)} relay(s)/countries/ranges at every hop ({len(BANNED_RELAYS)} banned "
+                                 "for good) (strictly, always).")
         for name, key in (("geoip", "GeoIPFile"), ("geoip6", "GeoIPv6File")):
-            if (bundle_data / name).exists():
-                lines.append(f"{key} {_torrc_quote(bundle_data / name)}")
-        bridges = [b for b in self.effective_bridges() if valid_bridge_line(b)]   # one line each, never a setting
-        if len(bridges) != len(self.effective_bridges()):
-            self.log.warn("tor", "Ignored bridge line(s) that were not in the usual bridge format.")
+            if (self._bundle_data() / name).exists():
+                lines.append(f"{key} {_torrc_quote(self._bundle_data() / name)}")
+        bridges = self.usable_bridges(log=True)
+        if self.effective_bridges() and not bridges:
+            self.log.warn("tor", f"None of the {self.bridge_mode} bridges can be used with your avoid list; trying something else.")
         if bridges:
             lines.append("UseBridges 1")
             for transport in sorted({b.split()[0] for b in bridges if re.match(r"[A-Za-z_]", b)}):
@@ -494,6 +570,62 @@ class TorManager:
     def builtin_bridges(self) -> dict[str, list[str]]:
         return {k: list(v) for k, v in (self.pt_config().get("bridges") or {}).items()}
 
+    def _bundle_data(self) -> Path:
+        binary = self.binary or find_tor_binary() or ""
+        return Path(binary).resolve().parent.parent / "data" if binary else Path("/nonexistent")
+
+    def avoid_list(self) -> tuple[list[str], set[str], list, set[str]]:
+        """(ExcludeNodes entries, avoided countries, avoided address ranges, avoided fingerprints). Never loosened by the app."""
+        from .config import valid_exclude_entry
+        excl = [e if e.startswith("{") else "$" + e.lstrip("$") for e in self.exclude_nodes if valid_exclude_entry(e)]
+        excl += ["$" + fp for fp in BANNED_RELAYS if "$" + fp not in excl]     # relays banned for good (see config.BANNED_RELAYS)
+        if getattr(self, "geoban", True):                                      # government ranges and Virginia relays (see geoban.py)
+            try:
+                from . import geoban
+                excl += [e for e in geoban.shared().tor_excludes() if e not in excl]
+            except Exception as exc:
+                self.log.info("tor", f"Address ban not applied to Tor: {exc!r}")
+        countries = {e.strip("{}").lower() for e in excl if e.startswith("{")}
+        if countries:                              # relays Tor cannot place in a country: excluded one by one (see _write_torrc)
+            try:
+                from . import geoban
+                excl += [e for e in ("$" + f for f in geoban.shared().unknown_country) if e not in excl]
+            except Exception:
+                pass
+        nets = []
+        for e in excl:
+            if not e.startswith(("{", "$")):
+                try:
+                    nets.append(ipaddress.ip_network(e, strict=False))
+                except ValueError:
+                    pass
+        fps = {e[1:].upper() for e in excl if e.startswith("$")}
+        return excl, countries, nets, fps
+
+    def usable_bridges(self, mode: str | None = None, log: bool = False) -> list[str]:
+        """The bridges of a mode that are well formed and that the avoid list allows (Tor would refuse the others)."""
+        lines = self.bridges_for(self.bridge_mode if mode is None else mode)
+        good = [b for b in lines if valid_bridge_line(b)]          # one line each, never a setting
+        if log and len(good) != len(lines):
+            self.log.warn("tor", "Ignored bridge line(s) that were not in the usual bridge format.")
+        _excl, countries, nets, fps = self.avoid_list()
+        geo = self._bundle_data() / "geoip"
+        out, dropped = [], []
+        for b in good:
+            why = bridge_refusal(b, countries, nets, fps, geo)
+            (dropped if why else out).append(why or b)
+        if log and dropped:
+            self.log.info("tor", f"Skipped {len(dropped)} bridge(s) your avoid list rules out ({'; '.join(sorted(set(dropped)))}); "
+                                 f"{len(out)} left.")
+        return out
+
+    def bridges_for(self, mode: str) -> list[str]:
+        if mode == "custom":
+            return list(self.bridges)
+        if mode in ("obfs4", "snowflake", "meek"):
+            return self.builtin_bridges().get(mode, [])
+        return []
+
     def effective_bridges(self) -> list[str]:
         if self.bridge_mode == "custom":
             return list(self.bridges)
@@ -512,26 +644,93 @@ class TorManager:
         exe = self._pt_binary(transport)
         return f"ClientTransportPlugin {transport} exec {exe}" if exe else None
 
-    def _auto_bridges_watch(self, started: float) -> None:
-        """Like Tor Browser's Connection Assist: a direct connection stuck early -> built-in bridges."""
-        while not self._stop_evt.is_set() and self.started_at == started:
-            time.sleep(5)
-            if self.state == "ready" or self.state in ("stopped", "error"):
+    # ── staying connected ────────────────────────────────────────────────
+    STALL_SECS = 90            # no bootstrap progress for this long (and not connected) = stuck
+    REFUSED_SECS = 20          # every bridge refused by the avoid list for this long = stuck (it will never change by itself)
+    MAX_BACKOFF = 600
+    RETRY_DELAY = 2            # seconds before the next way is tried
+
+    def ladder(self) -> list[str]:
+        """Ways to connect, in order: what you chose, then direct, then each built-in bridge type, then your own bridges.
+        A way whose bridges the avoid list rules out entirely is skipped. The avoid list is never part of what changes."""
+        order = [self.configured_bridge_mode]
+        if self.bridge_auto:
+            order += ["off", "obfs4", "snowflake", "meek", "custom"]
+        out = []
+        for m in order:
+            if m in out or (m == "custom" and not self.bridges):
+                continue
+            if m != "off" and not self.usable_bridges(m):
+                continue
+            out.append(m)
+        return out or ["off"]
+
+    def _watchdog(self, started: float) -> None:
+        """Watches one start. Stuck (no progress, Tor exited, or every bridge refused) -> the next way on the ladder."""
+        last_pct, last_move = -1, time.time()
+        while not self._stop_evt.wait(5) and self.started_at == started:
+            if self.state == "ready":
+                if self._attempt or self._rounds:
+                    self.log.info("tor", f"Connected ({self.bridge_mode if self.bridge_mode != 'off' else 'direct'}).")
+                self._attempt, self._rounds = 0, 0
                 return
-            if time.time() - started > 75 and self.bootstrap_pct < 30:
-                order = [m for m in ("obfs4", "snowflake") if m not in self._auto_tried
-                         and self.builtin_bridges().get(m)]
-                if not order:
-                    self.log.warn("tor", "Tor still can't connect, even with built-in bridges. Get bridges for "
-                                         "your country on the Tor tab, or from bridges.torproject.org.")
-                    return
-                mode = order[0]
-                self._auto_tried.append(mode)
-                self.log.warn("tor", f"Tor can't seem to connect directly; your network may block it. "
-                                     f"Trying the built-in {mode} bridges.")
-                self.bridge_mode = mode
-                self.restart()
+            if self.state == "stopped":
                 return
+            now = time.time()
+            if self.bootstrap_pct > last_pct:
+                last_pct, last_move = self.bootstrap_pct, now
+            refused = self._refused_since and now - self._refused_since > self.REFUSED_SECS and self.bootstrap_pct < 10
+            if self.state == "error" or now - last_move > self.STALL_SECS or refused:
+                why = ("Tor stopped" if self.state == "error" else "every bridge was refused by the avoid list" if refused
+                       else f"no progress for {int(now - last_move)} s at {self.bootstrap_pct}%")
+                self._recover(why, started)
+                return
+
+    def _recover(self, why: str, started: float | None = None) -> None:
+        """Move to the next way of connecting; after the last one, reset Tor completely (fresh data folder) and start the
+        ladder again, waiting longer each round. Stops only when you stop Tor. Never touches the avoid list."""
+        with self._lock:
+            if self.mode != "managed" or self._stop_evt.is_set() or self._recovering == (started or self.started_at):
+                return
+            self._recovering = started or self.started_at
+            ladder = self.ladder()
+            self._attempt += 1
+            delay = self.RETRY_DELAY
+            if self._attempt >= len(ladder):
+                self._attempt, self._rounds = 0, self._rounds + 1
+                delay = min(30 * 2 ** (self._rounds - 1), self.MAX_BACKOFF)
+                self._wipe_next = True
+            mode = ladder[self._attempt]
+        how = "directly" if mode == "off" else f"with the {'saved' if mode == 'custom' else 'built-in ' + mode} bridges"
+        if self._wipe_next:
+            self.log.warn("tor", f"Tor could not connect ({why}), and every way has been tried. Resetting Tor completely "
+                                 f"(fresh state, nothing cached) and trying again {how} in {delay} s. Your avoid list stays "
+                                 "as it is.")
+        else:
+            self.log.warn("tor", f"Tor could not connect ({why}). Trying {how}.")
+
+        def go():
+            if self._stop_evt.wait(delay) and self.state == "stopped":
+                return                       # you stopped Tor meanwhile
+            if self.started_at != (started or self._recovering):
+                return                       # someone else restarted it
+            self.bridge_mode = mode
+            self.stop()
+            if self._wipe_next:
+                self._wipe_next = False
+                self._wipe_state()
+            self._recovering = None
+            self.start()
+        threading.Thread(target=go, daemon=True, name="tor-recover").start()
+
+    def _wipe_state(self) -> None:
+        """Delete Tor's data folder (guards, cached relay lists, state): the next start is like a first start."""
+        data = tor_dir() / "data"
+        try:
+            shutil.rmtree(data, ignore_errors=True)
+            self.log.info("tor", "Tor's saved state was deleted; it starts fresh.")
+        except Exception as exc:
+            self.log.info("tor", f"Could not delete Tor's saved state: {exc!r}")
 
     def _pt_binary(self, transport: str) -> str | None:
         pt_dir = Path(self.binary).resolve().parent / "pluggable_transports"
@@ -559,6 +758,8 @@ class TorManager:
                 if self.bootstrap_pct >= 100 and self.state in ("bootstrapping", "starting"):
                     self.state = "ready"
                     self.log.info("tor", "Tor is ready (bootstrapped 100%).")
+            if "Not using bridge" in line and "ExcludeNodes" in line and self._refused_since is None:
+                self._refused_since = time.time()
             level = "warn" if "[warn]" in line else "error" if "[err]" in line else "info"
             if "[debug]" in line or "[info]" in line:
                 level = "debug"
@@ -568,6 +769,7 @@ class TorManager:
             return
         if not self._stop_evt.is_set() and self.state != "stopped":
             self._fail(f"Tor exited unexpectedly (code {code}). See the log for details.")
+            self._recover(f"Tor exited with code {code}")
 
     # -- monitor -----------------------------------------------------------
     def _start_monitor(self) -> None:
@@ -680,6 +882,34 @@ class TorManager:
             "circuits_built": sum(1 for x in circs if x["status"] == "BUILT"),
         })
         self.stats.pop("control_error", None)
+        if self.effective_bridges():
+            try:
+                self.bridge_in_use = self._bridge_now(c.getinfo("entry-guards"))
+            except TorControlError:
+                pass
+        else:
+            self.bridge_in_use = None
+
+    def _bridge_now(self, guards: str) -> dict | None:
+        """Which of our bridges Tor is using, from GETINFO entry-guards ('$FP~nick up' lines; the first usable is used)."""
+        by_fp = {}
+        for b in self.usable_bridges():
+            m = _BRIDGE_ADDR.match(b)
+            if m and m.group(2):
+                by_fp[m.group(2).upper()] = b
+        for ln in guards.splitlines():
+            parts = ln.split()
+            if len(parts) < 2 or parts[1] != "up":
+                continue
+            fp = parts[0].lstrip("$").split("~")[0].split("=")[0].upper()
+            line = by_fp.get(fp)
+            if line:
+                transport = line.split()[0] if re.match(r"[A-Za-z_]", line) else "vanilla"
+                addr = line.split()[1] if transport != "vanilla" else line.split()[0]
+                placeholder = addr.startswith(("192.0.2.", "[2001:db8:"))
+                return {"transport": transport, "address": None if placeholder else addr, "fingerprint": fp,
+                        "country": None if placeholder else geoip_country(addr.rsplit(":", 1)[0], self._bundle_data() / "geoip")}
+        return None
 
     # -- installer ---------------------------------------------------------
     def _install_safe(self) -> None:
@@ -852,20 +1082,41 @@ def _safe_extract(archive: Path, target: Path) -> None:
 MOAT = "https://bridges.torproject.org/moat/circumvention/settings"
 
 
-def fetch_bridges_for_country(country: str = "") -> list[dict]:
-    """Ask the Tor Project's bridge service which bridges work in a country ('' = detect from this IP).
-    Returns [{"type": "obfs4", "lines": [...]}]. Contacts bridges.torproject.org directly."""
+MOAT_DEFAULTS = "https://bridges.torproject.org/moat/circumvention/defaults"
+MOAT_TRANSPORTS = ["obfs4", "snowflake", "webtunnel", "meek"]
+
+
+def _moat(url: str, body: dict, opener=None) -> dict:
     import json as _json
-    body = _json.dumps({"country": country.lower()[:2], "transports": ["obfs4", "snowflake", "webtunnel", "meek"]}
-                       if country else {"transports": ["obfs4", "snowflake", "webtunnel", "meek"]}).encode()
-    req = urllib.request.Request(MOAT, data=body, method="POST",
-                                 headers={"Content-Type": "application/vnd.api+json",
-                                          "User-Agent": "legalPrivacy-bridges"})
-    with urllib.request.urlopen(req, timeout=30) as r:          # nosec - fixed https host
-        data = _json.loads(r.read().decode())
+    req = urllib.request.Request(url, data=_json.dumps(body).encode(), method="POST",
+                                 headers={"Content-Type": "application/vnd.api+json", "User-Agent": "legalPrivacy-bridges"})
+    with (opener or urllib.request.urlopen)(req, timeout=30) as r:          # nosec - fixed https host
+        return _json.loads(r.read().decode())
+
+
+def _sets(data: dict) -> list[dict]:
     out = []
     for s in data.get("settings") or []:
         b = s.get("bridges") or {}
         if b.get("bridge_strings"):
             out.append({"type": b.get("type", "?"), "lines": list(b["bridge_strings"])})
     return out
+
+
+def fetch_bridges_for_country(country: str = "", opener=None) -> dict:
+    """Ask the Tor Project's bridge service (the one Tor Browser's Connection Assist uses) which bridges work in a country
+    ('' = it detects the country from this connection). Returns {"country": "us", "source": "country" | "defaults",
+    "sets": [{"type": "obfs4", "lines": [...]}]}. Where the service sees no censorship (for example the US) it suggests
+    nothing for the country; the service's general default bridges are used then, as Tor Browser does."""
+    body = {"transports": MOAT_TRANSPORTS}
+    if country:
+        body["country"] = country.lower()[:2]
+    data = _moat(MOAT, body, opener)
+    if data.get("errors"):
+        e = data["errors"][0]
+        raise RuntimeError(f"bridges.torproject.org: {e.get('detail') or e.get('code') or 'error'}")
+    cc = str(data.get("country") or country or "").lower()
+    sets = _sets(data)
+    if sets:
+        return {"country": cc, "source": "country", "sets": sets}
+    return {"country": cc, "source": "defaults", "sets": _sets(_moat(MOAT_DEFAULTS, {"transports": MOAT_TRANSPORTS}, opener))}

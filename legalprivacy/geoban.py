@@ -50,6 +50,8 @@ class GeoBan:
         self._resolve = resolve or self._getaddrinfo
         self.gov = _ranges(GOV_NETS)
         self.relays: list[str] = []
+        self.unknown_country: list[str] = []     # running relays with no known country (excluded whenever a country is)
+        self._unknown_seen: list[str] | None = None
         self.va: list[tuple[int, int]] = []
         self._va_starts: list[int] = []
         self.meta: dict = {}
@@ -68,9 +70,11 @@ class GeoBan:
         except (OSError, ValueError, KeyError, TypeError):
             self.va, self._va_starts, self.meta = [], [], {}
         try:
-            self.relays = [str(f) for f in json.loads(self.path.read_text(encoding="utf-8")).get("relays", [])]
+            saved = json.loads(self.path.read_text(encoding="utf-8"))
+            self.relays = [str(f) for f in saved.get("relays", [])]
+            self.unknown_country = [str(f) for f in saved.get("unknown_country", [])]
         except (OSError, ValueError, AttributeError):
-            self.relays = []
+            self.relays, self.unknown_country = [], []
 
     def needs_refresh(self) -> bool:
         return not self.va or self.clock() - float(self.meta.get("at") or 0) > REFRESH_AFTER
@@ -184,13 +188,14 @@ class GeoBan:
     def relay_fingerprints(self, opener=urllib.request.urlopen, max_n: int = 3000) -> list[str]:
         """Fingerprints of running Tor relays whose IPv4 address is in a banned range (Onionoo gives the relay list, not regions,
         so the address is checked here). Saved with the ranges; [] if the list could not be fetched."""
-        url = "https://onionoo.torproject.org/details?running=true&fields=fingerprint,or_addresses"
-        try:
-            with opener(urllib.request.Request(url, headers={"User-Agent": "legalPrivacy-geoban"}), timeout=60) as r:   # nosec
-                data = json.loads(r.read().decode("utf-8", "replace"))
-        except Exception:
-            return []
+        data = self._onionoo(opener)
         out: list[str] = []
+        unknown: list[str] = []
+        for rel in data.get("relays", []):
+            fp = str(rel.get("fingerprint") or "").upper()
+            if len(fp) == 40 and not rel.get("country"):
+                unknown.append(fp)            # no country: kept out explicitly (Tor is told to let unknown addresses through,
+        self._unknown_seen = unknown          # for Snowflake/meek's placeholder address; see tormanager._write_torrc)
         for rel in data.get("relays", []):
             fp = str(rel.get("fingerprint") or "").upper()
             if len(fp) != 40:
@@ -201,15 +206,28 @@ class GeoBan:
                     break
         return out[:max_n]
 
+    @staticmethod
+    def _onionoo(opener) -> dict:
+        url = "https://onionoo.torproject.org/details?running=true&fields=fingerprint,or_addresses,country"
+        try:
+            with opener(urllib.request.Request(url, headers={"User-Agent": "legalPrivacy-geoban"}), timeout=60) as r:   # nosec
+                return json.loads(r.read().decode("utf-8", "replace"))
+        except Exception:
+            return {}
+
     def update_relays(self, **kw) -> int:
+        self._unknown_seen = None
         fps = self.relay_fingerprints(**kw)
-        if fps:
-            self.relays = fps
+        if fps or self._unknown_seen:
+            self.relays = fps or self.relays
+            if self._unknown_seen is not None:
+                self.unknown_country = self._unknown_seen
             try:
                 d = json.loads(self.path.read_text(encoding="utf-8"))
             except (OSError, ValueError):
                 d = {}
-            d["relays"] = fps
+            d["relays"] = self.relays
+            d["unknown_country"] = self.unknown_country
             d["relays_at"] = self.clock()
             tmp = self.path.with_suffix(".tmp")
             tmp.write_text(json.dumps(d), encoding="utf-8")

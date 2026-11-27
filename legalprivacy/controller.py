@@ -22,7 +22,7 @@ from typing import Any
 import yaml
 
 from . import __version__
-from .config import (ConfigError, Profile, apply_overrides, profile_to_dict)
+from .config import (ConfigError, Profile, apply_overrides, profile_to_dict, valid_bridge_line)
 from .engines import ENGINE_NAMES, SEARCH_WEIGHTS, load_wordlist
 from .dnsplan import DnsPlan
 from .domains import DomainPool
@@ -495,16 +495,34 @@ class Controller:
 
     def get_bridges(self, country: str = "") -> dict:
         """Ask the Tor Project's bridge service for bridges that work in a country; save them."""
-        from .tormanager import fetch_bridges_for_country
-        sets = fetch_bridges_for_country(country)
-        lines = [ln for s in sets for ln in s["lines"]]
+        from .tormanager import bridge_refusal, fetch_bridges_for_country
+        got = fetch_bridges_for_country(country)
+        cc = (got.get("country") or "").upper() or "unknown"
+        where = f"your country as the bridge service sees it ({cc})" if not country else cc
+        tm = self.tor_manager()
+        _excl, countries, nets, fps = tm.avoid_list()
+        geo = tm._bundle_data() / "geoip"
+        lines, dropped, types = [], 0, set()
+        for s in got["sets"]:
+            for ln in s["lines"]:
+                if valid_bridge_line(ln) and not bridge_refusal(ln, countries, nets, fps, geo):
+                    lines.append(ln)
+                    types.add(s["type"])
+                else:
+                    dropped += 1
+        skipped = f" {dropped} more were left out because your avoid list rules them out." if dropped else ""
         if not lines:
-            return {"ok": False, "message": "The Tor Project says no bridges are needed for that country "
-                                            "(or has none to suggest). Try the built-in ones, or request your own."}
+            return {"ok": False, "country": cc,
+                    "message": f"bridges.torproject.org had no usable bridges for {where}.{skipped} The automatic "
+                               "fallback (direct, then the built-in obfs4, Snowflake and meek) still runs; you can also "
+                               "request private bridges by email (bridges@torproject.org)."}
         self.apply_config({"transports": {"tor": {"bridges": lines, "bridge_mode": "custom"}}})
-        self.log.info("tor", f"Got {len(lines)} bridge(s) from bridges.torproject.org "
-                             f"({', '.join(sorted({s['type'] for s in sets}))}); saved as your bridges.")
-        return {"ok": True, "count": len(lines), "types": sorted({s["type"] for s in sets})}
+        note = ("" if got["source"] == "country" else
+                f" The service sees no blocking in {cc}, so these are its general default bridges.")
+        self.log.info("tor", f"Got {len(lines)} bridge(s) for {where} from bridges.torproject.org "
+                             f"({', '.join(sorted(types))}); saved as your bridges.{note}{skipped}")
+        return {"ok": True, "count": len(lines), "types": sorted(types), "country": cc, "source": got["source"],
+                "message": f"Saved {len(lines)} bridge(s) for {where}: {', '.join(sorted(types))}.{note}{skipped}"}
 
     def tor_selftest(self) -> None:
         """User-initiated check: does traffic leave through Tor, and does an onion site load?"""

@@ -429,8 +429,8 @@ All optional:
 **Bridges** (Tor tab), for networks that block Tor:
 - **Built-in obfs4, Snowflake or meek:** taken from the official Tor bundle's own list, so they stay current with each Tor update.
 - **My bridges:** your saved lines.
-- **Automatic** (on by default): if Tor can't connect directly within about a minute, it tries the built-in obfs4 bridges, then Snowflake, like Tor Browser's Connection Assist.
-- **Get bridges that work here:** asks the Tor Project's bridge service (bridges.torproject.org) for your country and saves the answer. It asks before contacting the service.
+- **Automatic** (on by default): if Tor is stuck (no progress for 90 seconds), exits, or has every bridge refused, the app tries the next way: your choice, direct, the built-in obfs4, Snowflake and meek bridges, then your saved ones. After the last it resets Tor completely and starts over, waiting longer each round. Your avoid list is never loosened; bridges it rules out are skipped.
+- **Get bridges that work here:** asks the Tor Project's bridge service (bridges.torproject.org) for your country and saves the answer (it names the country it saw; where it sees no blocking, as in the US, it gives its default bridges). Bridges your avoid list rules out are left out. It asks before contacting the service.
 - **Request private bridges:** shortcuts to the [website](https://bridges.torproject.org/options), Telegram [@GetBridgesBot](https://t.me/GetBridgesBot), and email to bridges@torproject.org (from Gmail or Riseup).
 
 On Tor, failures are handled like a person would: sometimes reload the page a minute or two later, sometimes move on, sometimes get a new identity first. A new identity follows 2–5 failures in a row, and circuits also change by themselves every 10–40 minutes.
