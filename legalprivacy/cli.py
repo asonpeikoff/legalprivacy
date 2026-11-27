@@ -278,6 +278,8 @@ def cmd_relay(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    from .procname import set_name
+    set_name()                          # shows up as "legalprivacy": killall legalprivacy works
     from .paths import ensure_utf8_console
     ensure_utf8_console()
     parser = argparse.ArgumentParser(prog="legalprivacy", description=__doc__)

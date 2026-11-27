@@ -65,6 +65,11 @@ list of pages you visited are never copied, your real profile is only read, and 
 This uses Selenium and geckodriver (installed with the app); Firefox from Snap or Flatpak can't be driven, so there it falls
 back to the app's own browsers (the Live Log says why).
 
+**Start it in the background (Linux).** `./start-legalprivacy.sh` now starts legalPrivacy detached from the terminal, so closing
+the window does not stop it, prints the dashboard link and returns. The running program is named `legalprivacy`, so
+`killall legalprivacy` (or `./start-legalprivacy.sh --stop`) stops it, Tor and the relay included; `--foreground` gives the
+old behaviour (run in this window until Ctrl+C). It keeps no log file (read the Live Log in the dashboard).
+
 **Run it as a background service (Linux).** `./start-legalprivacy.sh --service` installs a systemd user service that
 starts when you log in and keeps legalPrivacy running with no window. The dashboard is still the same web page: run
 `./start-legalprivacy.sh --url` to print its link, and `./start-legalprivacy.sh --uninstall-service` to remove the service.

@@ -21,6 +21,8 @@ def _pause_on_windows_error() -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    from .procname import set_name
+    set_name()                          # shows up as "legalprivacy": killall legalprivacy works
     ap = argparse.ArgumentParser(prog="legalprivacy-launch", description=__doc__)
     ap.add_argument("--text", action="store_true", help="terminal menu instead of the dashboard")
     ap.add_argument("--no-browser", action="store_true", help="don't open a browser automatically")
