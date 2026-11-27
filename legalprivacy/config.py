@@ -168,16 +168,23 @@ class RelayConfig:
                          dir_port=self.dir_port, private=self.private)
 
 
+# From OpenNIC's own server list (servers.opennic.org) and the operators' pages, checked Nov 2026: OpenNIC Tier-2 servers that
+# pass OpenNIC's tests, keep no logs, do not filter, validate DNSSEC, and speak DNSCrypt, DNS over HTTPS and DNS over TLS.
+# Their DNS-over-TLS names are in engines.DOT_HOSTS, so encrypted lookups can use them (and check their certificates).
 RECOMMENDED_RESOLVERS = [
     {"ip": "80.152.203.134", "name": "OpenNIC ns2.de", "role": "primary", "enabled": True,
-     "note": "OpenNIC, Germany (admin keke); anonymized logs"},
-    {"ip": "193.31.24.55", "name": "OpenNIC ns3.de", "role": "primary", "enabled": True,
-     "note": "OpenNIC, Germany (admin Koby, sponsored by n4x2.com)"},
+     "note": "OpenNIC, Germany, run by keke. No logs, DNSSEC, DNSCrypt, DoH, DoT"},
     {"ip": "80.153.146.105", "name": "OpenNIC ns4.de", "role": "primary", "enabled": True,
-     "note": "OpenNIC, Germany"},
+     "note": "OpenNIC, Germany, run by keke. No logs, DNSSEC, DNSCrypt, DoH, DoT"},
+    {"ip": "217.91.179.72", "name": "OpenNIC ns27.de", "role": "primary", "enabled": True,
+     "note": "OpenNIC, Germany, run by keke. No logs, DNSSEC, DNSCrypt, DoH, DoT"},
+    {"ip": "15.204.135.28", "name": "OpenNIC ns3.va.us", "role": "primary", "enabled": True,
+     "note": "OpenNIC, US, run by Sorcerous Machine. No logs, no filtering, DNSSEC, DNSCrypt, DoH, DoT"},
     {"ip": "9.9.9.9", "name": "Quad9", "role": "fallback", "enabled": True,
      "note": "Used only if the primaries are down or slow. Blocks malware domains, DNSSEC"},
 ]
+# The list before Nov 2026 (ns3.de offers no DNSCrypt); a saved copy of it is moved to the list above once.
+OLD_RECOMMENDED_IPS = ["80.152.203.134", "193.31.24.55", "80.153.146.105", "9.9.9.9"]
 
 
 @dataclass
