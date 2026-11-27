@@ -369,6 +369,8 @@ class UIServer:
                         return self._json(ctl.torbrowser_open())
                     elif path == "/api/update/check":
                         return self._json(ctl.update_check())
+                    elif path == "/api/update/install":
+                        return self._json(ctl.update_install())
                     elif path == "/api/torbrowser/check":
                         return self._json(ctl.torbrowser_check())
                     elif path == "/api/defaults/recommended":

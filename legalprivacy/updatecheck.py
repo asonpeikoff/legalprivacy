@@ -68,8 +68,19 @@ def check(version: str, http: Callable[[str], bytes] = _get, commit: str | None 
         elif cmp_.get("status") in ("identical", "behind"):   # yours is the same or newer than GitHub's
             info["status"] = "current"
         return info
-    m = re.search(r'__version__\s*=\s*"([\d.]+)"', http(RAW_INIT).decode("utf-8", "ignore"))
-    if m:
-        info["latest_version"] = m.group(1)
-        info["status"] = "behind" if _vkey(m.group(1)) > _vkey(version) else "current"
+    ver = None
+    try:                                                   # a downloaded copy follows RELEASES, not the newest commit
+        rel = json.loads(http(API + "releases/latest"))
+        tag = str(rel.get("tag_name", "")).lstrip("v")
+        if not rel.get("draft") and not rel.get("prerelease") and re.fullmatch(r"\d+(?:\.\d+){1,3}", tag):
+            ver = tag
+            info["latest_message"] = str(rel.get("name") or f"legalPrivacy {tag}")[:140]
+    except Exception:
+        ver = None
+    if ver is None:
+        m = re.search(r'__version__\s*=\s*"([\d.]+)"', http(RAW_INIT).decode("utf-8", "ignore"))
+        ver = m.group(1) if m else None
+    if ver:
+        info["latest_version"] = ver
+        info["status"] = "behind" if _vkey(ver) > _vkey(version) else "current"
     return info

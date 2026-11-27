@@ -14,8 +14,10 @@ def _http(compare_status="ahead", ahead_by=3, fail_compare=False):
             if fail_compare:
                 raise OSError("404")
             return json.dumps({"status": compare_status, "ahead_by": ahead_by}).encode()
+        if url.endswith("/releases/latest"):
+            return json.dumps({"tag_name": "v9.0.0", "name": "legalPrivacy v9.0.0"}).encode()
         if url == U.RAW_INIT:
-            return b'__version__ = "9.0.0"\n'
+            return b'__version__ = "8.0.0"\n'
         raise AssertionError(url)
     return get
 
@@ -59,3 +61,21 @@ def test_controller_reports_and_survives_being_offline(tmp_path, monkeypatch):
     assert c.update_check(boom)["status"] == "unchecked"
     s = c.update_check(lambda v: {"status": "behind", "behind_by": 2, "how": "git pull"})
     assert s["status"] == "behind" and s["enabled"] is True
+
+
+def test_a_downloaded_copy_follows_releases_not_the_newest_commit(monkeypatch):
+    monkeypatch.setattr(U, "local_commit", lambda root=None: None)
+    r = U.check("2.14.0", _http())
+    assert r["latest_version"] == "9.0.0" and r["latest_message"] == "legalPrivacy v9.0.0"      # 9.0.0 release, not 8.0.0 on master
+
+
+def test_it_falls_back_to_the_version_on_master_when_releases_cannot_be_read(monkeypatch):
+    monkeypatch.setattr(U, "local_commit", lambda root=None: None)
+    inner = _http()
+
+    def get(url):
+        if url.endswith("/releases/latest"):
+            raise OSError("404")
+        return inner(url)
+    r = U.check("2.14.0", get)
+    assert r["latest_version"] == "8.0.0" and r["status"] == "behind"
