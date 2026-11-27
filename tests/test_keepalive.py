@@ -120,3 +120,37 @@ def test_switching_it_off_leaves_everything_alone():
     r.paused = "failures"
     ctl._alive = False
     assert ka.tick() is None and r.paused == "failures" and ctl.started == 0
+
+
+class _Budget:
+    exhausted = False
+
+
+class _TorLane:
+    name, open, engines = "tor", True, ["onion", "files"]
+    budgets = {"onion": _Budget()}
+
+
+def test_tor_that_is_connected_but_not_working_gets_fresh_circuits_then_a_restart():
+    from legalprivacy.keepalive import TOR_FAILING_SECONDS as FAIL
+    r = _runner({})
+    r.lanes = list(r.lanes) + [_TorLane()]
+    r.hour_target = 5.0
+    r.onion_streak = 3                                            # visits are being tried and failing
+    r.last_onion_ok = r.started_at = time.time() - 3600   # it has run for an hour and nothing worked
+    ctl = _Ctl(r)
+    levels = []
+    ctl._tor_trouble = levels.append
+    now = [10_000.0]
+    ka = KeepAlive(ctl, clock=lambda: now[0])
+    r.last_beat = time.time()
+    assert ka.tick() == "tor" and levels == [1]
+    now[0] += 60
+    assert ka.tick() is None and levels == [1]                  # not again at once
+    now[0] += FAIL
+    r.last_beat = time.time()
+    assert ka.tick() == "tor" and levels == [1, 2]              # still idle: restart Tor
+    r.last_onion_ok = time.time()                                # an onion visit worked: all clear
+    now[0] += FAIL + 60
+    r.last_beat = time.time()
+    assert ka.tick() is None and ka._tor_nudges == 0

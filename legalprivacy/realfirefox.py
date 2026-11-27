@@ -19,6 +19,7 @@ falls back to its own browsers.
 from __future__ import annotations
 
 import configparser
+import os
 import random
 import shutil
 import sqlite3
@@ -41,22 +42,36 @@ NEVER = ("cookies.sqlite", "logins.json", "logins-backup.json", "key4.db", "cert
          "sessionstore.jsonlz4", "sessionstore-backups", "storage", "cache2", "saved-telemetry-pings")
 
 
-def find_firefox() -> tuple[str | None, str]:
-    """(path, why-not). The system Firefox, or None with the reason it can't be used."""
-    cands = [shutil.which("firefox")]
+def find_firefox(override: str = "") -> tuple[str | None, str]:
+    """(path, why-not). The system Firefox, or None with the reason it can't be used. `override` is a path you gave (Settings):
+    it is tried first, and if it is wrong the reason says so instead of guessing elsewhere."""
+    if override:
+        p = Path(os.path.expanduser(override))
+        if not p.is_file():
+            return None, f"the Firefox path you set does not exist: {override}"
+        real = str(p.resolve())
+        if "/snap/" in real or "flatpak" in real:
+            return None, "the Firefox you pointed at is a Snap or Flatpak build, which can't be driven; point at Mozilla's own build"
+        return real, ""
+    cands = [shutil.which("firefox"), shutil.which("firefox-esr")]
     if sys.platform == "win32":
         cands += [r"C:\Program Files\Mozilla Firefox\firefox.exe", r"C:\Program Files (x86)\Mozilla Firefox\firefox.exe"]
     elif sys.platform == "darwin":
         cands += ["/Applications/Firefox.app/Contents/MacOS/firefox"]
     else:
-        cands += ["/usr/bin/firefox", "/usr/lib/firefox/firefox", "/opt/firefox/firefox", "/usr/local/bin/firefox"]
+        home = Path.home()
+        cands += ["/usr/bin/firefox", "/usr/lib/firefox/firefox", "/opt/firefox/firefox", "/usr/local/bin/firefox",
+                  "/usr/lib/firefox-esr/firefox-esr", "/usr/bin/firefox-esr", "/opt/firefox-esr/firefox-esr",
+                  str(home / "firefox" / "firefox"), str(home / ".local" / "firefox" / "firefox"),
+                  str(home / "opt" / "firefox" / "firefox"), str(home / "Applications" / "firefox" / "firefox")]
     for c in cands:
         if c and Path(c).exists():
             real = str(Path(c).resolve())
             if "/snap/" in real or "/snap/" in c or "flatpak" in real:
                 return None, "Firefox from Snap or Flatpak can't be driven (its sandbox blocks it); install Mozilla's own build"
             return real, ""
-    return None, "Firefox isn't installed"
+    return None, ("Firefox wasn't found in the usual places: set its path in Settings (Browser engine), or install Mozilla's "
+                  "own Firefox")
 
 
 def default_profile() -> Path | None:
@@ -360,13 +375,13 @@ class RealFirefoxTransport:
             return HitResult(None, error=msg)
 
 
-def support() -> tuple[bool, str]:
+def support(override: str = "") -> tuple[bool, str]:
     """(usable, reason): Selenium installed, Firefox found, and a profile to copy."""
     try:
         import selenium  # noqa: F401
     except ImportError:
         return False, "the 'selenium' package is not installed (pip install selenium)"
-    exe, why = find_firefox()
+    exe, why = find_firefox(override)
     if not exe:
         return False, why
     if default_profile() is None:

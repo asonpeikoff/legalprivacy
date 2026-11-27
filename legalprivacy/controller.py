@@ -49,7 +49,7 @@ def wipe_old_log_files() -> None:
             pass
 
 
-APP_DEFAULTS = {"migrated_ason": False, "migrated_share": False, "migrated_tb_lane": False, "migrated_cookie_day": False, "observe": True, "update_check": True, "autostart": True, "open_browser": True, "port": 8765, "intensity": "normal",
+APP_DEFAULTS = {"migrated_ason": False, "migrated_share": False, "migrated_tb_lane": False, "migrated_cookie_day": False, "observe": True, "update_check": True, "auto_update": True, "autostart": True, "open_browser": True, "port": 8765, "intensity": "normal",
                 "auto_refresh_sources": False,   # off: use the snapshot shipped with the app (no lookups)
                 "ml_auto": False, "ml_history": [],
                 "clear_logs_on_restart": True,   # on start, clear Live Log and Activity entries older than…
@@ -94,6 +94,27 @@ def move_old_defaults(profile) -> list[str]:
         if base and dns.budget_per_day < 3 * base:
             dns.budget_per_day = 3 * base
             moved.append("DNS lookups: More")
+    return moved
+
+
+def move_old_defaults_v4(profile) -> list[str]:
+    """Once more: settings still on what version 2.20 or older used as its default move to the new default (a saved
+    settings file holds every value, so an old default looks like a choice; these were not)."""
+    moved = []
+    rc = profile.relay
+    if rc.practice and not rc.acknowledged:
+        rc.practice, rc.acknowledged, rc.enabled = False, True, True
+        moved.append("relay: public non-exit relay instead of practice mode")
+    if profile.dns.mode == "mix" and abs(float(profile.dns.system_share) - 0.85) < 1e-9:
+        profile.dns.mode, profile.dns.encrypted = "secure", True
+        moved.append("DNS: secure resolvers, encrypted")
+    tc = getattr(profile, "traffic", None)
+    if tc is not None and abs(float(tc.onion) - 40.0) < 1e-9:
+        tc.onion = 100.0
+        moved.append("Tor onion visits: as much as the browser pages")
+    if not profile.extras.duck_chat:
+        profile.extras.duck_chat = True
+        moved.append("chat noise on duck.ai: on")
     return moved
 
 
@@ -154,6 +175,8 @@ class Controller:
         self._stop = threading.Event()
         self._lock = threading.RLock()
         self.wanted_running = False                  # set by Start, cleared by Stop: what the keep-alive watchdog keeps true
+        from .autoinstall import Installer
+        self.installer = Installer(self.log)          # installs a missing noise browser by itself (see autoinstall.py)
         from .keepalive import TICK_SECONDS, KeepAlive
         self._keepalive = KeepAlive(self)
 
@@ -195,6 +218,9 @@ class Controller:
             if not self.app.get("migrated_defaults_v3"):
                 self._moved_defaults = move_old_defaults(self.profile)
                 self.app["migrated_defaults_v3"] = True
+            if not self.app.get("migrated_defaults_v4"):
+                self._moved_defaults = list(getattr(self, "_moved_defaults", None) or []) + move_old_defaults_v4(self.profile)
+                self.app["migrated_defaults_v4"] = True
             if not self.app.get("migrated_cookie_day"):
                 cl = self.profile.transports.get("clearnet")
                 if cl is not None and cl.cookie_hours == 1.0:
@@ -319,7 +345,7 @@ class Controller:
         return self.apply_config(json.loads(p.read_text(encoding="utf-8")))
 
     def update_app(self, raw: dict[str, Any]) -> None:
-        for k in ("autostart", "open_browser", "auto_refresh_sources", "ml_auto", "observe", "clear_logs_on_restart", "update_check"):
+        for k in ("autostart", "open_browser", "auto_refresh_sources", "ml_auto", "observe", "clear_logs_on_restart", "update_check", "auto_update"):
             if k in raw:
                 self.app[k] = bool(raw[k])
         if "log_keep_days" in raw:
@@ -342,9 +368,8 @@ class Controller:
                 or (self.tor.dns_port_cfg, self.tor.dns_lan, self.tor.dns_lan_addr) != (
                     cfg.dns_port, cfg.dns_lan, cfg.dns_lan_addr) \
                 or self.tor.share_browser != bool(cfg.share_browser) \
-                or (self.tor.exclude_nodes, self.tor.exclude_strict, self.tor.exclude_gov_names) != (
-                    [e.strip() for e in cfg.exclude_nodes if e.strip()], bool(cfg.exclude_strict),
-                    bool(cfg.exclude_gov_names)):
+                or (self.tor.exclude_nodes, self.tor.exclude_strict) != (
+                    [e.strip() for e in cfg.exclude_nodes if e.strip()], bool(cfg.exclude_strict)):
             if self.tor and self.tor.state not in ("stopped",):
                 self.tor.stop()
             self.tor = TorManager(self.log, mode=mode, socks=cfg.socks, control=cfg.control,
@@ -353,7 +378,7 @@ class Controller:
                                   bridge_mode=cfg.bridge_mode, bridge_auto=cfg.bridge_auto,
                                   dns_port=cfg.dns_port, dns_lan=cfg.dns_lan, dns_lan_addr=cfg.dns_lan_addr,
                                   exclude_nodes=cfg.exclude_nodes, exclude_strict=cfg.exclude_strict,
-                                  exclude_gov_names=cfg.exclude_gov_names, share_browser=cfg.share_browser)
+                                  share_browser=cfg.share_browser)
         return self.tor
 
     # ── DNS resolver table: health + verification ──────────────────────────
@@ -1000,6 +1025,7 @@ class Controller:
         d = tm.snapshot()
         d["enabled"] = self._tor_cfg().enabled
         d["circuits"] = tm.circuits()
+        d["version_status"], d["alert"] = tm.version_status, tm.alert
         d["selftest"] = getattr(self, "tor_test", None)
         d["dns_test"] = getattr(self, "_dns_test", None)
         return d
@@ -1029,20 +1055,6 @@ class Controller:
                                          if res["ok"] else res["error"]))
         return res
 
-    def avoid_info(self, refresh: bool = False) -> dict:
-        """Relays currently avoided because they look governmental (from the last daily scan)."""
-        from . import relayfilter
-        from .paths import tor_dir
-        path = tor_dir() / "avoid_by_name.json"
-        if refresh:
-            relayfilter.refresh(path, max_age=0)
-        found = relayfilter.cached(path)
-        try:
-            at = json.loads(path.read_text()).get("at") if path.exists() else None
-        except (OSError, ValueError):
-            at = None
-        return {"count": len(found), "at": at, "relays": found[:60]}
-
     # ── is this copy out of date? ────────────────────────────────────────────
     def update_state(self) -> dict:
         return {"enabled": bool(self.app.get("update_check", True)), "version": __version__,
@@ -1065,10 +1077,20 @@ class Controller:
     def update_watch(self) -> None:
         """Ask GitHub once at start-up and then twice a day."""
         def loop():
+            from . import selfupdate
+            time.sleep(600)                                   # not while everything is starting
             while True:
                 if self.app.get("update_check", True):
                     self.update_check()
-                time.sleep(43200)
+                try:
+                    selfupdate.run_once(self, __version__)    # the downloaded program keeps itself on the newest release
+                except Exception as exc:
+                    self.log.info("app", f"Self-update check failed: {exc!r}")
+                try:
+                    self.tor_manager().refresh_if_newer()     # and so does the Tor the app runs
+                except Exception as exc:
+                    self.log.info("tor", f"Tor update check failed: {exc!r}")
+                time.sleep(21600)
         threading.Thread(target=loop, daemon=True, name="update-watch").start()
 
     # ── Tor Browser (for your own private browsing) ──────────────────────────
@@ -1269,14 +1291,17 @@ class Controller:
                                   body.get("password") or None, body.get("passphrase") or None)
 
     def relay_autostart(self) -> None:
-        """Called once when the app opens. Starts the relay if 'start with the app' is on (the default). Out of the
-        box that is practice mode: loopback only, nothing published. A public relay starts only after its
-        checklist was completed once."""
+        """Called once when the app opens. Starts the relay if 'start with the app' is on (the default): a public
+        NON-exit relay (it carries other people's Tor traffic, never exits anything). Practice mode (loopback only,
+        nothing published) is an option, not the default. Switch it all off on the Tor tab."""
         rc = self.profile.relay
         if rc.autostart and (rc.practice or rc.acknowledged):
             if not self.relay._find_binary():            # default-on: stay quiet until Tor has been installed once
                 self.log.info("relay", "Relay not started: Tor is not installed yet (it installs the first time you start Tor).")
                 return
+            if not rc.practice:
+                self.log.info("relay", "Starting the Tor relay: it lists this computer's address in Tor's public relay list and "
+                                       "carries other people's encrypted Tor traffic (never an exit). Turn it off on the Tor tab.")
             try:
                 self.relay.start(rc.spec())
             except Exception as exc:
@@ -1316,7 +1341,7 @@ class Controller:
             return None
         if cfg.browser_engine == "mine":                 # your own Firefox, on a copy of your settings and add-ons
             from . import realfirefox as RF
-            ok, why = RF.support()
+            ok, why = RF.support(cfg.firefox_path)
             if ok:
                 from . import useragents as _ua
                 _ua.set_firefox_engine(None)
@@ -1328,6 +1353,8 @@ class Controller:
                     on_event=lambda lvl, msg: self.log.add(lvl, "browser", msg),
                     alt_factory=lambda: self._own_browsers_transport(stop))
             self.log.info("browser", f"Using the app's own browsers instead of your Firefox: {why}.")
+            if why.startswith("the 'selenium' package") and not getattr(sys, "frozen", False):
+                self.installer.ensure("selenium", self._after_install)       # then your own Firefox can be used
         return self._own_browsers_transport(stop)
 
     def _own_browsers_transport(self, stop: threading.Event):
@@ -1335,9 +1362,11 @@ class Controller:
         cfg = self.profile.transports["clearnet"]
         info = self.browser_info()
         if not info["active"]:
+            if info["detail"].startswith("No Chrome, Edge"):
+                self.installer.ensure("chromium", self._after_install)       # no browser at all: fetch Playwright's
             if cfg.browser == "on":
                 self.log.warn("browser", f"Real-browser mode is on but unavailable: {info['detail']}. "
-                                         "Using plain HTTP instead.")
+                                         "Using plain HTTP instead until a browser is installed.")
             return None
         from .browser import BrowserTransport, MixedBrowserTransport, find_playwright_firefox
         mix = cfg.browser_engine in ("mix", "mine")
@@ -1363,8 +1392,10 @@ class Controller:
         ff = make("firefox") if find_playwright_firefox() else None
         from . import useragents as _ua
         _ua.set_firefox_engine(ff is not None)          # Firefox leads when it is there; none claim it when it isn't
+        if ff is None:
+            self.installer.ensure("firefox", self._after_install)            # the mix wants a second browser: fetch it
         self.log.info("browser", "Mixing browsers: Chromium" + (" and Firefox." if ff else
-                      " only (Firefox isn't installed for the noise browser: run python -m playwright install firefox)."))
+                      " only for now (Firefox for the noise browser is being installed)."))
         return MixedBrowserTransport(make("chromium"), ff)
 
     def _interest_share(self) -> float:
@@ -1391,8 +1422,9 @@ class Controller:
         if want == "auto":
             want = "firefox" if "Firefox/" in self.profile.identity.own_ua else "chromium"
         if want == "firefox" and not find_playwright_firefox():
-            self.log.warn("browser", "Firefox engine wanted, but Playwright's Firefox isn't installed "
-                                     "(run: python -m playwright install firefox). Using Chromium.")
+            self.installer.ensure("firefox", self._after_install)
+            self.log.warn("browser", "Firefox engine wanted, but Playwright's Firefox isn't installed: installing it now. "
+                                     "Using Chromium until then.")
             return "chromium"
         return want
 
@@ -1716,6 +1748,14 @@ class Controller:
         if DNS_OPTIONS["encrypted"]:
             ips = [i for i in ips if i in DOT_HOSTS] or list(DOT_HOSTS)
         return ips
+
+    def _after_install(self, ok: bool) -> None:
+        """A browser or package was just installed: restart the noise once so it is used."""
+        if ok and self.running and self.wanted_running:
+            try:
+                self.restart_for_keepalive()
+            except Exception as exc:
+                self.log.warn("browser", f"Could not restart after the install: {exc}")
 
     def restart_for_keepalive(self) -> None:
         """Stop and start the noise again (the keep-alive watchdog's way of freeing a stuck run), staying 'wanted'."""

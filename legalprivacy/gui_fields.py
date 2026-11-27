@@ -20,6 +20,7 @@ FIELDS: dict[str, tuple[tuple, str]] = {
     "engine": (("transports", "clearnet", "browser_engine"), "str"),
     "cookie_vary": (("transports", "clearnet", "cookie_vary"), "bool"),
     "proxy": (("transports", "clearnet", "proxy"), "optstr"),
+    "firefox_path": (("transports", "clearnet", "firefox_path"), "str"),
     "clearnet_enabled": (("transports", "clearnet", "enabled"), "bool"),
     "tor_enabled": (("transports", "tor", "enabled"), "bool"), "tor_onion": (("transports", "tor", "onion"), "bool"),
     "tor_onion_browser": (("transports", "tor", "onion_browser"), "bool"),
@@ -65,7 +66,7 @@ FIELDS: dict[str, tuple[tuple, str]] = {
     "mylist_sites": (("mylist", "sites"), "raw"), "mylist_weights": (("mylist", "weights"), "raw"),
 }
 DNS_DEFAULT_PORT = 19053        # same as tordns.DEFAULT_PORT (this module stays free of other imports)
-APP_KEYS = ("autostart", "clear_logs_on_restart", "observe", "auto_refresh_sources", "ml_auto")
+APP_KEYS = ("autostart", "clear_logs_on_restart", "observe", "auto_refresh_sources", "ml_auto", "auto_update")
 
 
 def cookie_to_hours(value: float, unit: str) -> float:
@@ -157,6 +158,7 @@ def profile_values(profile, app: dict) -> dict:
         "ua_choice": ua_choice_from_identity(profile.identity.ua_mode, profile.identity.rotate_every,
                                              profile.identity.ua_pin),
         "autostart": bool(app.get("autostart")),
+        "auto_update": app.get("auto_update", True) is not False,
         "clear_logs_on_restart": bool(app.get("clear_logs_on_restart", True)),
         "log_keep_days": int(app.get("log_keep_days", 7)),
         "observe": bool(app.get("observe", True)), "auto_refresh_sources": bool(app.get("auto_refresh_sources")),

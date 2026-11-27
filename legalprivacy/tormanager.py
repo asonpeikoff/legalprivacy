@@ -25,7 +25,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from .config import valid_bridge_line
+from .config import BANNED_RELAYS, valid_bridge_line
 from .events import EventLog
 from .paths import tor_dir
 from . import tordns
@@ -151,11 +151,10 @@ class TorManager:
                  bridge_mode: str = "off", bridge_auto: bool = True,
                  auto_install: bool = True, dns_port: int = 0, dns_lan: bool = False,
                  dns_lan_addr: str = "", exclude_nodes: list[str] | None = None, exclude_strict: bool = False,
-                 exclude_gov_names: bool = False, share_browser: bool = False):
+                 share_browser: bool = False):
         self.log = log
         self.share_browser = bool(share_browser)
         self.user_socks_port = 0
-        self.exclude_gov_names = bool(exclude_gov_names)
         self.exclude_nodes = [e.strip() for e in (exclude_nodes or []) if e.strip()]
         self.exclude_strict = bool(exclude_strict)
         self.mode = mode                      # managed | external
@@ -176,6 +175,10 @@ class TorManager:
         self.bootstrap_pct = 0
         self.bootstrap_summary = ""
         self.version: str | None = None
+        self.version_status: str | None = None   # Tor's own verdict on its version: recommended | new | old | unrecommended | obsolete...
+        self.alert: str | None = None            # shown in red until the problem is gone (an obsolete Tor, a failed update)
+        self._version_checked = False
+        self._upgrading = False
         self.binary: str | None = None
         self.pid: int | None = None
         self.started_at: float | None = None
@@ -213,6 +216,7 @@ class TorManager:
                 return
             self._stop_evt.clear()
             self.error = None
+            self._version_checked = False
             self._worker = threading.Thread(target=self._bring_up, daemon=True, name="tor-start")
             self._worker.start()
 
@@ -358,11 +362,21 @@ class TorManager:
             self.binary = find_tor_binary()
             if not self.binary:
                 raise RuntimeError("Tor installation did not produce a usable binary.")
+        own = tor_dir() / "bundle" / "tor" / _EXE
+        if self.auto_install and Path(self.binary) != own:
+            # The Tor on this computer (a distribution package, Tor Browser's copy) is usually behind. The app runs its own
+            # up-to-date Tor, installed with the signature checked; the other one is only used if that is impossible.
+            self.log.info("tor", "Installing the app's own current Tor (the one on this computer may be out of date)…")
+            self.state = "installing"
+            try:
+                self._install()
+                self.binary = find_tor_binary()
+            except Exception as exc:
+                self.alert = (f"Could not install the current official Tor ({exc}); using the Tor already on this computer, "
+                              "which may be out of date.")
+                self.log.warn("tor", self.alert)
+            self.state = "starting"
         self._maybe_update_bundle()
-        if self.exclude_gov_names:
-            from . import relayfilter
-            found = relayfilter.refresh(tor_dir() / "avoid_by_name.json")
-            self.log.info("tor", f"Avoiding {len(found)} relay(s) that look governmental by name or contact.")
         if self._stop_evt.is_set():
             return
         self.state = "starting"
@@ -427,13 +441,11 @@ class TorManager:
             lines.append(dns_line)
         from .config import valid_exclude_entry
         excl = [e if e.startswith("{") else "$" + e.lstrip("$") for e in self.exclude_nodes if valid_exclude_entry(e)]
-        if self.exclude_gov_names:
-            from . import relayfilter
-            excl += ["$" + r["fingerprint"] for r in relayfilter.cached(tor_dir() / "avoid_by_name.json")]
+        excl += ["$" + fp for fp in BANNED_RELAYS if "$" + fp not in excl]     # relays banned for good (see config.BANNED_RELAYS)
         if excl:                                  # relays you don't trust: Tor avoids them for every hop it can
-            lines += ["ExcludeNodes " + ",".join(excl), f"StrictNodes {1 if self.exclude_strict else 0}"]
-            self.log.info("tor", f"Avoiding {len(excl)} relay(s)/countries you listed"
-                                 f"{' (strictly)' if self.exclude_strict else ''}.")
+            lines += ["ExcludeNodes " + ",".join(excl), "StrictNodes 1" if (self.exclude_strict or BANNED_RELAYS) else "StrictNodes 0"]
+            self.log.info("tor", f"Avoiding {len(excl)} relay(s)/countries ({len(BANNED_RELAYS)} banned for good, the rest you listed)"
+                                 f"{' (strictly)' if self.exclude_strict or BANNED_RELAYS else ''}.")
         bundle_data = Path(self.binary).resolve().parent.parent / "data"
         for name, key in (("geoip", "GeoIPFile"), ("geoip6", "GeoIPv6File")):
             if (bundle_data / name).exists():
@@ -585,7 +597,62 @@ class TorManager:
         if ctrl:
             ctrl.close()
 
+    # Tor's own word for each version: it compares itself with the list the directory authorities publish.
+    GOOD_VERSION = ("recommended", "new", "new in series")
+
+    def _check_version(self, c: TorControl) -> None:
+        """Once per start: ask Tor whether its version is still supported. An obsolete Tor is not acceptable: say so loudly,
+        install the current official Tor (its signature checked) and restart on it."""
+        if self._version_checked:
+            return
+        self._version_checked = True
+        try:
+            status = (c.getinfo("status/version/current") or "").strip().lower()
+        except TorControlError:
+            return
+        self.version_status = status
+        if status in self.GOOD_VERSION or not status:
+            self.alert = None
+            return
+        own = tor_dir() / "bundle" / "tor" / _EXE
+        using_own = bool(self.binary) and Path(self.binary) == own
+        why = (f"The Tor in use ({self.version or 'unknown version'}) is {status}: the Tor network no longer fully supports it, "
+               "which can make onion visits fail even though Tor says it is connected.")
+        if self.mode != "managed" or not self.auto_install or using_own:
+            self.alert = why + (" This is the newest official Tor the app can install, so the Tor network itself may be "
+                                "changing: check torproject.org." if using_own else
+                                " Update it, or let the app run its own verified Tor (Tor tab).")
+            self.log.error("tor", "PANIC: " + self.alert)
+            return
+        self.alert = why + " Installing the current official Tor now (its signature is checked)."
+        self.log.error("tor", "PANIC: " + self.alert)
+        self._upgrade_tor()
+
+    def _upgrade_tor(self) -> None:
+        with self._lock:
+            if self._upgrading:
+                return
+            self._upgrading = True
+
+        def run() -> None:
+            try:
+                self._install()                                   # official bundle: signature and checksum checked
+                self.binary = find_tor_binary()                   # the app's own copy comes first from now on
+                self.log.info("tor", "The current Tor is installed and verified. Restarting Tor on it.")
+                self.alert = "Tor was out of date; it is being replaced with the current official version and restarted."
+                self.restart()
+            except Exception as exc:
+                self.alert = (f"Tor is out of date and the update failed: {exc}. Fix that (for example install GnuPG, "
+                              "or check the network) and restart Tor; the app tries again in six hours.")
+                self.log.error("tor", "PANIC: " + self.alert)
+                threading.Timer(6 * 3600, lambda: setattr(self, "_version_checked", False)).start()
+            finally:
+                self._upgrading = False
+        threading.Thread(target=run, daemon=True, name="tor-upgrade").start()
+
     def _poll(self, c: TorControl) -> None:
+        if self.state == "ready":
+            self._check_version(c)
         phase = c.getinfo("status/bootstrap-phase")
         m = re.search(r"PROGRESS=(\d+)", phase)
         if m and self.mode == "managed":
@@ -659,6 +726,50 @@ class TorManager:
         except Exception as exc:                  # offline or the site is down: carry on with what is installed
             self.log.info("tor", f"Couldn't check for a newer Tor ({exc}); using the installed one.")
 
+    def _verify_sums_signature(self, sums: bytes, sig: bytes) -> None:
+        """The checksum file must carry a valid OpenPGP signature from the Tor Browser Developers key (the fingerprint is
+        pinned in torbrowser.py); then the bundle's checksum is checked against it. No GnuPG, no valid signature: no install."""
+        import tempfile
+
+        from . import torbrowser as TB
+        try:
+            key = TB._http_get(TB.KEY_URL)
+            with tempfile.TemporaryDirectory(prefix="lp-tor-") as d:
+                (Path(d) / "sums").write_bytes(sums)
+                (Path(d) / "sums.asc").write_bytes(sig)
+                TB.verify_signature(Path(d) / "sums", Path(d) / "sums.asc", key)
+        except TB.TorBrowserError as exc:
+            raise RuntimeError(f"the signature on Tor's checksum file could not be verified ({exc})") from exc
+        self.log.info("tor", "Signature on the checksum file verified (Tor Browser Developers key).")
+
+    def refresh_if_newer(self) -> bool:
+        """While Tor runs: if a newer official Tor exists, install it (checked) and restart Tor on it. True if it did."""
+        own = tor_dir() / "bundle" / "tor" / _EXE
+        if not self.auto_install or self.mode != "managed" or self.state != "ready" or self._upgrading:
+            return False
+        if not self.binary or Path(self.binary) != own:
+            return False
+        key = platform_key()
+        if not key:
+            return False
+        ver, _ = self._pick_bundle(*key)
+        have = self.bundle_version()
+        if have is not None and _version_key(ver) <= _version_key(have):
+            return False
+        self.log.info("tor", f"A newer Tor is out ({have or 'unknown'} -> {ver}). Installing it and restarting Tor on it.")
+        with self._lock:
+            self._upgrading = True
+        try:
+            self._install()
+            self.binary = find_tor_binary()
+            self.restart()
+            return True
+        except Exception as exc:
+            self.log.warn("tor", f"Could not update Tor: {exc}")
+            return False
+        finally:
+            self._upgrading = False
+
     def _install(self) -> None:
         key = platform_key()
         if not key:
@@ -668,7 +779,9 @@ class TorManager:
         self.install_progress = 0.02
         self.log.info("tor", f"Looking up latest Tor Expert Bundle for {osn}-{arch}…")
         ver, fname = self._pick_bundle(osn, arch)
-        sums = _http_get(f"{DIST_BASE}{ver}/sha256sums-signed-build.txt").decode()
+        sums_raw = _http_get(f"{DIST_BASE}{ver}/sha256sums-signed-build.txt")
+        self._verify_sums_signature(sums_raw, _http_get(f"{DIST_BASE}{ver}/sha256sums-signed-build.txt.asc"))
+        sums = sums_raw.decode()
         want = next((ln.split()[0] for ln in sums.splitlines() if ln.strip().endswith(fname)), None)
         if not want:
             raise RuntimeError(f"No published checksum for {fname}; refusing to install")

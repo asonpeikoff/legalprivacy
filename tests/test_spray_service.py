@@ -113,3 +113,63 @@ def test_a_chromium_without_a_google_key_does_not_keep_asking_safe_browsing_for_
     from pathlib import Path
     src = (Path(__file__).parent.parent / "legalprivacy" / "browser.py").read_text(encoding="utf-8")
     assert '"--log-level=3"' in src and '"--safebrowsing-disable-auto-update"' in src and 'if "chromium" in exe' in src
+
+
+def test_the_browsers_do_not_chatter_about_safe_browsing_or_the_accessibility_bus():
+    import os
+    from pathlib import Path
+    src = (Path(__file__).parent.parent / "legalprivacy" / "browser.py").read_text(encoding="utf-8")
+    assert "firefox_user_prefs=sb_off" in src and "browser.safebrowsing.malware.enabled" in src
+    import legalprivacy  # noqa: F401
+    assert os.environ.get("NO_AT_BRIDGE") == "1"
+
+
+class _Log:
+    def __init__(self):
+        self.lines = []
+
+    def info(self, _a, m):
+        self.lines.append(("info", m))
+
+    def warn(self, _a, m):
+        self.lines.append(("warn", m))
+
+
+def test_a_missing_browser_is_installed_in_the_background_once_and_a_failure_is_retried_later(monkeypatch):
+    import threading
+
+    from legalprivacy import autoinstall as AI
+    monkeypatch.setenv("LEGALPRIVACY_AUTOINSTALL", "1")
+    ran, done = [], threading.Event()
+
+    class R:
+        returncode = 0
+        stderr = ""
+    now = [1000.0]
+    inst = AI.Installer(_Log(), run=lambda cmd, **k: ran.append(cmd) or R(), clock=lambda: now[0])
+    results = []
+
+    def fin(ok):
+        results.append(ok)
+        done.set()
+    assert inst.ensure("firefox", fin) is True
+    assert done.wait(5) and results == [True] and ran and ran[0][-2:] == ["install", "firefox"]
+    assert inst.ensure("firefox") is False                       # done: not again
+    assert inst.status("firefox") == "ok"
+
+    class Bad:
+        returncode = 1
+        stderr = "network is unreachable"
+    inst2 = AI.Installer(_Log(), run=lambda cmd, **k: Bad(), clock=lambda: now[0])
+    done.clear()
+    assert inst2.ensure("chromium", lambda ok: done.set()) and done.wait(5)
+    assert inst2.status("chromium") == "failed" and inst2.ensure("chromium") is False       # not at once...
+    now[0] += AI.RETRY_AFTER + 1
+    assert inst2.ensure("chromium") is True                      # ...but after six hours, yes
+    assert any("Could not install" in m for _l, m in inst2.log.lines)
+
+
+def test_installing_is_off_in_tests_and_by_the_switch(monkeypatch):
+    from legalprivacy import autoinstall as AI
+    monkeypatch.setenv("LEGALPRIVACY_AUTOINSTALL", "0")
+    assert AI.Installer(_Log()).ensure("firefox") is False

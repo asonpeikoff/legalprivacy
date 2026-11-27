@@ -126,12 +126,10 @@ profile:
 request. Contributing bandwidth back keeps Tor fast for everyone and is the
 community-minded counterpart to consuming it.
 
-> Accuracy note: Tor has no "DNS node" role: only exit relays resolve names for
-> other people. A middle/bridge relay carries the traffic (including the DNS
-> requests on their way to an exit) but resolves nothing. The "DNS helper" mode
-> is an exit whose policy allows only port 53 of two Quad9 addresses (it answers
-> RESOLVE requests, exits nothing else). With no web ports it gets no Exit flag,
-> so few clients choose it; real but modest help. Practice mode by default.
+> Accuracy note: Tor has no "DNS node" role: only exit relays resolve names for the open internet, and this app never
+> runs one. A middle/bridge relay carries the traffic (including the DNS requests on their way to an exit) but resolves
+> nothing. What plays the DNS role for onion sites is the HSDir flag: a public middle relay that stays up for several days
+> is given it and then stores and serves onion-service descriptors.
 
 ## Stealth / traffic strategies
 

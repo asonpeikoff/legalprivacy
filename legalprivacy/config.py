@@ -30,6 +30,14 @@ _BRIDGE_LINE = re.compile(r"^(?:[A-Za-z_][A-Za-z0-9_]*\s+)?(?:\d{1,3}(?:\.\d{1,3
                           r"(?:\s+[^\x00-\x1f\x7f]*)?$")
 
 
+# Relays banned for good, by identity fingerprint (Tor never builds a circuit through them). Added at the owner's request:
+#   5C62A7A4BFD24D61034499857C4B5E437CD2361F  the relay named "CIA" (a Guard in Luxembourg, contact at a hosting company;
+#   probably a joke name, but it is not worth the doubt).
+# This is a short, hand-kept list on purpose: guessing from names is no basis for banning (see CHANGELOG), and a list from
+# someone else is only worth using if it is known to list bad relays, not to nudge people toward the good ones.
+BANNED_RELAYS = {"5C62A7A4BFD24D61034499857C4B5E437CD2361F": 'relay named "CIA"'}
+
+
 def valid_bridge_line(line: str) -> bool:
     return isinstance(line, str) and len(line) <= 1000 and bool(_BRIDGE_LINE.match(line.strip()))
 
@@ -65,6 +73,7 @@ class TransportConfig:
                                       # only where the system allows it) | visible (watch it work)
     browser_visible: bool = False     # derived from browser_window (kept for older settings files)
     browser_offscreen: bool = False   # derived from browser_window
+    firefox_path: str = ""            # clearnet: where your own Firefox is, if the app cannot find it by itself ("" = find it)
     browser_engine: str = "mine"      # clearnet: mine (default: your own Firefox, on a copy of your profile; else mix) | mix | auto | chromium | firefox
     cookie_hours: float = 24.0        # clearnet: keep browser cookies this long (a day: consent choices and 'returning visitor' state, like a real user), then start fresh (0 = never keep)
     cookie_vary: bool = True          # clearnet: each jar lives 60-140% of cookie_hours, so wipes aren't on a fixed beat
@@ -87,7 +96,6 @@ class TransportConfig:
     dns_lan: bool = False             # share Tor DNS on one private network address (off; loopback only by default)
     dns_lan_addr: str = ""            # which of this computer's private addresses, when dns_lan is on
     exclude_nodes: list[str] = field(default_factory=lambda: ["{us}"])   # relays (fingerprints) or countries Tor avoids
-    exclude_gov_names: bool = True    # also avoid relays that look governmental by name or .gov/.mil contact
     share_browser: bool = True        # Tor Browser (opened from this app) uses this app's Tor, so your own browsing and the noise share one Tor
     exclude_strict: bool = True       # never use them, even if that means Tor can't connect (turn off if Tor won't connect)
 
@@ -96,6 +104,8 @@ class TransportConfig:
             raise ConfigError(f"transport '{name}': browser must be auto, on or off")
         if self.browser_window not in ("hidden", "offscreen", "visible"):
             raise ConfigError(f"transport '{name}': browser_window must be hidden, offscreen or visible")
+        if self.firefox_path and not os.path.isfile(os.path.expanduser(self.firefox_path)):
+            raise ConfigError(f"transport '{name}': the Firefox path you gave does not exist: {self.firefox_path}")
         if self.browser_engine not in ("mine", "mix", "auto", "chromium", "firefox"):
             raise ConfigError(f"transport '{name}': browser_engine must be mine, mix, auto, chromium or firefox")
         if self.bridge_mode not in ("off", "obfs4", "snowflake", "meek", "custom"):
@@ -125,25 +135,24 @@ def valid_exclude_entry(entry: str) -> bool:
 
 @dataclass
 class RelayConfig:
-    enabled: bool = False
-    mode: str = "middle"              # middle | bridge | dns (an exit that only does DNS) — never a general exit
+    enabled: bool = True
+    mode: str = "middle"              # middle | bridge — NEVER an exit
     nickname: str = "legalprivacy"
     contact: str | None = None
     bandwidth_rate: str = "5Mbit"
     or_port: int = 9001
     dir_port: int = 9030
-    practice: bool = True             # practice mode: loopback only, nothing published (the safe first run)
-    autostart: bool = True            # start the relay with the app. On by default, but only ever in practice mode
-                                      # (loopback, nothing published); a public relay still needs the checklist once
-    acknowledged: bool = False        # the checklist was completed once (needed for autostart)
+    practice: bool = False            # practice mode: loopback only, nothing published (an option; not the default)
+    autostart: bool = True            # start the relay with the app (on by default: a public non-exit relay)
+    acknowledged: bool = True         # the checklist's facts were accepted (on by default; the Tor tab explains them)
     private: bool = False             # bridge only: a private bridge for your own use, not handed out to anyone else
 
     def validate(self) -> None:
         from .relay import RelayConfigError
-        if self.mode not in ("middle", "bridge", "dns"):
+        if self.mode not in ("middle", "bridge"):
             raise ConfigError(
-                "contribute.relay.mode must be 'middle', 'bridge' or 'dns' (a DNS-only helper); "
-                "legalPrivacy never runs a general exit node"
+                "contribute.relay.mode must be 'middle' or 'bridge'; "
+                "legalPrivacy never runs an exit node"
             )
         try:             # one set of rules (including the line-break checks) for every way a torrc is made
             self.spec().validate()
@@ -318,7 +327,7 @@ class TrafficConfig:
     pattern: str = "drift"        # drift (default) | blend | alternate
     browser: float = 100.0        # clearnet pages in a real browser (relative weight)
     plain: float = 0.0            # clearnet pages over plain HTTP (no JavaScript, no scrolling)
-    onion: float = 40.0           # Tor .onion sites (only when Tor is on)
+    onion: float = 100.0          # Tor .onion sites (only when Tor is on): as much as the browser pages
     mobile_share: float = 0.10    # share of noise identities that are phones (emulated on this computer, so kept low)
     device: str = "iPhone 13"     # phone to emulate, or "mix"
 
@@ -512,6 +521,8 @@ def apply_overrides(profile: Profile, raw: dict[str, Any]) -> Profile:
     contribute = p.get("contribute") or {}
     if "relay" in contribute:
         merged = profile.relay.__dict__ | contribute["relay"]
+        if merged.get("mode") == "dns":                         # the older "DNS helper" (an exit) is gone: it becomes a middle relay
+            merged["mode"] = "middle"
         try:
             for k in ("or_port", "dir_port"):
                 merged[k] = int(merged[k])

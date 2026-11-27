@@ -283,7 +283,16 @@ class BrowserTransport(Transport):
             # Firefox (Gecko): its own TLS/HTTP fingerprint, the same as people browsing with Firefox.
             self._pw = sync_playwright().start()
             try:
-                self._browser = self._pw.firefox.launch(headless=self.headless,
+                # A Firefox build without Mozilla's Safe Browsing key gets "400" from its list updates and logs it again and
+                # again, so those updates are off for this browser (the lists only protect against bad pages).
+                sb_off = {"browser.safebrowsing.malware.enabled": False, "browser.safebrowsing.phishing.enabled": False,
+                          "browser.safebrowsing.downloads.enabled": False,
+                          "browser.safebrowsing.downloads.remote.enabled": False,
+                          "browser.safebrowsing.blockedURIs.enabled": False,
+                          "browser.safebrowsing.provider.google.updateURL": "",
+                          "browser.safebrowsing.provider.google4.updateURL": "",
+                          "browser.safebrowsing.provider.google5.updateURL": ""}
+                self._browser = self._pw.firefox.launch(headless=self.headless, firefox_user_prefs=sb_off,
                                                         proxy={"server": self.proxy} if self.proxy else None)
             except Exception:
                 self._drop_driver()

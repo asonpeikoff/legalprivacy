@@ -16,6 +16,9 @@ from __future__ import annotations
 import time
 
 STALL_SECONDS = 20 * 60
+TOR_FAILING_SECONDS = 4 * 60      # Tor is up, onion visits are being tried and none has worked for this long
+TOR_SILENT_SECONDS = 10 * 60      # Tor is up and none was even tried for this long (while some are due)
+TOR_RESTART_EVERY = 30 * 60       # Tor itself is restarted at most this often
 TICK_SECONDS = 30
 RESTARTS_PER_HOUR = 6
 
@@ -26,12 +29,45 @@ class KeepAlive:
         self._restarts: list[float] = []
         self._last_tick = clock()
         self._grace_until = 0.0
+        self._tor_nudged_at = 0.0
+        self._tor_restart_at = -1e9
+        self._tor_nudges = 0
 
     def enabled(self) -> bool:
         try:
             return bool(self.ctl.profile.extras.keep_alive)
         except AttributeError:
             return True
+
+    def _tor_check(self, r, now: float) -> str | None:
+        """Tor says it is connected but onion visits are not working: after 4 minutes of failures (or 10 minutes in which none was
+        even tried while some are due) ask Tor for fresh circuits; if that does not help 4 minutes later, restart Tor (not more
+        than every 30 minutes). Never stops anything."""
+        lane = next((ln for ln in r.lanes if ln.name == "tor"), None)
+        if lane is None or not lane.open or "onion" not in lane.engines or lane.budgets["onion"].exhausted \
+                or not getattr(r, "hour_target", 0):
+            return None
+        idle = time.time() - max(getattr(r, "last_onion_ok", 0.0), getattr(r, "started_at", 0.0))
+        limit = TOR_FAILING_SECONDS if getattr(r, "onion_streak", 0) > 0 else TOR_SILENT_SECONDS
+        if idle < limit:
+            self._tor_nudges = 0
+            return None
+        if now - self._tor_nudged_at < limit:
+            return None
+        level = 1 if self._tor_nudges == 0 else 2
+        if level == 2 and now - self._tor_restart_at < TOR_RESTART_EVERY:
+            level = 1                                    # a restart was done recently: fresh circuits only
+        self._tor_nudged_at = now
+        self._tor_nudges += 1
+        if level == 2:
+            self._tor_restart_at = now
+        self.ctl.log.warn("tor", f"Tor is connected but no onion visit has worked for {int(idle // 60)} minutes; "
+                                 + ("asking for fresh circuits." if level == 1 else "restarting Tor."))
+        try:
+            self.ctl._tor_trouble(level)
+        except Exception as exc:
+            self.ctl.log.warn("tor", f"Could not fix Tor: {exc}")
+        return "tor"
 
     def tick(self) -> str | None:
         """One check. Returns what it did ("restarted", "woke", "unstuck") or None, for the log and the tests."""
@@ -61,6 +97,9 @@ class KeepAlive:
             r.paused = False
             ctl.log.info("app", "The noise had paused itself. Woke it up (Settings > Keep it running).")
             return "woke"
+        did = self._tor_check(r, now)
+        if did:
+            return did
         if now >= self._grace_until and time.time() - r.last_beat > STALL_SECONDS:
             ctl.log.warn("app", f"The noise looks stuck (nothing moved for {STALL_SECONDS // 60} minutes). Restarting it.")
             try:

@@ -190,8 +190,6 @@ class UIServer:
                     return self._json({"error": "not found"}, 404)
                 ctl = srv.ctl
                 try:
-                    if u.path == "/api/avoid":
-                        return self._json(ctl.avoid_info(refresh=(q.get("refresh") or [""])[0] == "1"))
                     if u.path == "/api/update":
                         return self._json(ctl.update_state())
                     if u.path == "/api/torbrowser":
