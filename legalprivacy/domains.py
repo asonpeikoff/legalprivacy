@@ -80,8 +80,7 @@ class DomainPool:
         if self.interests is not None and self.rng.random() < self.interest_share:
             s = self.interests.site()
             host = s.split("/", 1)[0]
-            from .safety import english_host
-            if not safe_domain(host) or not english_host(host):
+            if not safe_domain(host):
                 return None
             return s if with_path else host
         return None
@@ -104,8 +103,7 @@ class DomainPool:
     def _ranked(self) -> list[str]:
         ranked = self.store.items("tranco") if self.store else []
         deny = self.store.denylist() if self.store else set()
-        from .safety import english_host
-        ranked = [d for d in ranked if safe_domain(d, deny) and english_host(d)
+        ranked = [d for d in ranked if safe_domain(d, deny)
                   and not (self.avoid_entertainment and is_entertainment_news(d))]
         return ranked or FALLBACK_DOMAINS
 

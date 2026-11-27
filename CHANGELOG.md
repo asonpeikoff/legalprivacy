@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **The noise no longer skips non-English sites.** The English-only filter (which skipped sites on country domains like `.de`, language sections like `/fr/`, and pages declaring a non-English `<html lang>`, and rested them for a week) is removed, so every language is visited like any other. The "not in English: moved on" activity-log line is gone.
+
 - **Load test (your own target), on the Tools tab.** Generates load from this one computer and graphs it live (requests/s, ok vs failed, bytes, latency p50/p90/p99). L7 sends real HTTP requests (GET/HEAD/POST); L4 opens real TCP connections. It never spoofs addresses or forges packets, there is no way to drive other machines from it, and it refuses government/Virginia address ranges. It will not start until you confirm you own the target or are authorised to test it, and it is capped (2000/s, 256 concurrent, 600 s; raise with the `LEGALPRIVACY_LOADTEST_*` environment variables). To load-test from several of your own machines, run the app on each and point them at the same target.
 
 - **Scraped files are easy to get to.** Tools → Scrape has an "Open folder" button (opens the last job's folder in your file manager) and lists the newest files it saved.

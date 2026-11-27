@@ -56,40 +56,4 @@ def safe_domain(domain: str, denylist: set[str] | None = None) -> bool:
     return True
 
 
-# ── English-language sites only ───────────────────────────────────────────────
-# Country domains of places where English isn't the main language of the web. Country codes that are
-# widely used as generic names (.io, .ai, .co, .me, .tv, .fm, .gg, .ly, .sh, .to, .rs, .so) are fine.
-_FOREIGN_TLDS = frozenset(["de", "at", "ch", "fr", "be", "lu", "es", "it", "pt", "nl", "pl", "cz", "sk", "hu", "ro", "bg", "gr", "tr", "ru", "ua", "by", "kz", "se", "no", "dk", "fi", "ee", "lv", "lt", "is", "hr", "si", "ba", "mk", "al", "md", "ge", "am", "az", "jp", "cn", "kr", "tw", "hk", "mo", "vn", "th", "id", "my", "kh", "la", "mm", "ir", "iq", "sa", "ae", "eg", "ma", "dz", "tn", "il", "br", "ar", "mx", "cl", "pe", "uy", "py", "bo", "ve", "ec", "cu", "do", "gt", "hn", "sv", "ni", "cr", "pa", "su", "рф"])
-# Language parts of an address: de.wikipedia.org, example.com/fr/, example.com/pt-br/
-_LANG_CODES = frozenset(["de", "fr", "es", "it", "nl", "pt", "ru", "ja", "jp", "zh", "cn", "ko", "kr", "pl", "sv", "se", "da", "dk", "fi", "cs", "cz", "hu", "ro", "bg", "el", "gr", "tr", "ar", "he", "fa", "th", "vi", "uk", "ua", "hr", "sr", "sl", "sk", "lt", "lv", "et"])
-_LANG_SEG_RE = re.compile(r"^([a-z]{2})(?:[-_][a-zA-Z]{2,4})?$")
-
-
-def english_host(host: str) -> bool:
-    """False for sites that are very likely in another language (.de, de.example.com, …)."""
-    labels = (host or "").lower().strip(".").split(".")
-    if len(labels) < 2 or labels[-1] in _FOREIGN_TLDS:
-        return False
-    return not (len(labels) >= 3 and labels[0] in _LANG_CODES)
-
-
-def english_path(path: str) -> bool:
-    """False for a language section of a site: /de/, /fr-fr/, /pt-br/… (/en/ and /en-gb/ are fine)."""
-    seg = (path or "/").lstrip("/").split("/", 1)[0]
-    m = _LANG_SEG_RE.match(seg)
-    return not (m and m.group(1).lower() in _LANG_CODES)
-
-
-def english_url(url: str) -> bool:
-    import urllib.parse
-    p = urllib.parse.urlparse(url)
-    return english_host(p.hostname or "") and english_path(p.path)
-
-
-_HTML_LANG_RE = re.compile(r"<html[^>]*\blang\s*=\s*[\"']?([A-Za-z]{2,3})", re.I)
-
-
-def page_language(html: str) -> str | None:
-    """The language a page declares (<html lang="de">), or None if it doesn't say."""
-    m = _HTML_LANG_RE.search((html or "")[:5000])
-    return m.group(1).lower() if m else None
+# (The app no longer skips non-English sites: every language is treated the same.)
