@@ -201,8 +201,17 @@ class OnionTargetFactory:
         # follows a link to an address nobody vetted, however a page links to it.
         self.allowed_hosts = {_host(u) for u in self.seeds}
 
+    def _dwell(self) -> float:
+        """How long a visit stays: mostly a quick look, sometimes a proper read, now and then a long one."""
+        r = self.rng.random()
+        if r < 0.55:
+            return self.rng.uniform(8, 30)
+        if r < 0.85:
+            return self.rng.uniform(40, 120)
+        return self.rng.uniform(150, 360)
+
     def make(self, identity=None) -> Target:
-        return Target(url=self.rng.choice(self.seeds), timeout=self.timeout)
+        return Target(url=self.rng.choice(self.seeds), timeout=self.timeout, dwell=self._dwell())
 
     def next_from(self, html: str, current_url: str) -> Target | None:
         parser = _LinkExtractor()
@@ -221,4 +230,4 @@ class OnionTargetFactory:
             if host != base_host and not (self.follow_offsite and host in self.allowed_hosts):
                 continue
             links.append(absu)
-        return Target(url=self.rng.choice(links), timeout=self.timeout) if links else None
+        return Target(url=self.rng.choice(links), timeout=self.timeout, dwell=self._dwell()) if links else None
