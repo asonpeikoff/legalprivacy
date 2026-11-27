@@ -25,7 +25,7 @@ cricket = "legalprivacy.cli:main"                 # old names, kept so existing 
 cricket-launch = "legalprivacy.launcher:main"
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+dev = ["pytest>=8.0", "pytest-timeout>=2.3"]
 desktop = ["pywebview>=5"]          # native window for the dashboard (legalprivacy-desktop)
 remote = ["paramiko>=3.4"]          # run the noise on other computers you own, over SSH (the Remote tab)
 parity = ["brotli>=1.1", "zstandard>=0.22"]   # lets the plain-HTTP lane read and advertise br and zstd like a current browser
@@ -63,3 +63,7 @@ ignore = [
 "legalprivacy/gui_logic.py" = ["F403", "F405", "F401"]   # re-exports gui_fields for the Tk modules
 "tests/__init__.py" = ["F401"]
 "tests/*" = ["SIM115", "B007", "B011"]       # throwaway handles and loop vars in tests are fine
+
+[tool.pytest.ini_options]
+timeout = 240          # a hung test dumps every thread's stack (naming the culprit) and ends the run, instead of stalling it for 40 minutes
+timeout_method = "thread"
