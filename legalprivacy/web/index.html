@@ -557,20 +557,6 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
       <div class="small mute" id="bNow"></div>
     </div>
   </div>
-  <div class="card" id="dnsCard"><h3><svg class="ic" aria-hidden="true"><use href="#i-wave"/></svg>Tor DNS (optional) <details class="why"><summary>ⓘ</summary><div>Tor can answer DNS lookups on a local port. Names are looked up by Tor <b>exit relays</b>, so this is a deliberate, narrow use of exits for DNS only. It does not change the Tor lane for noise, which stays onion-only. Only A (IPv4), AAAA (IPv6) and PTR (reverse) lookups work; other kinds, such as MX or TXT, are not handled.</div></details></h3>
-    <label class="chk"><input type="checkbox" id="dnsOn"><span><b>Answer DNS lookups through Tor</b> <span class="mute">(off by default; needs the Tor that legalPrivacy manages)</span></span></label>
-    <div id="dnsBody" style="display:none">
-      <div class="kv" id="dnsKv"></div>
-      <div class="row" style="margin-top:8px"><button id="dnsTest"><svg class="ic sm" aria-hidden="true"><use href="#i-check"/></svg>Test</button><span class="small" id="dnsOut"><span class="mute">Sends one real lookup for example.com through Tor and shows the answer and how long it took.</span></span></div>
-      <label class="chk"><input type="checkbox" id="dnsLan"><span><b>Also share it with other devices on my network</b> <span class="mute">(off; only on one private address you pick)</span></span></label>
-      <div class="row" id="dnsLanRow" style="display:none">Address <select id="dnsAddr"></select> <button id="dnsRefresh" title="Look at this computer's addresses again">Refresh list</button></div>
-      <div class="note bad" id="dnsLanWarn" style="display:none"><b>Warning.</b> Anyone on that network can use your Tor exits for DNS, and you are responsible for what they do. Never expose this to the internet; it is not an open resolver for the internet. Only share it on a network you trust, such as your own home.</div>
-      <details class="small" style="margin-top:6px"><summary>How to use it</summary><div class="mute">
-        <p>Your operating system sends DNS lookups to port 53, so it cannot use this port directly. To use Tor DNS for the whole computer you need a small local forwarder (for example <b>dnsmasq</b> or <b>unbound</b>) set up to forward to <b>127.0.0.1</b> and the port shown above, or an app that lets you set a DNS port yourself. The commands differ by system and we have not verified any, so none are given here; follow your forwarder's own documentation.</p>
-        <p>Tor DNS is slower than normal DNS (every name goes through Tor and an exit relay) and handles only A, AAAA and PTR lookups.</p></div></details>
-      <div class="small mute" id="dnsNote"></div>
-    </div>
-  </div>
   <div class="card" id="tbCard"><h3><svg class="ic" aria-hidden="true"><use href="#i-tor"/></svg>Tor Browser: for your own private browsing <details class="why"><summary>ⓘ</summary><div>Opens the official Tor Browser so you can browse privately yourself. It is completely separate from the noise: its own folder, its own profile and its own Tor. The app downloads it only from torproject.org and installs it only after checking its signature with the Tor Project's signing key (this needs GnuPG, "gpg"). It is checked for a newer release every few hours and updated by itself (never while it is open), the signature is checked again each time, and before every launch its programs are compared with what was verified. It is never started as the administrator.</div></details></h3>
     <div class="row"><button id="tbOpen" class="torb">Open Tor Browser</button><button id="tbCheck">Check for updates</button><span class="small" id="tbStat"></span></div>
     <div class="small mute" id="tbSig"></div>
@@ -610,6 +596,20 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
       <p>The status shows "reachable" only after Tor itself tests the port from outside, which can take a while for a new relay. See the Tor Project's relay documentation: <a href="https://community.torproject.org/relay/" target="_blank" rel="noopener">community.torproject.org/relay</a>.</p></div></details>
   </div>
   <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#i-log"/></svg>Tor log <button id="tLogClear" class="ghost" style="float:right;font-size:12px" title="Empty this box so you can see only what comes next">Clear</button></h3><div class="scroll" style="max-height:260px"><div id="tLog" class="logbox"></div></div></div>
+  <div class="card mute" id="dnsCard"><details><summary class="small">Advanced, not recommended: use Tor to look up ordinary website names for other programs</summary><h3><svg class="ic" aria-hidden="true"><use href="#i-wave"/></svg>Tor as a name resolver for other programs (advanced) <details class="why"><summary>ⓘ</summary><div><b>This is not about .onion addresses</b>: those need no DNS lookup and are always handled inside Tor, whatever you set here. This is only for ordinary website names such as example.com, asked by other programs on this computer. Tor can answer DNS lookups on a local port. Names are looked up by Tor <b>exit relays</b>, so this is a deliberate, narrow use of exits for DNS only. It does not change the Tor lane for noise, which stays onion-only. Only A (IPv4), AAAA (IPv6) and PTR (reverse) lookups work; other kinds, such as MX or TXT, are not handled.</div></details></h3>
+    <label class="chk"><input type="checkbox" id="dnsOn"><span><b>Answer ordinary (clearnet) website-name lookups through Tor exit relays</b> <span class="mute">(off by default and <b>not recommended</b>: slower, and it puts your name lookups in the hands of exit relays. The noise never uses it. Needs the Tor that legalPrivacy manages)</span></span></label>
+    <div id="dnsBody" style="display:none">
+      <div class="kv" id="dnsKv"></div>
+      <div class="row" style="margin-top:8px"><button id="dnsTest"><svg class="ic sm" aria-hidden="true"><use href="#i-check"/></svg>Test</button><span class="small" id="dnsOut"><span class="mute">Sends one real lookup for example.com through Tor and shows the answer and how long it took.</span></span></div>
+      <label class="chk"><input type="checkbox" id="dnsLan"><span><b>Also share it with other devices on my network</b> <span class="mute">(off; only on one private address you pick)</span></span></label>
+      <div class="row" id="dnsLanRow" style="display:none">Address <select id="dnsAddr"></select> <button id="dnsRefresh" title="Look at this computer's addresses again">Refresh list</button></div>
+      <div class="note bad" id="dnsLanWarn" style="display:none"><b>Warning.</b> Anyone on that network can use your Tor exits for DNS, and you are responsible for what they do. Never expose this to the internet; it is not an open resolver for the internet. Only share it on a network you trust, such as your own home.</div>
+      <details class="small" style="margin-top:6px"><summary>How to use it</summary><div class="mute">
+        <p>Your operating system sends DNS lookups to port 53, so it cannot use this port directly. To use Tor DNS for the whole computer you need a small local forwarder (for example <b>dnsmasq</b> or <b>unbound</b>) set up to forward to <b>127.0.0.1</b> and the port shown above, or an app that lets you set a DNS port yourself. The commands differ by system and we have not verified any, so none are given here; follow your forwarder's own documentation.</p>
+        <p>Tor DNS is slower than normal DNS (every name goes through Tor and an exit relay) and handles only A, AAAA and PTR lookups.</p></div></details>
+      <div class="small mute" id="dnsNote"></div>
+    </div>
+  </details></div>
 </section>
 
 <!-- SETTINGS -->

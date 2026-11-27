@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **The "Tor DNS" option is relabelled, moved to the very bottom of the Tor tab and collapsed.** It is now "Advanced, not recommended: use Tor to look up ordinary website names for other programs", and says plainly what it is: it makes Tor's local DNS port answer lookups of ordinary (clearnet) names such as example.com, resolved by Tor exit relays, for other programs on this computer. It has nothing to do with .onion addresses (those need no DNS lookup and are always handled inside Tor, whatever it is set to), and the noise never uses it. Still off by default; no behaviour changed. Its "share with other devices on my network" sub-option (off, one private address you pick) is unchanged; say if you want it removed.
+
 ## v2.22.0
 
 - **Practice mode is gone; Tor's "strict" exclusion is permanent; the Tor log has a Clear button.** (1) **Practice mode is removed** (option, code, saved setting and docs): the relay is always a public middle relay (or a bridge if you pick that), never an exit. It was the source of Tor's warning *"The IPv4 ORPort address 127.0.0.1 does not match the descriptor address ..."*: a loopback-only ORPort that Tor then tried to describe with your real address. A saved practice-mode relay now loads as the public middle relay, on. The relay checklist still has to be ticked to start it (ticked for you). (2) **Strict is always on and no longer an option**: the relays and countries Tor must avoid (the `{us}` default, your list, the banned relay and the Virginia/government ranges) are written as `ExcludeNodes` with `StrictNodes 1` every time, even when that means Tor cannot connect. The checkbox and the setting are gone. (3) **The Tor log (Tor tab) has a Clear button** that empties the box so you see only the lines that come next (web and desktop); the Live Log tab already had one.
