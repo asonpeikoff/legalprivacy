@@ -426,6 +426,8 @@ All optional:
 
 ## Tor (optional)
 
+**Whonix / Qubes-Whonix:** detected by Whonix's own marker files (and `qubesdb-read /qubes-gateway` on Qubes); the app then uses the Whonix-Gateway's Tor instead of running a second one (Tor over Tor). Relays to avoid and bridges are then set on the gateway, in `/usr/local/etc/torrc.d/50_user.conf`. Switch it off on the Tor tab.
+
 **Bridges** (Tor tab), for networks that block Tor:
 - **Built-in obfs4, Snowflake or meek:** taken from the official Tor bundle's own list, so they stay current with each Tor update.
 - **My bridges:** your saved lines.

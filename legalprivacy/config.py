@@ -97,6 +97,7 @@ class TransportConfig:
     dns_lan_addr: str = ""            # which of this computer's private addresses, when dns_lan is on
     exclude_nodes: list[str] = field(default_factory=lambda: ["{us}"])   # relays (fingerprints) or countries Tor avoids
     share_browser: bool = True        # Tor Browser (opened from this app) uses this app's Tor, so your own browsing and the noise share one Tor
+    anon_os: str = "auto"             # auto: on Whonix / Qubes-Whonix use the Whonix-Gateway's Tor (never Tor over Tor) | off
 
     def validate(self, name: str) -> None:
         if self.browser not in ("auto", "on", "off"):
@@ -107,6 +108,8 @@ class TransportConfig:
             raise ConfigError(f"transport '{name}': the Firefox path you gave does not exist: {self.firefox_path}")
         if self.browser_engine not in ("mine", "mix", "auto", "chromium", "firefox"):
             raise ConfigError(f"transport '{name}': browser_engine must be mine, mix, auto, chromium or firefox")
+        if self.anon_os not in ("auto", "off"):
+            raise ConfigError("tor anon_os must be auto or off")
         if self.bridge_mode not in ("off", "obfs4", "snowflake", "meek", "custom"):
             raise ConfigError("tor bridge_mode must be off, obfs4, snowflake, meek or custom")
         for n in self.exclude_nodes:
