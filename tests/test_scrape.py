@@ -115,3 +115,65 @@ def test_the_app_runs_a_scrape_job_and_refuses_bad_input(tmp_path, monkeypatch):
             raise AssertionError("expected ConfigError")
         except ConfigError:
             pass
+
+
+def test_errors_name_the_real_cause_instead_of_a_cut_off_line():
+    import requests
+    from legalprivacy.scrape import explain
+    inner = OSError("Tunnel connection failed: 403 Forbidden")
+    exc = requests.exceptions.ProxyError(f"HTTPSConnectionPool(host='example.com', port=443): Max retries exceeded "
+                                         f"with url: / (Caused by ProxyError('Unable to connect to proxy', {inner!r}))")
+    exc.__context__ = inner
+    msg = explain(exc)
+    assert msg.startswith("the proxy refused or dropped the connection") and "403 Forbidden" in msg
+    assert "SSLError" not in explain(requests.exceptions.SSLError("x")) and "tampers" in explain(requests.exceptions.SSLError("x"))
+
+
+def _proxy_job(tmp_path, fails, pool):
+    import requests
+    from legalprivacy.scrape import ScrapeJob
+    used = []
+
+    def nxt(bad):
+        return pool.pop(0) if pool else None
+    job = ScrapeJob("https://example.com/", tmp_path, depth=0, max_pages=1, delay=0, mix_noise=False,
+                    respect_robots=False, proxy="http://198.51.100.1:8080", next_proxy=nxt, sleep=lambda s: None)
+
+    def one(url, stream_to=None, limit=0):
+        used.append(job.proxy)
+        if job.proxy in fails:
+            raise requests.exceptions.ProxyError("Unable to connect to proxy")
+        return 200, "<html><title>ok</title></html>", {}
+    job._one_get = one
+    return job, used
+
+
+def test_a_proxy_that_fails_in_use_is_swapped_for_another_tested_one(tmp_path):
+    job, used = _proxy_job(tmp_path, {"http://198.51.100.1:8080"}, ["http://198.51.100.2:8080"])
+    st = job.run()
+    assert used == ["http://198.51.100.1:8080", "http://198.51.100.2:8080"] and st["pages"] == 1 and not st["errors"]
+    assert st["proxy_switches"] == 1
+
+
+def test_with_no_working_proxy_left_the_job_stops_instead_of_going_direct(tmp_path):
+    bad = {"http://198.51.100.1:8080", "http://198.51.100.2:8080"}
+    job, used = _proxy_job(tmp_path, bad, ["http://198.51.100.2:8080"])
+    st = job.run()
+    assert st["pages"] == 0 and "no working proxy: tried 2" in st["errors"][0] and None not in used
+
+
+def test_the_scrape_folder_and_its_newest_files_are_shown_and_can_be_opened(tmp_path, monkeypatch):
+    import subprocess
+    monkeypatch.setenv("LEGALPRIVACY_HOME", str(tmp_path))
+    from legalprivacy.controller import Controller
+    c = Controller(str(tmp_path / "config.yaml"))
+    job = tmp_path / "scrapes" / "20261127-example.com"
+    (job / "images").mkdir(parents=True)
+    (job / "images" / "a.png").write_bytes(b"x" * 10)
+    (job / "tables.csv").write_text("a,b")
+    st = c.scrape_state()
+    assert st["last_folder"] == str(job) and {f["name"] for f in st["files"]} == {"images/a.png", "tables.csv"}
+    opened = []
+    monkeypatch.setattr(subprocess, "Popen", lambda args, **k: opened.append(args))
+    monkeypatch.setattr("sys.platform", "linux")
+    assert c.scrape_open()["folder"] == str(job.resolve()) and opened[0] == ["xdg-open", str(job.resolve())]

@@ -684,6 +684,8 @@ def main(profile_path: str | None = None, port: int | None = None) -> int:
     if first_run:
         from .gui_wizard import show_wizard
         root.after(500, lambda: show_wizard(app))  # noqa: F821 (closure over a name deleted after mainloop)
+    elif ctl.upgrade_pending:
+        root.after(400, lambda: ask_upgrade(root, ctl))
     try:
         root.mainloop()
     finally:
@@ -695,6 +697,24 @@ def main(profile_path: str | None = None, port: int | None = None) -> int:
             lock.close()
     del app
     return 0
+
+
+def ask_upgrade(root, ctl) -> None:
+    """After an update: keep the settings, or start from the new version's defaults (history and own data stay)."""
+    from tkinter import messagebox
+    u = ctl.upgrade_pending
+    if not u:
+        return                                # already answered (in the browser, or the no-answer timer)
+    keep = messagebox.askyesno(
+        TITLE, f"legalPrivacy was updated from {u['from']} to {u['to']}.\n\nKeep your settings?\n\n"
+               "Yes: carry on with your settings.\nNo: start from this version's defaults (your old settings are saved as "
+               "a backup file).\n\nYour traffic history, My List, sign-ins and the relay's identity stay either way.",
+        parent=root, default="yes")
+    r = ctl.resolve_upgrade(bool(keep))
+    if not keep and r.get("backup"):
+        messagebox.showinfo(TITLE, f"Settings are back to their defaults.\nYour previous settings: {r['backup']}", parent=root)
+    elif not r.get("ok"):
+        messagebox.showerror(TITLE, r.get("message", "Could not change the settings."), parent=root)
 
 
 if __name__ == "__main__":

@@ -379,6 +379,8 @@ class UIServer:
                         ctl.update_app(body)
                     elif path == "/api/wizard":
                         return self._json(ctl.wizard(body))
+                    elif path == "/api/upgrade":
+                        return self._json(ctl.resolve_upgrade(body.get("keep") is not False))
                     elif path == "/api/mylist":
                         return self._json(ctl.mylist_save(body))
                     elif path == "/api/mylist/bookmarks":
@@ -387,6 +389,8 @@ class UIServer:
                         return self._json(ctl.map_block(str(body.get("host", "")), str(body.get("mode", ""))))
                     elif path == "/api/scrape/start":
                         return self._json(ctl.scrape_start(body))
+                    elif path == "/api/scrape/open":
+                        return self._json(ctl.scrape_open(str(body.get("which", "last"))))
                     elif path == "/api/scrape/stop":
                         return self._json(ctl.scrape_stop())
                     elif path == "/api/proxies/refresh":
@@ -443,11 +447,28 @@ def running_instance(port: int) -> str | None:
     return None
 
 
+UPGRADE_ANSWER_WAIT = 180      # seconds: with nobody answering the after-update question, the settings are kept
+
+
 def start_services(ctl) -> None:
     """Background pieces every front end needs once the dashboard server is up."""
     ctl._start_feed_timer()
     if ctl.app.get("observe", True):
         ctl.observer.start()              # Proof tab: local connection counts, never leaves this computer
+    if getattr(ctl, "upgrade_pending", None):
+        # After an update: the noise, Tor and the relay wait for "keep or reset", so they start on the settings you
+        # choose. With no answer (no window open) the settings are kept and everything starts as usual.
+        ctl._deferred_start = lambda: _start_rest(ctl)
+        t = threading.Timer(UPGRADE_ANSWER_WAIT, lambda: ctl.resolve_upgrade(True, " (no answer, so nothing changed)"))
+        t.daemon = True
+        t.start()
+        ctl.log.info("app", f"Updated from {ctl.upgrade_pending['from']} to {ctl.upgrade_pending['to']}: keep your settings, "
+                            "or start from the new defaults? (Asked in the window; kept if there is no answer.)")
+        return
+    _start_rest(ctl)
+
+
+def _start_rest(ctl) -> None:
     if ctl.app.get("autostart") and not ctl.first_run:
         try:
             ctl.start(reason="autostart on launch")

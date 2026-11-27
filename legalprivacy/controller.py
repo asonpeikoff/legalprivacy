@@ -54,7 +54,8 @@ APP_DEFAULTS = {"migrated_ason": False, "migrated_share": False, "migrated_tb_la
                 "ml_auto": False, "ml_history": [],
                 "clear_logs_on_restart": True,   # on start, clear Live Log and Activity entries older than…
                 "log_keep_days": 7,              # …this many days (0 = clear everything)
-                "migrated_defaults_v3": False}
+                "migrated_defaults_v3": False, "migrated_defaults_v4": False,
+                "settings_version": ""}          # the version that last saved these settings (an update asks keep or reset)
 
 
 def move_old_defaults(profile) -> list[str]:
@@ -128,6 +129,13 @@ class Controller:
         self.app: dict[str, Any] = dict(APP_DEFAULTS)
         self.profile: Profile = Profile(name="default")
         self._load()
+        if self.first_run:                        # a new install already has today's defaults: no old ones to move
+            self.app |= {k: True for k in APP_DEFAULTS if k.startswith("migrated_")}
+        prev = str(self.app.get("settings_version") or "")
+        # After an update the app asks once: keep your settings, or start from the new version's defaults (your traffic
+        # history, My List, sign-ins and the relay's identity are kept either way). None = nothing to ask.
+        self.upgrade_pending: dict | None = (None if self.first_run or prev == __version__
+                                             else {"from": prev or "an earlier version", "to": __version__})
         if self.profile.extras.persona == "Default mix" and self.app.get("migrated_ason") and not self.first_run:
             self._save()                          # remember that the one-time switch to the new default happened
         if getattr(self, "_moved_defaults", None):
@@ -256,12 +264,67 @@ class Controller:
         # Settings save themselves, so two saves can arrive together: serialise them, and give
         # each its own temporary file so one can never move the other's away.
         with self._save_lock:
+            if not getattr(self, "upgrade_pending", None):
+                self.app["settings_version"] = __version__     # while an update's question is open, it stays unanswered
             data = profile_to_dict(self.profile)
             data["app"] = self.app
             path = Path(self.profile_path)
             path.parent.mkdir(parents=True, exist_ok=True)
             write_private(path, yaml.safe_dump(data, sort_keys=False))     # holds bridges and passwords
             self.first_run = False
+
+    # Kept when the settings go back to the defaults after an update: things you entered or that identify you,
+    # not options. (Traffic history, sign-in sessions and the relay's keys are separate files and are never touched.)
+    def _carry_user_data(self, old: Profile, new: Profile) -> None:
+        new.mylist.sites, new.mylist.weights = list(old.mylist.sites), dict(old.mylist.weights)
+        new.extras.interest_salt = old.extras.interest_salt        # keeps your interest themes yours
+        new.relay.nickname = old.relay.nickname                     # the relay keeps its public name
+        new.transports["tor"].bridges = list(old.transports["tor"].bridges)   # private bridge lines are hard to get again
+
+    def resolve_upgrade(self, keep: bool, reason: str = "") -> dict:
+        """Answer the after-update question. keep: carry on with your settings. Otherwise: save them as a backup file and
+        start from this version's defaults, keeping only your own data (see _carry_user_data)."""
+        with self._save_lock:                           # the window's answer and the no-answer timer can meet
+            if not self.upgrade_pending:
+                return {"ok": True, "pending": False}
+            return self._resolve_upgrade(keep, reason)
+
+    def _resolve_upgrade(self, keep: bool, reason: str) -> dict:
+        backup = None
+        if not keep:
+            src = Path(self.profile_path)
+            stamp = time.strftime("%Y%m%d-%H%M%S")
+            backup = src.with_name(f"config.before-{__version__}-{stamp}.yaml")
+            try:
+                write_private(backup, src.read_text(encoding="utf-8"))
+            except OSError as exc:
+                return {"ok": False, "message": f"Could not back up your settings first, so nothing was changed: {exc}"}
+            old = self.profile
+            fresh = Profile(name="default")
+            self._carry_user_data(old, fresh)
+            history = self.app.get("ml_history", [])
+            self.app = dict(APP_DEFAULTS) | {k: True for k in APP_DEFAULTS if k.startswith("migrated_")}
+            self.app["ml_history"] = history                            # history stays until you clear it
+            self.profile = fresh
+            self._fresh_relay_nickname()
+        self.upgrade_pending = None
+        self._save()
+        if keep:
+            self.log.info("app", f"Updated to {__version__}; your settings were kept{reason}.")
+        else:
+            self.log.info("app", f"Updated to {__version__}; settings are back to their defaults. Your previous settings "
+                                 f"are saved in {backup}. Traffic history, My List, sign-ins and the relay's identity "
+                                 "were kept.")
+            if self.running:
+                self.reapply()
+        self._after_upgrade_answer()
+        return {"ok": True, "pending": False, "kept": keep, "backup": str(backup) if backup else None}
+
+    def _after_upgrade_answer(self) -> None:
+        """What start_services held back while the after-update question was open."""
+        cb, self._deferred_start = getattr(self, "_deferred_start", None), None
+        if cb:
+            cb()
 
     def wizard(self, answers: dict[str, Any]) -> dict:
         """Apply the 2–3 first-run answers and save.
@@ -866,8 +929,40 @@ class Controller:
     # ── scraping jobs (Tools) ──────────────────────────────────────────────
     def scrape_state(self) -> dict:
         job = getattr(self, "_scrape", None)
+        root = app_dir() / "scrapes"
+        last = Path(job.status["folder"]) if job else max((d for d in root.glob("*") if d.is_dir()), default=None,
+                                                           key=lambda d: d.stat().st_mtime) if root.exists() else None
         return {"job": dict(job.status) if job else None, "kinds": ["tables", "images", "video", "audio", "documents", "archives"],
-                "proxies": len(self.proxies.good()), "folder": str(app_dir() / "scrapes")}
+                "proxies": len(self.proxies.good()), "folder": str(root),
+                "last_folder": str(last) if last else None, "files": self._scrape_files(last)}
+
+    @staticmethod
+    def _scrape_files(folder: Path | None, n: int = 40) -> list[dict]:
+        """The newest files a scrape saved (name relative to its folder, size), for the Tools tab."""
+        if not folder or not folder.is_dir():
+            return []
+        files = sorted((f for f in folder.rglob("*") if f.is_file()), key=lambda f: f.stat().st_mtime, reverse=True)
+        return [{"name": str(f.relative_to(folder)), "bytes": f.stat().st_size} for f in files[:n]]
+
+    def scrape_open(self, which: str = "last") -> dict:
+        """Open the scrape folder (the last job's, or all of them) in this computer's file manager."""
+        import subprocess
+        root = (app_dir() / "scrapes").resolve()
+        st = self.scrape_state()
+        target = Path(st["last_folder"] if which == "last" and st["last_folder"] else root).resolve()
+        if target != root and root not in target.parents:
+            raise ConfigError("Only the app's scrape folder can be opened.")
+        target.mkdir(parents=True, exist_ok=True)
+        try:
+            if sys.platform == "win32":
+                import os
+                os.startfile(str(target))                    # noqa: S606 - a folder of ours, opened in Explorer
+            else:
+                subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", str(target)],
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except OSError as exc:
+            raise ConfigError(f"Could not open a file manager ({exc}). The folder is {target}") from None
+        return {"ok": True, "folder": str(target)}
 
     def scrape_start(self, body: dict) -> dict:
         """Start one polite crawl of a site the user named. Tables become CSV; images, video, audio, documents and archives are
@@ -878,11 +973,23 @@ class Controller:
             raise ConfigError("A scrape is already running. Stop it first.")
         url = str(body.get("url", "")).strip()
         kinds = [k for k in (body.get("kinds") or ALL_KINDS) if k in ALL_KINDS]
-        proxy = None
+        proxy, next_proxy = None, None
         if body.get("use_proxy"):
-            proxy = self.proxies.pick()
-            if proxy is None:
+            if not self.proxies.good():
                 raise ConfigError("No tested proxies yet. Fetch and test some on this tab first, or turn the proxy off.")
+            proxy = self.proxies.pick_checked()               # re-tested now: the list may be hours old
+            if proxy is None:
+                raise ConfigError("None of the tested proxies works any more (free proxies die quickly). Test proxies "
+                                  "again on this tab, or turn the proxy off.")
+            used = {proxy}
+
+            def next_proxy(bad: str) -> str | None:
+                self.proxies.drop(bad)
+                self.log.info("tools", f"Scrape: proxy {bad.split('//')[-1]} stopped working; trying another tested one.")
+                nxt = self.proxies.pick_checked(exclude=used)
+                if nxt:
+                    used.add(nxt)
+                return nxt
         host = re.sub(r"[^a-z0-9.-]+", "-", (url.split("//", 1)[-1].split("/", 1)[0] or "site").lower())[:40]
         out = app_dir() / "scrapes" / f"{time.strftime('%Y%m%d-%H%M%S')}-{host}"
         pool = list(self.feeds.items("tranco")[:400]) or ["wikipedia.org", "bbc.com", "nytimes.com"]
@@ -890,14 +997,15 @@ class Controller:
         def noise() -> None:
             import requests
             site = random.choice(pool)
+            p = self._scrape.proxy if getattr(self, "_scrape", None) is not None and proxy else proxy   # the one in use now
             requests.get(f"https://{site}/", timeout=10, headers={"User-Agent": USER_AGENT},
-                         proxies={"http": proxy, "https": proxy} if proxy else None).close()
+                         proxies={"http": p, "https": p} if p else None).close()
         try:
             self._scrape = ScrapeJob(
                 url, out, kinds=kinds, depth=int(body.get("depth", 1)), max_pages=int(body.get("max_pages", 20)),
                 delay=float(body.get("delay", 2.0)), max_mb=float(body.get("max_mb", 200)),
                 same_site=body.get("same_site", True) is not False, respect_robots=body.get("respect_robots", True) is not False,
-                mix_noise=body.get("mix_noise", True) is not False, proxy=proxy, noise_fn=noise)
+                mix_noise=body.get("mix_noise", True) is not False, proxy=proxy, noise_fn=noise, next_proxy=next_proxy)
         except (ValueError, TypeError) as exc:
             raise ConfigError(str(exc)) from None
         threading.Thread(target=self._scrape.run, daemon=True, name="scrape").start()
@@ -1923,6 +2031,7 @@ class Controller:
         return {
             "spray": self.spray.state(),
             "version": __version__, "first_run": self.first_run, "running": self.running,
+            "upgrade": self.upgrade_pending,
             "paused": stats.get("paused", False), "uptime": stats.get("uptime", 0) if self.running else 0,
             "current": stats.get("current") if self.running else None,
             "log_epoch": getattr(self, "log_epoch", 0),

@@ -223,6 +223,24 @@ class ProxyManager:
         rows.sort(key=lambda r: r["ms"])
         return rows[:n] if n else rows
 
+    def drop(self, proxy: str) -> None:
+        """A proxy failed while in use: it goes at once (the next refresh may find it again if it recovers)."""
+        with self.lock:
+            self.proxies.pop(proxy, None)
+        self.save()
+
+    def pick_checked(self, exclude: set[str] | None = None, tries: int = 6) -> str | None:
+        """A good proxy re-tested right now (free proxies die within hours); failures are dropped on the way."""
+        for _ in range(tries):
+            rows = [r for r in self.good() if r["proxy"] not in (exclude or set())]
+            if not rows:
+                return None
+            p = self.rng.choices([r["proxy"] for r in rows], weights=[1000.0 / max(r["ms"], 50) for r in rows])[0]
+            if self._apply(p, self.check(p)) and self.proxies.get(p, {}).get("fails", 0) == 0:
+                return p
+            self.drop(p)
+        return None
+
     def pick(self) -> str | None:
         """A random good proxy, the faster ones more often. For jobs the user started (scraping); never for noise."""
         rows = self.good()

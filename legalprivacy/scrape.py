@@ -128,11 +128,41 @@ def _site(u: str) -> str:
     return (urllib.parse.urlparse(u).hostname or "").lower().removeprefix("www.")
 
 
+def explain(exc: BaseException) -> str:
+    """A short, plain reason for a failed request, naming the real cause (requests nests it several levels deep)."""
+    name = type(exc).__name__
+    inner, seen = exc, set()
+    while True:                                    # the innermost cause usually says what actually happened
+        nxt = getattr(inner, "reason", None) or inner.__cause__ or inner.__context__
+        if nxt is None and inner.args and isinstance(inner.args[0], BaseException):
+            nxt = inner.args[0]
+        if not isinstance(nxt, BaseException) or id(nxt) in seen:
+            break
+        seen.add(id(nxt))
+        inner = nxt
+    detail = re.sub(r"\s+", " ", str(inner)).strip()
+    detail = re.sub(r"^<[^>]+>:\s*", "", detail)
+    plain = {"ProxyError": "the proxy refused or dropped the connection",
+             "SSLError": "the secure connection failed (through a proxy this can mean it tampers with it, so it is not used)",
+             "ConnectTimeout": "timed out connecting", "ReadTimeout": "the site took too long to answer",
+             "ConnectionError": "could not connect", "TooManyRedirects": "too many redirects"}.get(name)
+    text = f"{plain} ({detail[:140]})" if plain and detail else plain or detail or name
+    return text[:220]
+
+
+PROXY_TRIES = 5          # a proxy that fails in use is dropped and the next tested one is tried, up to this many
+
+
+class NoProxyLeft(RuntimeError):
+    """Every tested proxy tried failed: the job stops rather than going on without one (that would show your address)."""
+
+
 class ScrapeJob:
     def __init__(self, url: str, out_dir: Path, kinds: list[str] | None = None, depth: int = 1, max_pages: int = 20,
                  delay: float = 2.0, max_mb: float = 200.0, file_mb: float = 50.0, same_site: bool = True,
                  respect_robots: bool = True, mix_noise: bool = True, proxy: str | None = None,
                  noise_fn: Callable[[], None] | None = None,
+                 next_proxy: Callable[[str], str | None] | None = None,
                  get: Callable[..., tuple[int, str, dict]] | None = None, sleep: Callable[[float], None] = time.sleep,
                  rng: random.Random | None = None):
         if not re.match(r"^https?://[^\s/]+", url or ""):
@@ -143,6 +173,7 @@ class ScrapeJob:
         self.delay, self.max_bytes, self.file_bytes = max(0.0, delay), int(max_mb * 1e6), int(file_mb * 1e6)
         self.same_site, self.respect_robots, self.mix_noise = same_site, respect_robots, mix_noise
         self.proxy, self.noise_fn, self.sleep = proxy, noise_fn, sleep
+        self.next_proxy = next_proxy          # drops a proxy that failed and gives another tested one (None: none left)
         self.rng = rng or random.Random()
         self._get = get or self._requests_get
         self.stop = threading.Event()
@@ -153,6 +184,25 @@ class ScrapeJob:
 
     # ── network ───────────────────────────────────────────────────────────
     def _requests_get(self, url: str, stream_to: Path | None = None, limit: int = 0):
+        """One request. Through a proxy, a proxy-side failure drops that proxy and tries the next tested one."""
+        import requests
+        if not self.proxy:
+            return self._one_get(url, stream_to, limit)
+        tried: list[str] = []
+        while True:
+            try:
+                return self._one_get(url, stream_to, limit)
+            except (requests.exceptions.ProxyError, requests.exceptions.SSLError,
+                    requests.exceptions.ConnectTimeout, requests.exceptions.ConnectionError) as exc:
+                tried.append(f"{self.proxy.split('//')[-1]}: {explain(exc)}")
+                nxt = self.next_proxy(self.proxy) if self.next_proxy and len(tried) < PROXY_TRIES else None
+                if not nxt:
+                    raise NoProxyLeft(f"no working proxy: tried {len(tried)} ({'; '.join(tried[-2:])}). Test proxies "
+                                      "again on this tab, or turn the proxy off.") from exc
+                self.status["proxy_switches"] = self.status.get("proxy_switches", 0) + 1
+                self.proxy = nxt
+
+    def _one_get(self, url: str, stream_to: Path | None = None, limit: int = 0):
         import requests
         proxies = {"http": self.proxy, "https": self.proxy} if self.proxy else None
         r = requests.get(url, headers={"User-Agent": USER_AGENT, "Accept-Language": "en-US,en;q=0.9"}, timeout=25,
@@ -225,8 +275,11 @@ class ScrapeJob:
                     continue
                 try:
                     status, html, _h = self._get(url)
+                except NoProxyLeft as exc:
+                    st["errors"].append(f"{url}: {exc}")
+                    break                                   # never carry on without the proxy you asked for
                 except Exception as exc:
-                    st["errors"].append(f"{url}: {str(exc).splitlines()[0][:100]}")
+                    st["errors"].append(f"{url}: {explain(exc)}")
                     continue
                 st["pages"] += 1
                 if status != 200 or not html:
@@ -278,7 +331,7 @@ class ScrapeJob:
             try:
                 status, _t, meta = self._get(f, stream_to=dest, limit=min(self.file_bytes, self.max_bytes - st["bytes"]))
             except Exception as exc:
-                st["errors"].append(f"{f}: {str(exc).splitlines()[0][:100]}")
+                st["errors"].append(f"{f}: {explain(exc)}")
                 continue
             if status == 200 and meta.get("bytes"):
                 st["files"] += 1

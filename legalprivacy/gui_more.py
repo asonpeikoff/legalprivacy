@@ -535,7 +535,11 @@ class ToolsTab(Tab):
         ttk.Checkbutton(r, text="Mix in noise", variable=self.sc_mix).pack(side="left", padx=(0, 8))
         ttk.Checkbutton(r, text="Through a tested proxy", variable=self.sc_proxy).pack(side="left", padx=(0, 8))
         self.sc = self._tool(c, "Start", self.scrape_run)
-        self.app.btn(c.row(), "Stop", "stop", "secondary", lambda: self.app.work(self.app.ctl.scrape_stop, lambda d: None, lambda e: None)).pack(side="left")
+        r = c.row()
+        self.app.btn(r, "Stop", "stop", "secondary", lambda: self.app.work(self.app.ctl.scrape_stop, lambda d: None, lambda e: None)).pack(side="left")
+        self.app.btn(r, "Open folder", None, "secondary", lambda: self.app.work(
+            self.app.ctl.scrape_open, lambda d: self.app.flash(f"Opened {d['folder']}", 5000),
+            lambda e: self._text(self.sc, str(e)))).pack(side="left", padx=(6, 0))
         c = add_card(self, app, "Block a site for the noise")
         c.note("The web dashboard's network map lets you click a bubble; here you type the site or address. Blocking a site "
                "tells the noise to leave it alone (for a day, or until you unblock it). It cannot block your other programs: for "
@@ -628,9 +632,11 @@ class ToolsTab(Tab):
         j = d.get("job")
         if not j:
             return f"Saved under {d.get('folder')}. {d.get('proxies', 0)} tested proxies available."
+        files = "".join(f"\n  {f['name']}" for f in (d.get("files") or [])[:12])
         return (f"{'Running' if j['running'] else 'Finished'}: {j['pages']} pages, {j['tables']} tables, {j['files']} files "
                 f"({j['bytes'] / 1e6:.1f} MB), {j['noise']} noise visits.\nFolder: {j['folder']}"
-                + (f"\n{len(j['errors'])} problems, e.g. {j['errors'][0]}" if j["errors"] else ""))
+                + (f"\n{len(j['errors'])} problems, e.g. {j['errors'][0]}" if j["errors"] else "")
+                + (f"\nNewest files:{files}" if files else ""))
 
     def scrape_run(self) -> None:
         def poll(d=None):

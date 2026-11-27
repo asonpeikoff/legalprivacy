@@ -99,3 +99,15 @@ def test_the_app_exposes_the_proxy_list_and_rejects_a_bad_source(tmp_path, monke
             raise AssertionError("expected ConfigError")
         except ConfigError:
             pass
+
+
+def test_a_proxy_is_retested_right_before_use_and_dead_ones_are_dropped(tmp_path):
+    beh = {"http://8.8.8.8:80": "good", "http://9.9.9.9:80": "good"}
+    m = _manager(tmp_path, beh)
+    m.refresh(workers=2)
+    beh["http://9.9.9.9:80"] = "dead"                       # died since it was tested
+    for _ in range(5):
+        assert m.pick_checked() == "http://8.8.8.8:80"
+    assert "http://9.9.9.9:80" not in m.proxies
+    m.drop("http://8.8.8.8:80")
+    assert m.pick_checked() is None
