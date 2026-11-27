@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v2.24.0
 
 - **`./start-legalprivacy.sh` runs in the background, and the program is called `legalprivacy`.** On Linux the script now starts the app detached from the terminal (its own session, output discarded: the log stays in memory, read it in the dashboard), prints the dashboard link and returns, so closing the window no longer stops it. If it is already running it says so and prints the link. `./start-legalprivacy.sh --foreground` is the old way, and `--stop` stops it. The running program now names itself `legalprivacy` (Linux: `/proc/<pid>/comm`), for both the source copy and the downloaded program, so **`killall legalprivacy`** / `pkill -x legalprivacy` find it. `killall` (SIGTERM) now stops it the tidy way, as Ctrl+C does: Tor and the relay are stopped too. Tried here: start returns in about 3 seconds, the dashboard answers, a second start reports "already running", `--stop` stops it. The macOS launcher is unchanged.
 
