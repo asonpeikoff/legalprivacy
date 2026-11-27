@@ -40,7 +40,9 @@ PERSONA_SEARCH: dict = {}
 
 
 # DNS over TLS: resolver address -> the name on its certificate (all of these also validate DNSSEC).
-DOT_HOSTS = {"9.9.9.9": "dns.quad9.net", "149.112.112.112": "dns.quad9.net",
+DOT_HOSTS = {"80.152.203.134": "d.kekew.info", "80.153.146.105": "d.kekew.info", "217.91.179.72": "d.kekew.info",
+             "15.204.135.28": "dns.sorcerousmachine.com",               # OpenNIC (see config.RECOMMENDED_RESOLVERS)
+             "9.9.9.9": "dns.quad9.net", "149.112.112.112": "dns.quad9.net",
              "1.1.1.1": "one.one.one.one", "1.0.0.1": "one.one.one.one"}
 DNS_OPTIONS: dict = {"encrypted": True}
 
