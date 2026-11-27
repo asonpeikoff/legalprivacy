@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Load test (your own target), on the Tools tab.** Generates load from this one computer and graphs it live (requests/s, ok vs failed, bytes, latency p50/p90/p99). L7 sends real HTTP requests (GET/HEAD/POST); L4 opens real TCP connections. It never spoofs addresses or forges packets, there is no way to drive other machines from it, and it refuses government/Virginia address ranges. It will not start until you confirm you own the target or are authorised to test it, and it is capped (2000/s, 256 concurrent, 600 s; raise with the `LEGALPRIVACY_LOADTEST_*` environment variables). To load-test from several of your own machines, run the app on each and point them at the same target.
+
 - **Scraped files are easy to get to.** Tools → Scrape has an "Open folder" button (opens the last job's folder in your file manager) and lists the newest files it saved.
 
 - **Scraping through a proxy works, and says why when it can't.** A proxy is re-tested right before a job uses it (free proxies die within hours), one that fails during the job is dropped and the next tested one is tried (up to 5), and if none is left the job stops rather than carrying on without a proxy (which would show your own address). Errors now name the real cause (for example "the proxy refused or dropped the connection (Tunnel connection failed: 403 Forbidden)") instead of a line cut off after "Caused by S".

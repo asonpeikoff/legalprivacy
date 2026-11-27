@@ -518,6 +518,26 @@ class ToolsTab(Tab):
         c.note("Downloads about 10 MB and uploads 2 MB once, over the normal internet (not Tor), through your clearnet proxy if "
                "you set one. Runs only when you click.")
         self.speed = self._tool(c, "Run speed test", self.speedtest)
+        c = add_card(self, app, "Load test (your own target)")
+        c.note("Generates load from THIS computer against a target you run, and reports it. L7 sends real HTTP requests; L4 "
+               "opens TCP connections. It never spoofs addresses, cannot drive other machines, and will not aim at government "
+               "address ranges. Capped. Only use it on infrastructure you own or are authorised to test.")
+        self.lt_target = tk.StringVar()
+        r = c.row(); ttk.Entry(r, textvariable=self.lt_target).pack(side="left", fill="x", expand=True)
+        r = c.row()
+        self.lt_mode = tk.StringVar(value="http")
+        ttk.Combobox(r, state="readonly", width=12, textvariable=self.lt_mode,
+                     values=["http", "tcp"]).pack(side="left", padx=(0, 8))
+        self.lt_rps, self.lt_conc, self.lt_dur = tk.IntVar(value=50), tk.IntVar(value=10), tk.IntVar(value=30)
+        for lab, var in (("Rate/s", self.lt_rps), ("Concurrency", self.lt_conc), ("Seconds", self.lt_dur)):
+            ttk.Label(r, text=lab, style="CardMuted.TLabel").pack(side="left", padx=(6, 2))
+            ttk.Entry(r, textvariable=var, width=7).pack(side="left")
+        self.lt_auth = tk.BooleanVar(value=False)
+        ttk.Checkbutton(c.row(), text="I own this target or am authorised to load-test it.",
+                        variable=self.lt_auth).pack(side="left")
+        self.lt = self._tool(c, "Start", self.loadtest_run)
+        self.app.btn(c.row(), "Stop", "stop", "secondary",
+                     lambda: self.app.work(self.app.ctl.loadtest_stop, lambda d: None, lambda e: None)).pack(side="left")
         c = add_card(self, app, "Scrape a site")
         c.note("A polite spider for jobs you start. Tables become CSV files; images, video, audio, documents and archives are "
                "saved to a folder. It follows robots.txt, stays on the site, waits a random few seconds between requests, and can "
@@ -637,6 +657,28 @@ class ToolsTab(Tab):
                 f"({j['bytes'] / 1e6:.1f} MB), {j['noise']} noise visits.\nFolder: {j['folder']}"
                 + (f"\n{len(j['errors'])} problems, e.g. {j['errors'][0]}" if j["errors"] else "")
                 + (f"\nNewest files:{files}" if files else ""))
+
+    def loadtest_run(self) -> None:
+        if not self.lt_auth.get():
+            self._text(self.lt, "Tick the authorisation box first: only your own or authorised targets.")
+            return
+
+        def poll(d=None):
+            d = d or self.app.ctl.loadtest_state()
+            j = d.get("job")
+            if not j:
+                self._text(self.lt, f"Caps: {d['caps']['rps']}/s, {d['caps']['concurrency']} concurrent, {d['caps']['seconds']}s.")
+                return
+            L = j.get("latency_ms") or {}
+            self._text(self.lt, f"{'Running' if j['running'] else 'Finished'} {j['elapsed']}s: {j['mode'].upper()} -> {j['target']}\n"
+                                f"{j['sent']} sent, {j['ok']} ok, {j['failed']} failed; now {(j.get('now') or {}).get('rps', 0)}/s; "
+                                f"latency p50 {L.get('p50')} / p99 {L.get('p99')} ms"
+                                + (f"\n{'; '.join(f'{k}: {v}' for k, v in j['errors'].items())}" if j.get("errors") else ""))
+            if j["running"]:
+                self.after(1000, poll)
+        body = {"target": self.lt_target.get().strip(), "mode": self.lt_mode.get(), "rps": self.lt_rps.get(),
+                "concurrency": self.lt_conc.get(), "duration": self.lt_dur.get(), "authorized": True}
+        self.app.work(lambda: self.app.ctl.loadtest_start(body), lambda d: poll(d), lambda e: self._text(self.lt, str(e)))
 
     def scrape_run(self) -> None:
         def poll(d=None):

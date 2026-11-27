@@ -199,6 +199,8 @@ class UIServer:
                     if u.path == "/api/map/info":
                         return self._json(ctl.map_info((q.get("ip") or [""])[0], (q.get("name") or [""])[0],
                                                        (q.get("kind") or [""])[0]))
+                    if u.path == "/api/loadtest":
+                        return self._json(ctl.loadtest_state())
                     if u.path == "/api/scrape":
                         return self._json(ctl.scrape_state())
                     if u.path == "/api/proxies":
@@ -389,6 +391,10 @@ class UIServer:
                         return self._json(ctl.map_block(str(body.get("host", "")), str(body.get("mode", ""))))
                     elif path == "/api/scrape/start":
                         return self._json(ctl.scrape_start(body))
+                    elif path == "/api/loadtest/start":
+                        return self._json(ctl.loadtest_start(body))
+                    elif path == "/api/loadtest/stop":
+                        return self._json(ctl.loadtest_stop())
                     elif path == "/api/scrape/open":
                         return self._json(ctl.scrape_open(str(body.get("which", "last"))))
                     elif path == "/api/scrape/stop":
