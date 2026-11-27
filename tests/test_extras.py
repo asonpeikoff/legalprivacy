@@ -391,6 +391,7 @@ def test_sites_are_no_longer_skipped_for_being_non_english():
 
 def test_a_page_in_another_language_is_now_read_like_any_other():
     r = _runner({}, probe=lambda *a: HitResult(200, '<html lang="fr"><a href="/x">x</a></html>'))
+    r.rng = random.Random(7)          # seeded: unseeded, about 1 run in 100 drew no website visit at all in 40 steps
     for l in r.lanes:
         for e in l.engines:
             l.budgets[e].per_day, l.budgets[e].spent = 10, 0

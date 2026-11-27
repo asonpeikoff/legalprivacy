@@ -643,8 +643,8 @@ class Runner:
         weights = []
         for lane, eng_name in options or []:
             w = float(lane.budgets[eng_name].remaining)
-            if getattr(lane.transport, "dimmed", False):
-                w *= 0.1  # down-weight dimmed transport so traffic prefers healthy lanes
+            if getattr(lane.transport, "dimmed", False) and lane.name != "tor":
+                w *= 0.1  # down-weight dimmed transport so traffic prefers healthy lanes (never the Tor route)
             weights.append(max(w, 0.01))
         if forced is not None:
             lane, eng_name, target = forced
@@ -761,6 +761,8 @@ class Runner:
                 lane.consecutive_failures = 0
             if eng_name == "onion":          # a dead onion is normal; restart the walk
                 lane.onion_next, lane.onion_depth = None, 0
+                if target.role == "linger" and lane.linger and lane.linger.get("engine") == "onion":
+                    lane.linger = None       # the session's site stopped answering: end it, the walk carries on
         lane.last_latency_ms = getattr(result, "latency_ms", None)
         # Onion services are routinely offline: they don't count toward the clearnet failure cap
         # (they get their own, more generous one).
@@ -773,7 +775,9 @@ class Runner:
         self._record_hit(lane, eng_name, identity, target, result)
         if self._data_capped():
             raise MaxFailuresExceeded("daily data cap reached")
-        if result.dim_transport and hasattr(lane.transport, "dimmed"):
+        # A dead or busy .onion site is normal on Tor: it never slows the Tor route (that left it nearly idle, showing
+        # "slowed down" with nothing visited). The walk simply moves on to another site on the list.
+        if result.dim_transport and hasattr(lane.transport, "dimmed") and eng_name != "onion" and lane.name != "tor":
             lane.transport.dimmed = True
         if wait:
             if any(ln.follow_next is not None for ln in self.lanes):       # about to click a result: a few seconds
@@ -829,6 +833,10 @@ class Runner:
             nxt = lane.onion_factory.next_from(result.html, target.url) \
                 if lane.onion_factory is not None and result.html else None
             max_depth = self.profile.engines["onion"].max_depth
+            if target.role == "linger":                    # an onion session: its next page comes from this one
+                if lane.linger and nxt is not None:
+                    lane.linger["next_page"] = nxt.url
+                return
             if nxt is not None and lane.onion_depth < max_depth:
                 lane.onion_next, lane.onion_depth = nxt, lane.onion_depth + 1
             else:
@@ -1073,9 +1081,30 @@ class Runner:
                 return lane, lg["engine"], Target(url=lg["url"], timeout=60.0, note=f"chat about {topic}", role="chat",
                                                   script=chat_script(self.rng, topic), accept_terms=True,
                                                   images=bool(getattr(ex, "duck_images", False)))
-            return lane, lg["engine"], Target(url=lg["url"], timeout=60.0 if lg["engine"] == "onion" else 25.0,
+            if lg["engine"] == "onion":
+                return lane, "onion", self._onion_session_target(lg, scale)
+            return lane, lg["engine"], Target(url=lg["url"], timeout=25.0,
                                               note=note, role="linger", dwell=self.rng.uniform(60, 300) * scale)
         return None
+
+    # An onion site that takes searches the way its own search box does: an onion session there types queries.
+    ONION_SEARCH = {"duckduckgogg42xjoc72x3sjasowoarfbgcmvfimaftt6twagswzczad.onion": "/html/?q="}
+
+    def _onion_session_target(self, lg: dict, scale: float) -> Target:
+        """The next step of an interactive onion session: on a search site, a new search typed into it; elsewhere,
+        another page of the same site (or the start page again), read for a while."""
+        import urllib.parse as _u
+        url = lg["url"]
+        host = (_u.urlparse(url).hostname or "").lower()
+        lg["steps"] = lg.get("steps", 0) + 1
+        if host in self.ONION_SEARCH:
+            q = self._chat_topic()
+            base = f"{_u.urlparse(url).scheme}://{host}"
+            return Target(url=base + self.ONION_SEARCH[host] + _u.quote_plus(q), timeout=60.0, role="linger",
+                          note=f"searching: {q}", dwell=self.rng.uniform(20, 90) * scale)
+        page = lg.get("next_page") or url
+        return Target(url=page, timeout=60.0, role="linger", note="reading on the same site",
+                      dwell=self.rng.uniform(45, 240) * scale)
 
     def _chat_topic(self) -> str:
         """What a made-up chat is about: a topic from the same sources as the searches, so a person's day hangs together."""
@@ -1099,6 +1128,15 @@ class Runner:
                 and self.rng.random() < self.DUCK_AI_CHANCE:
             target = Target(url=self.DUCK_AI_URL, role="linger", note="duck.ai chat")   # the page to come back to
             chat = True
+        if eng_name == "onion":                        # Tor: now and then a 20-30 minute interactive session on one site
+            if r < 0.15:
+                minutes = self.rng.uniform(20, 30)
+                lane.linger = {"mode": "work", "url": target.url, "engine": eng_name, "exclusive": False, "chat": False,
+                               "started": now, "until": now + minutes * 60 * scale,
+                               "next_at": now + self.rng.uniform(45, 180) * scale, "other_at": now + self._other_site_gap()}
+                self._emit("info", lane.name, f"Active session on an onion site for about {minutes:.0f} minutes"
+                                              " (searching or reading page after page), alongside other onion visits.")
+            return
         if r < 0.008:                                  # rare, and shorter than before: mostly continued use
             hours = self.rng.uniform(0.5, 2.0)
             excl = self._exclusive()
