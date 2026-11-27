@@ -27,9 +27,10 @@ def test_parse_merges_and_filters():
 def test_government_and_virginia(tmp_path):
     g = mk(tmp_path, rows=ROWS)
     assert g.reason("11.5.5.5") == "a government range"
-    assert g.reason("20.0.0.7") == "Virginia"
-    assert g.reason("20.0.1.200") == "Virginia"
-    assert g.reason("20.0.2.1") is None
+    assert g.reason("20.0.0.7") is None                      # Virginia is for Tor relays only
+    assert g.reason("20.0.0.7", virginia=True) == "Virginia"
+    assert g.reason("20.0.1.200", virginia=True) == "Virginia"
+    assert g.reason("20.0.2.1", virginia=True) is None
     assert g.reason("9.9.9.9") is None and g.reason("2001:db8::1") is None and g.reason("junk") is None
     assert g.reason("50.0.0.5") is None
 
@@ -41,8 +42,8 @@ def test_host_reason_and_cache(tmp_path):
         calls.append(h)
         return ["20.0.0.9"] if h == "va.example" else ["8.8.4.4"]
     g = mk(tmp_path, resolve=res, rows=ROWS)
-    assert g.host_reason("va.example") == "Virginia"
-    assert g.host_reason("va.example") == "Virginia" and calls == ["va.example"]
+    assert g.host_reason("va.example") is None               # a Virginia address does not stop a visit
+    assert g.host_reason("va.example") is None and calls == ["va.example"]
     assert g.host_reason("ok.example") is None
     assert g.host_reason("abc.onion") is None and g.host_reason("11.1.1.1") == "a government range"
 

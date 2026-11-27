@@ -1,4 +1,4 @@
-"""Addresses the app stays away from: government ranges and Virginia.
+"""Addresses the app stays away from: government ranges everywhere, and Virginia for Tor relays only.
 
 Two lists, one switch (Settings, on by default):
 
@@ -9,9 +9,10 @@ Two lists, one switch (Settings, on by default):
     kept in the app folder. IP Geolocation by DB-IP (https://db-ip.com), licensed CC BY 4.0. A geolocation database is a
     best guess (CDN and cloud addresses can be pinned to a city they do not really sit in), so this is broad rather than exact.
 
-Where it is used: Tor relays are excluded (ranges and the Virginia relays found in Tor's public relay list), noise visits skip
-any site whose address is in these lists, and free proxies in them are never kept. It cannot reach what a web page loads on its
-own (ads, fonts) or the app's own update checks.
+Where it is used: GOVERNMENT ranges: Tor relays are excluded, noise visits skip any site in them, free proxies in them are
+never kept, Spray's resolvers avoid them and the load-test tool will not aim at them. VIRGINIA: only Tor relays (the Virginia
+relays found in Tor's public relay list are never picked); nothing else is held to it. It cannot reach what a web page loads
+on its own (ads, fonts) or the app's own update checks.
 """
 from __future__ import annotations
 
@@ -132,8 +133,9 @@ class GeoBan:
         i = bisect.bisect_right(starts, x) - 1
         return i >= 0 and ranges[i][0] <= x <= ranges[i][1]
 
-    def reason(self, ip: str) -> str | None:
-        """'a government range', 'Virginia' or None. IPv6 is not covered."""
+    def reason(self, ip: str, virginia: bool = False) -> str | None:
+        """'a government range', 'Virginia' (only when asked: it is for choosing Tor relays, nothing else) or None.
+        IPv6 is not covered."""
         try:
             a = ipaddress.ip_address(ip.strip("[]"))
         except ValueError:
@@ -143,12 +145,12 @@ class GeoBan:
         x = int(a)
         if self._in(self.gov, None, x):
             return "a government range"
-        if self.va and self._in(self.va, self._va_starts, x):
+        if virginia and self.va and self._in(self.va, self._va_starts, x):
             return "Virginia"
         return None
 
-    def contains(self, ip: str) -> bool:
-        return self.reason(ip) is not None
+    def contains(self, ip: str, virginia: bool = False) -> bool:
+        return self.reason(ip, virginia) is not None
 
     @staticmethod
     def _getaddrinfo(host: str) -> list[str]:
@@ -201,7 +203,7 @@ class GeoBan:
             if len(fp) != 40:
                 continue
             for a in rel.get("or_addresses", []):
-                if ":" in a and a.count(":") == 1 and self.contains(a.rsplit(":", 1)[0]):
+                if ":" in a and a.count(":") == 1 and self.contains(a.rsplit(":", 1)[0], virginia=True):
                     out.append(fp)
                     break
         return out[:max_n]

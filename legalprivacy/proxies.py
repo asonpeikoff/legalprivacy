@@ -79,7 +79,7 @@ class ProxyManager:
         self.sources: dict[str, dict] = {}              # name -> {"found": n, "error": str|None, "at": ts}
         self.progress: dict = {"running": False, "tested": 0, "total": 0, "kept": 0, "thrown_out": 0}
         self.my_ip: str | None = None
-        self.avoid_banned = True              # drop proxies in Virginia or a government range (geoban.py)
+        self.avoid_banned = True              # drop proxies in a government range (geoban.py)
         self._load()
 
     # ── persistence ───────────────────────────────────────────────────────

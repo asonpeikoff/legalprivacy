@@ -7,7 +7,7 @@ This is a LOAD TESTER, not an attack tool. By design it:
   * is capped: at most MAX_RPS requests a second, MAX_CONN concurrent connections and MAX_SECONDS per run (raise the caps
     for your own heavier testing with the LEGALPRIVACY_LOADTEST_* environment variables);
   * never spoofs addresses or forges packets — L7 is ordinary HTTP requests, L4 is ordinary TCP connections;
-  * will not aim at a government or Virginia address range (the same ranges the rest of the app avoids).
+  * will not aim at a government address range (the same ranges the rest of the app avoids).
 
 What it records each second (the "dstat" series): requests sent, responses by result, bytes in/out, and latency. The graph
 is of the load THIS tool generates and the answers it gets back; it does not read a remote machine's own interface counters.
@@ -36,7 +36,7 @@ class LoadTestError(ValueError):
 
 
 def _check_target(host: str) -> None:
-    """Refuse the government / Virginia ranges the rest of the app avoids. Resolution failures are left to the run."""
+    """Refuse the government ranges the rest of the app avoids (Virginia applies to Tor relays only). Resolution failures are left to the run."""
     try:
         from . import geoban
         import socket as _s

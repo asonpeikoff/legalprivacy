@@ -263,7 +263,7 @@ class ExtrasConfig:
     file_transfers: bool = True   # now and then download a real file (photo, video, zip...) and throw it away, or upload random bytes
     duck_chat: bool = True        # made-up chats on duck.ai, often (accepts duck.ai's terms for you; switch it off here if you do not want that)
     duck_images: bool = True      # in some of those chats, attach a made-up picture through the page's own file button and ask about it
-    geoban: bool = True           # never visit, route through or keep anything at an address in Virginia or a government range
+    geoban: bool = True           # avoid government address ranges everywhere, and Virginia Tor relays
     multi_tab: bool = True        # now and then open a link in a second tab, read the first, then glance at it
     long_sessions: bool = True    # now and then stay on one page a long time, or leave it open for hours and come back
     interest_salt: str = ""       # random, set on first use: keeps your themes yours

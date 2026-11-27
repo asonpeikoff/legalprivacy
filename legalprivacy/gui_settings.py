@@ -309,11 +309,11 @@ class SettingsTab(Tab):
         self.f_radios(c, "spray_level", [("low", "Spray: low", "about 25 lookups a second"),
                                          ("medium", "Spray: medium", "about 120 lookups a second"),
                                          ("high", "Spray: high", "about 400 lookups a second")])
-        self.f_check(c, "geoban", "Stay away from Virginia and government addresses",
-                     "Recommended. Noise never visits a site, and Tor never uses a relay, whose address is in a US Department of "
-                     "Defense block or that a geolocation database places in Virginia; free proxies there are dropped too. "
-                     "Geolocation is a best guess, so this is broad rather than exact. Virginia list: IP Geolocation by DB-IP "
-                     "(db-ip.com), CC BY 4.0.")
+        self.f_check(c, "geoban", "Avoid government addresses, and Virginia Tor relays",
+                     "Recommended. Noise never visits a site, and free proxies and load tests never use an address, in a US "
+                     "Department of Defense block; Tor never uses a relay in a Defense block or one that a geolocation database "
+                     "places in Virginia (Virginia applies to Tor relays only). Geolocation is a best guess, so the Virginia "
+                     "part is broad rather than exact. Virginia list: IP Geolocation by DB-IP (db-ip.com), CC BY 4.0.")
         self.f_check(c, "keep_alive", "Keep it running",
                      "Recommended. If the noise stops on its own, pauses itself or gets stuck, it is started or woken again "
                      "within about a minute, so it can run for weeks untouched. A pause you press yourself is never undone, "
