@@ -11,4 +11,4 @@ import os as _os
 # proxy for org.a11y.bus ... Permission denied" when they cannot (a service, a sandbox). Tell them not to try.
 _os.environ.setdefault("NO_AT_BRIDGE", "1")
 
-__version__ = "2.21.1"
+__version__ = "2.22.0"
