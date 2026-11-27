@@ -137,9 +137,11 @@ class MainActivity : Activity() {
         toggle.text = if (on) "Stop" else "Start"
         vpnBox.isChecked = DnsVpnService.active
         val cap = prefs.dailyMb
-        val used = prefs.usedBytes / 1_000_000
-        val line = "Today: about $used MB used" + (if (cap > 0) " of $cap MB" else "") +
-            "   |   level ${prefs.level} (${Pacing.LEVELS[prefs.level]?.toInt()} an hour)\n"
+        val b = prefs.usedBytes
+        val used = if (b < 1_000_000) "${b / 1000} KB" else String.format(java.util.Locale.US, "%.1f MB", b / 1_000_000.0)
+        val vpn = if (DnsVpnService.active) "   |   DNS VPN: ${RealActivity.lookups} of your lookups carried" else ""
+        val line = "Today: about $used used" + (if (cap > 0) " of $cap MB" else "") +
+            "   |   level ${prefs.level} (${Pacing.LEVELS[prefs.level]?.toInt()} an hour)$vpn\n"
         logView.text = line + Log.text()
     }
 

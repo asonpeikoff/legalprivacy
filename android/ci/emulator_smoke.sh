@@ -30,8 +30,11 @@ $UI tap "Local DNS VPN" || true
 sleep 3; shot 3-vpn-prompt
 $UI tap "OK" exact || $UI tap "Accept" || true
 sleep 8; shot 4-vpn-on
-adb shell ping -c 2 -W 3 example.com 2>&1 | tail -3 || true
+echo "--- your own lookups, made from the shell (ping resolves the name first; the emulator drops the ping itself):"
+for h in example.com wikipedia.org duckduckgo.com; do adb shell ping -c 1 -W 2 "$h" 2>&1 | head -1; done
 sleep 5; shot 5-after-lookup
+echo "--- VPN counter on screen (should be above 0 if the lookups went through the app):"
+$UI texts | grep -i "lookups carried" || echo "no counter line found"
 echo "--- what the screen says with the VPN on:"
 $UI texts | head -60
 
