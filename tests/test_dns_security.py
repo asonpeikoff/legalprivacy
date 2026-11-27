@@ -60,14 +60,14 @@ def test_a_failed_tls_handshake_is_a_failure_never_a_plain_text_retry(monkeypatc
 def test_an_unencrypted_resolver_is_swapped_for_one_that_can_do_tls():
     configure_dns(True)
     class Plan:
-        def pick(self): return ("80.152.203.134", "OpenNIC")
+        def pick(self): return ("198.51.100.53", "a resolver with no DNS over TLS")
     class Pool:
         def hostname(self): return "example.org"
     noise = DnsNoise(random.Random(3), domains=Pool(), plan=Plan())
     assert noise.make_query()[2] in DOT_HOSTS
     configure_dns(False)
     try:
-        assert noise.make_query()[2] == "80.152.203.134"                         # switched off: your list is used as is
+        assert noise.make_query()[2] == "198.51.100.53"                          # switched off: your list is used as is
     finally:
         configure_dns(True)
 
@@ -87,3 +87,27 @@ def test_the_tor_client_config_refuses_leaky_and_internal_answers():
     src = inspect.getsource(tormanager.TorManager._write_torrc)
     for opt in ("SafeSocks 1", "ClientDNSRejectInternalAddresses 1", "ClientRejectInternalAddresses 1"):
         assert opt in src
+
+
+def test_the_recommended_opennic_resolvers_are_used_encrypted_not_swapped_for_quad9():
+    from legalprivacy.config import RECOMMENDED_RESOLVERS
+    for r in RECOMMENDED_RESOLVERS:
+        assert r["ip"] in DOT_HOSTS                                   # each can be reached with DNS over TLS
+    configure_dns(True)
+
+    class Plan:
+        def pick(self): return ("217.91.179.72", "OpenNIC ns27.de")
+
+    class Pool:
+        def hostname(self): return "example.org"
+    assert DnsNoise(random.Random(3), domains=Pool(), plan=Plan()).make_query()[2] == "217.91.179.72"
+
+
+def test_a_saved_copy_of_the_old_resolver_list_moves_to_the_new_one_once():
+    from legalprivacy.config import OLD_RECOMMENDED_IPS, Profile
+    from legalprivacy.controller import move_old_defaults_v7
+    p = Profile(name="d")
+    p.dns.resolvers = [{"ip": ip, "name": ip, "role": "primary", "enabled": True} for ip in OLD_RECOMMENDED_IPS]
+    assert move_old_defaults_v7(p) and "193.31.24.55" not in [r["ip"] for r in p.dns.resolvers]
+    p.dns.resolvers = [{"ip": "10.0.0.53", "name": "mine", "role": "primary", "enabled": True}]
+    assert move_old_defaults_v7(p) == [] and p.dns.resolvers[0]["ip"] == "10.0.0.53"     # your own list stays

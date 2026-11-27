@@ -54,7 +54,7 @@ APP_DEFAULTS = {"migrated_ason": False, "migrated_share": False, "migrated_tb_la
                 "ml_auto": False, "ml_history": [],
                 "clear_logs_on_restart": True,   # on start, clear App log and Requests entries older than…
                 "log_keep_days": 7,              # …this many days (0 = clear everything)
-                "migrated_defaults_v3": False, "migrated_defaults_v4": False, "migrated_defaults_v5": False, "migrated_defaults_v6": False,
+                "migrated_defaults_v3": False, "migrated_defaults_v4": False, "migrated_defaults_v5": False, "migrated_defaults_v6": False, "migrated_defaults_v7": False,
                 "migrated_anon_off": False,
                 "settings_version": ""}          # the version that last saved these settings (an update asks keep or reset)
 
@@ -101,14 +101,23 @@ def move_old_defaults(profile) -> list[str]:
 
 def move_old_defaults_v6(profile) -> list[str]:
     """DNS noise defaults to Mix again: about 85% on your normal DNS (your router, ISP or VPN), the rest on the secure
-    resolvers. "Secure resolvers only" had been the default, and with encryption on every lookup went to Quad9 or
-    Cloudflare (the only ones in the table that speak DNS over TLS). Settings still on that default move over once."""
+    resolvers. "Secure resolvers only" had been the default. Settings still on that default move over once."""
     if profile.dns.mode != "secure":
         return []
     profile.dns.mode = "mix"
     if not 0 < float(profile.dns.system_share) < 1:
         profile.dns.system_share = 0.85
     return [f"DNS: mix, {round(float(profile.dns.system_share) * 100)}% on your normal DNS"]
+
+
+def move_old_defaults_v7(profile) -> list[str]:
+    """The recommended secure resolvers changed (Nov 2026): only OpenNIC servers with no logs, DNSSEC and DNSCrypt, DoH and
+    DoT, and the app can now use them encrypted. A saved copy of the old list, unchanged, moves to the new one once."""
+    from .config import OLD_RECOMMENDED_IPS, RECOMMENDED_RESOLVERS
+    if [r.get("ip") for r in profile.dns.resolvers] != OLD_RECOMMENDED_IPS:
+        return []
+    profile.dns.resolvers = [dict(r) for r in RECOMMENDED_RESOLVERS]
+    return ["DNS: the new recommended secure resolvers (OpenNIC, no logs, encrypted)"]
 
 
 def move_old_defaults_v5(profile) -> list[str]:
@@ -306,6 +315,9 @@ class Controller:
             if not self.app.get("migrated_defaults_v6"):
                 self._moved_defaults = list(getattr(self, "_moved_defaults", None) or []) + move_old_defaults_v6(self.profile)
                 self.app["migrated_defaults_v6"] = True
+            if not self.app.get("migrated_defaults_v7"):
+                self._moved_defaults = list(getattr(self, "_moved_defaults", None) or []) + move_old_defaults_v7(self.profile)
+                self.app["migrated_defaults_v7"] = True
             if not self.app.get("migrated_anon_off"):
                 tor = self.profile.transports.get("tor")
                 if tor is not None and tor.anon_os == "auto":
