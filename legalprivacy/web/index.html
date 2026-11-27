@@ -433,6 +433,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
 <section id="t-dash" class="tab on">
   <div id="banner" class="banner"></div>
   <div id="torAlert" class="note bad" role="alert" hidden style="margin:8px 16px"></div>
+<div id="upgBar" class="banner" hidden><span class="bi">⬆</span><span id="upgTx"></span><small><button id="upgKeep" class="small pri">Keep my settings</button> <button id="upgReset" class="small">Start from the new defaults</button></small></div>
 <div id="recBar" class="banner warn" hidden><span class="bi">⚠</span><span id="recTx"></span><small><button id="recGo" class="small">Use the built-in bridges</button></small></div>
   <div id="dashNote"></div>
   <div id="updBar" class="banner warn" hidden><span class="bi">⬆</span><span id="updTx"></span><small><button id="updGo" class="small">Check again</button></small></div>
@@ -1498,6 +1499,8 @@ function render(){
     const word={installing:'installing',starting:'starting',bootstrapping:'connecting',stopped:'stopped'}[tor.state]||tor.state;
     pt.textContent=`Tor: ${word}${tor.state==='installing'?' '+Math.round(tor.install_progress*100)+'%':tor.bootstrap_pct?' '+tor.bootstrap_pct+'%':''}`}
   if(s.first_run&&!wizShown){showWiz()}
+  {const u=s.upgrade,b=$('#upgBar');b.hidden=!u;
+   if(u)$('#upgTx').textContent=`Updated from ${u.from} to ${u.to}. Keep your settings, or start from this version's defaults? Your traffic history, My List, sign-ins and the relay's identity stay either way; your old settings are saved as a backup file. Nothing starts until you choose (or for 3 minutes, then your settings are kept).`}
   // dashboard
   let hitsT=0,failT=0,last=0,lastSub='';
   s.lanes.forEach(l=>{hitsT+=l.hits;failT+=l.failures;if(l.last_hit_ts&&l.last_hit_ts>last){last=l.last_hit_ts;lastSub=l.name}});
@@ -2209,6 +2212,8 @@ $('#hRun').onclick=async()=>{$('#hBody').innerHTML='<tr><td class="mute">Checkin
   try{const r=await api('/api/doctor');const ic={ok:'✓',warn:'⚠',fail:'✗',info:'ℹ'},cl={ok:'ok',warn:'warnc',fail:'bad',info:'mute'};
     window._hFix=r.checks.map(c=>c.fix||null);
     $('#hBody').innerHTML=r.checks.map((c,i)=>`<tr><td style="width:30px" class="${cl[c.status]}">${ic[c.status]}</td><td style="width:230px"><b>${esc(c.name)}</b></td><td class="${c.status==='ok'?'':cl[c.status]}">${esc(c.detail)}${c.fix?` <button class="small" data-fix="${i}">${esc(c.fix.label)}</button>`:''}</td></tr>`).join('')}catch(e){toast(e.message,1)}};
+async function upgAnswer(keep){try{const r=await api('/api/upgrade',{keep});toast(keep?'Settings kept.':`Settings are back to their defaults. Previous settings saved in ${r.backup}.`);await poll();if(!keep)location.reload()}catch(e){toast(e.message,1)}}
+$('#upgKeep').onclick=()=>upgAnswer(true);$('#upgReset').onclick=()=>upgAnswer(false);
 $('#recGo').onclick=async()=>{try{await api('/api/config',{transports:{tor:{bridge_mode:'obfs4'}}});toast('Bridges on (obfs4). Restart Tor to apply.');await poll()}catch(e){toast(e.message,1)}};
 $('#hBody').onclick=async e=>{const b=e.target.closest('button[data-fix]');if(!b)return;const f=(window._hFix||[])[+b.dataset.fix];if(!f)return;
   b.disabled=true;try{await api('/api/config',f.config);toast(f.label+': done'+(S&&S.running?'. Restart the noise or Tor to apply.':''));await poll();$('#hRun').onclick()}catch(err){toast(err.message,1);b.disabled=false}};
