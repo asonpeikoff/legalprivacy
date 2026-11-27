@@ -192,3 +192,48 @@ def test_tors_repeated_bridge_refusal_is_logged_once(bundle):
     msgs = [e["message"] for e in tm.log.since(0)]
     assert sum("Not using bridge" in m for m in msgs) == 1 and tm._refused_n == 50
     assert any("Bootstrapped 100%" in m for m in msgs)
+
+
+def test_an_unexpected_tor_exit_auto_recovers(bundle, monkeypatch):
+    tm = _tm(bundle, bridge_mode="off", bridge_auto=False)
+    tm.started_at, tm.state = 100.0, "ready"              # Tor was up, then the process died
+    recovered = []
+    monkeypatch.setattr(tm, "_recover", lambda why, *a: recovered.append(why))
+
+    class P:
+        stdout = iter(["Nov 27 [notice] Bootstrapped 100% (done): Done"])
+        def wait(self): return -2                         # killed by a signal, as in the report
+
+    tm._proc = p = P()                                    # make the pumped proc the current one
+    tm._pump_output(p)
+    assert tm.state == "error" and recovered == ["Tor exited with code -2"]
+
+
+def test_a_requested_stop_does_not_trigger_recovery(bundle, monkeypatch):
+    tm = _tm(bundle)
+    tm._stop_evt.set()                                    # the user asked Tor to stop
+    recovered = []
+    monkeypatch.setattr(tm, "_recover", lambda *a, **k: recovered.append(1))
+
+    class P:
+        stdout = iter([])
+        def wait(self): return 0
+
+    tm._proc = p = P()
+    tm._pump_output(p)
+    assert recovered == [] and tm.state != "error"
+
+
+def test_recover_restarts_tor_after_an_exit(bundle, monkeypatch):
+    tm = _tm(bundle, bridge_mode="off", bridge_auto=True)    # ladder has several ways, so the first retry is quick
+    tm.RETRY_DELAY = 0
+    tm.started_at = 100.0
+    started = []
+    monkeypatch.setattr(tm, "stop", lambda: None)
+    monkeypatch.setattr(tm, "_wipe_state", lambda: None)
+    monkeypatch.setattr(tm, "start", lambda: started.append(1))
+    tm._recover("Tor exited with code -2")
+    deadline = time.time() + 5
+    while not started and time.time() < deadline:
+        time.sleep(0.02)
+    assert started == [1] and tm.exclude_nodes == ["{us}"]        # recovered without touching the avoid list
