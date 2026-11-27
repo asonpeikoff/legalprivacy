@@ -214,3 +214,13 @@ def test_dns_on_the_old_secure_only_default_moves_to_mix_once():
     assert move_old_defaults_v6(p) == ["DNS: mix, 85% on your normal DNS"] and p.dns.mode == "mix"
     p.dns.mode = "system"                                        # a choice someone made stays
     assert move_old_defaults_v6(p) == [] and p.dns.mode == "system"
+
+
+def test_the_start_script_stops_a_running_copy_before_starting_a_fresh_one():
+    import pathlib
+    sh = (pathlib.Path(__file__).resolve().parent.parent / "start-legalprivacy.sh").read_text()
+    body = sh.split('if [ "$(uname -s)" = "Linux" ]; then', 1)[1]
+    assert body.index("stop_running") < body.index("setsid nohup")          # stop first, then start
+    fg = sh.split("--foreground)", 1)[1].split(";;", 1)[0]
+    assert fg.index("stop_running") < fg.index("exec ")
+    assert "killall -9 legalprivacy" in sh.split("stop_running() {", 1)[1].split("\n}", 1)[0]
