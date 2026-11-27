@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Scraping through a proxy works, and says why when it can't.** A proxy is re-tested right before a job uses it (free proxies die within hours), one that fails during the job is dropped and the next tested one is tried (up to 5), and if none is left the job stops rather than carrying on without a proxy (which would show your own address). Errors now name the real cause (for example "the proxy refused or dropped the connection (Tunnel connection failed: 403 Forbidden)") instead of a line cut off after "Caused by S".
+
 - **After an update the app asks: keep your settings, or start from the new defaults?** Asked once, in the window and on the dashboard. Starting fresh saves your old settings as a backup file (`config.before-<version>-<time>.yaml`) and keeps your traffic history, My List, sign-ins, saved bridge lines and the relay's identity. Until you answer, the noise, Tor and the relay wait; with no answer for 3 minutes (for example no window open) the settings are kept and everything starts as usual.
 - **Fixed: switching duck.ai chat noise off did not survive a restart.** A one-time settings migration ran on every launch and switched it back on.
 

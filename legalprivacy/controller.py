@@ -941,11 +941,23 @@ class Controller:
             raise ConfigError("A scrape is already running. Stop it first.")
         url = str(body.get("url", "")).strip()
         kinds = [k for k in (body.get("kinds") or ALL_KINDS) if k in ALL_KINDS]
-        proxy = None
+        proxy, next_proxy = None, None
         if body.get("use_proxy"):
-            proxy = self.proxies.pick()
-            if proxy is None:
+            if not self.proxies.good():
                 raise ConfigError("No tested proxies yet. Fetch and test some on this tab first, or turn the proxy off.")
+            proxy = self.proxies.pick_checked()               # re-tested now: the list may be hours old
+            if proxy is None:
+                raise ConfigError("None of the tested proxies works any more (free proxies die quickly). Test proxies "
+                                  "again on this tab, or turn the proxy off.")
+            used = {proxy}
+
+            def next_proxy(bad: str) -> str | None:
+                self.proxies.drop(bad)
+                self.log.info("tools", f"Scrape: proxy {bad.split('//')[-1]} stopped working; trying another tested one.")
+                nxt = self.proxies.pick_checked(exclude=used)
+                if nxt:
+                    used.add(nxt)
+                return nxt
         host = re.sub(r"[^a-z0-9.-]+", "-", (url.split("//", 1)[-1].split("/", 1)[0] or "site").lower())[:40]
         out = app_dir() / "scrapes" / f"{time.strftime('%Y%m%d-%H%M%S')}-{host}"
         pool = list(self.feeds.items("tranco")[:400]) or ["wikipedia.org", "bbc.com", "nytimes.com"]
@@ -953,14 +965,15 @@ class Controller:
         def noise() -> None:
             import requests
             site = random.choice(pool)
+            p = self._scrape.proxy if getattr(self, "_scrape", None) is not None and proxy else proxy   # the one in use now
             requests.get(f"https://{site}/", timeout=10, headers={"User-Agent": USER_AGENT},
-                         proxies={"http": proxy, "https": proxy} if proxy else None).close()
+                         proxies={"http": p, "https": p} if p else None).close()
         try:
             self._scrape = ScrapeJob(
                 url, out, kinds=kinds, depth=int(body.get("depth", 1)), max_pages=int(body.get("max_pages", 20)),
                 delay=float(body.get("delay", 2.0)), max_mb=float(body.get("max_mb", 200)),
                 same_site=body.get("same_site", True) is not False, respect_robots=body.get("respect_robots", True) is not False,
-                mix_noise=body.get("mix_noise", True) is not False, proxy=proxy, noise_fn=noise)
+                mix_noise=body.get("mix_noise", True) is not False, proxy=proxy, noise_fn=noise, next_proxy=next_proxy)
         except (ValueError, TypeError) as exc:
             raise ConfigError(str(exc)) from None
         threading.Thread(target=self._scrape.run, daemon=True, name="scrape").start()
