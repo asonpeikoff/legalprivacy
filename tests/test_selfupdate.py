@@ -126,7 +126,6 @@ def test_the_tor_the_app_runs_is_replaced_when_a_newer_official_one_exists(monke
 
 def test_install_now_installs_and_restarts_after_replying(tmp_path, monkeypatch):
     import threading
-    import time as _t
     from legalprivacy import selfupdate as S
     monkeypatch.setattr(S, "can_self_update", lambda: True)
     rel = {"version": "9.9.9", "url": "https://github.com/asonpeikoff/legalprivacy/releases/download/v9.9.9/x", "size": 5, "sha256": "0" * 64}
