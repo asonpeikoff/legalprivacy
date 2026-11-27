@@ -19,6 +19,7 @@ import bisect
 import csv
 import gzip
 import io
+import os
 import ipaddress
 import json
 import socket
@@ -239,6 +240,8 @@ def shared() -> GeoBan:
 
 def maintain(log=None, stop=lambda: False) -> None:
     """Keep the lists fresh: the Virginia ranges monthly, the banned relay list daily. Meant for a background thread."""
+    if os.environ.get("LEGALPRIVACY_GEOBAN_DOWNLOADS", "1") == "0":      # tests: never fetch the real lists
+        return
     g = shared()
     last_relays = 0.0
     while not stop():
