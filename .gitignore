@@ -4,3 +4,9 @@ __pycache__/
 *.egg-info/
 /dist
 .venv/
+
+# Android
+android/.gradle/
+android/build/
+android/*/build/
+android/local.properties

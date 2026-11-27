@@ -1,0 +1,56 @@
+name: Android
+
+on:
+  push:
+    branches: [master]
+    paths: ['android/**', '.github/workflows/android.yml', 'tools/build_android_assets.py']
+  pull_request:
+    paths: ['android/**', '.github/workflows/android.yml', 'tools/build_android_assets.py']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to attach the APK to, e.g. v2.24.0 (empty: just build and keep it as a run artifact)"
+        required: false
+
+permissions:
+  contents: write     # only used to attach the APK to a release
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.14.3'
+
+      - name: Version for the APK
+        run: |
+          TAG="${{ github.event.inputs.tag }}"
+          echo "LP_VERSION_NAME=${TAG#v}" >> "$GITHUB_ENV"
+          echo "LP_VERSION_CODE=${{ github.run_number }}" >> "$GITHUB_ENV"
+
+      - name: Test the core and build the APK
+        working-directory: android
+        run: gradle :core:test :app:assembleDebug --console=plain
+
+      - name: Name the APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk legalprivacy-noise-android.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: legalprivacy-noise-android
+          path: legalprivacy-noise-android.apk
+
+      - name: Attach to the release
+        if: ${{ github.event.inputs.tag != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.inputs.tag }}" legalprivacy-noise-android.apk --clobber --repo "${{ github.repository }}"
