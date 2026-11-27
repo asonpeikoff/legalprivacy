@@ -361,10 +361,24 @@ class Controller:
     def _tor_cfg(self):
         return self.profile.transports["tor"]
 
+    def anon_os(self) -> dict | None:
+        """Whonix / Qubes-Whonix, when detected and not switched off (Tor tab); None otherwise."""
+        if self._tor_cfg().anon_os == "off":
+            return None
+        from . import anonos
+        return anonos.current()
+
+    def _tor_endpoint(self, cfg) -> tuple[str, str, str | None]:
+        """(mode, socks, control): the gateway's Tor on Whonix, else what the settings say."""
+        aos = self.anon_os()
+        if aos:
+            return "external", aos["socks"], aos["control"]
+        return ("managed" if cfg.manage else "external"), cfg.socks, cfg.control
+
     def tor_manager(self) -> TorManager:
         cfg = self._tor_cfg()
-        mode = "managed" if cfg.manage else "external"
-        if self.tor is None or self.tor.mode != mode or self.tor.ext_socks != cfg.socks \
+        mode, socks, control = self._tor_endpoint(cfg)
+        if self.tor is None or self.tor.mode != mode or self.tor.ext_socks != socks \
                 or self.tor.bridges != [b.strip() for b in cfg.bridges if b.strip()] \
                 or self.tor.configured_bridge_mode != cfg.bridge_mode or self.tor.bridge_auto != cfg.bridge_auto \
                 or (self.tor.dns_port_cfg, self.tor.dns_lan, self.tor.dns_lan_addr) != (
@@ -373,13 +387,25 @@ class Controller:
                 or self.tor.exclude_nodes != [e.strip() for e in cfg.exclude_nodes if e.strip()]:
             if self.tor and self.tor.state not in ("stopped",):
                 self.tor.stop()
-            self.tor = TorManager(self.log, mode=mode, socks=cfg.socks, control=cfg.control,
+            aos = self.anon_os()
+            if aos:
+                self.log.info("tor", f"{aos['name']} detected: using its gateway's Tor at {socks} instead of starting a second "
+                                     "Tor (that would be Tor over Tor). Switch this off on the Tor tab if you want otherwise.")
+                if [e for e in cfg.exclude_nodes if e.strip()] or cfg.bridge_mode != "off":
+                    self.log.warn("tor", "Your relays to avoid and bridges are not applied here: the Whonix-Gateway's Tor "
+                                         "chooses the relays. To keep avoiding them, add them on the gateway in "
+                                         "/usr/local/etc/torrc.d/50_user.conf, for example: ExcludeNodes "
+                                         + ",".join(e.strip() for e in cfg.exclude_nodes if e.strip())
+                                         + " / StrictNodes 1 (and GeoIPExcludeUnknown 0 if it uses Snowflake or meek "
+                                           "bridges), then restart Tor on the gateway.")
+            self.tor = TorManager(self.log, mode=mode, socks=socks, control=control,
                                   control_password=cfg.control_password,
                                   bridges=cfg.bridges, auto_install=cfg.auto_install,
                                   bridge_mode=cfg.bridge_mode, bridge_auto=cfg.bridge_auto,
                                   dns_port=cfg.dns_port, dns_lan=cfg.dns_lan, dns_lan_addr=cfg.dns_lan_addr,
                                   exclude_nodes=cfg.exclude_nodes,
                                   share_browser=cfg.share_browser)
+            self.tor.anon_os = aos
         self.tor.geoban = bool(self.profile.extras.geoban)
         return self.tor
 
@@ -1223,6 +1249,10 @@ class Controller:
     def relay_start(self, body: dict) -> dict:
         """Save the relay settings and start the relay. A public relay needs every checklist item ticked."""
         from .relay import RelayConfigError
+        aos = self.anon_os()
+        if aos:
+            raise ConfigError(f"A relay can't run on {aos['name']}: all its traffic goes through Tor, so other relays could "
+                              "never reach it. Run the relay on an ordinary computer.")
         cur = self.profile.relay
         try:
             mb = float(body.get("bandwidth_mb", self._mb_from_rate(cur.bandwidth_rate) or 1.0))
@@ -1313,6 +1343,11 @@ class Controller:
         NON-exit relay (it carries other people's Tor traffic, never exits anything). Switch it off on the Tor tab."""
         rc = self.profile.relay
         if rc.autostart and rc.acknowledged:
+            aos = self.anon_os()
+            if aos:
+                self.log.info("relay", f"Relay not started: this is {aos['name']}, whose traffic all goes through Tor, so it "
+                                       "cannot be reached as a relay. Run a relay on an ordinary computer instead.")
+                return
             if not self.relay._find_binary():            # default-on: stay quiet until Tor has been installed once
                 self.log.info("relay", "Relay not started: Tor is not installed yet (it installs the first time you start Tor).")
                 return
@@ -2050,6 +2085,10 @@ class Controller:
             st = "ok" if f["count"] and not f["stale"] else ("warn" if f["error"] or not f["count"] else "info")
             add(f"Source: {f['name']}", st, f"{f['count']:,} items" + (" (stale)" if f["stale"] and f["count"] else "")
                 + (f" — {f['error']}" if f["error"] else ""))
+        aos = self.anon_os()
+        if aos:
+            add("Whonix / Qubes", "ok", f"{aos['name']}: the gateway's Tor is used ({aos['socks']}); no second Tor is started. "
+                                        "Relays to avoid and bridges are set on the gateway.")
         if self.profile.relay.enabled:
             add("Relay contribution", "info", f"{self.profile.relay.mode} relay '{self.profile.relay.nickname}' (never a general exit)")
         try:

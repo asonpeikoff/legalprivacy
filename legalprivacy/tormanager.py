@@ -232,6 +232,7 @@ class TorManager:
         self._refused_since: float | None = None   # when Tor first said a bridge is in ExcludeNodes (this start)
         self._refused_n = 0
         self.bridge_in_use: dict | None = None  # the bridge Tor is connected through right now
+        self.anon_os: dict | None = None        # Whonix / Qubes-Whonix: the gateway's Tor is used (set by the controller)
         self.auto_install = auto_install
         self.dns_port_cfg, self.dns_lan, self.dns_lan_addr = dns_port, dns_lan, dns_lan_addr   # Tor DNS (optional)
         self.dns_host = tordns.bind_address(dns_lan, dns_lan_addr)
@@ -345,6 +346,7 @@ class TorManager:
         uptime = int(time.time() - self.started_at) if self.started_at and self.state != "stopped" else 0
         return {
             "mode": self.mode, "state": self.state, "error": self.error,
+            "anon_os": (self.anon_os or {}).get("name"),
             "bootstrap_pct": self.bootstrap_pct, "bootstrap_summary": self.bootstrap_summary,
             "version": self.version, "binary": self.binary or find_tor_binary(),
             "installed_bundle": (tor_dir() / "bundle" / "tor" / _EXE).exists(),
@@ -362,6 +364,8 @@ class TorManager:
 
     def bridge_label(self) -> str:
         """For the Details card: 'none (direct)', or the bridge type and, once connected, the one in use."""
+        if self.anon_os:
+            return "set on the Whonix-Gateway"
         if self.bridge_mode == "off" or not self.effective_bridges():
             return "none (direct)"
         kind = "your saved" if self.bridge_mode == "custom" else f"built-in {self.bridge_mode}"
@@ -414,10 +418,17 @@ class TorManager:
         candidates = [(self.socks_host, self.socks_port)]
         if self.socks_port == 9050:
             candidates.append(("127.0.0.1", 9150))     # Tor Browser default
-        for host, port in candidates:
-            if port_open(host, port):
-                self.socks_host, self.socks_port = host, port
+        wait_until = time.time() + (90 if self.anon_os else 0)    # a gateway qube can still be starting
+        while True:
+            hit = next(((h, p) for h, p in candidates if port_open(h, p)), None)
+            if hit or time.time() >= wait_until or self._stop_evt.wait(3):
                 break
+        if hit:
+            self.socks_host, self.socks_port = hit
+        elif self.anon_os:
+            raise RuntimeError(f"The {self.anon_os['name'].replace('Workstation', 'Gateway')}'s Tor does not answer at "
+                               f"{self.ext_socks}. Make sure the gateway is running and connected (on Qubes: sys-whonix, "
+                               "and this qube's network qube), then press Start Tor again.")
         else:
             raise RuntimeError(f"No Tor found at {self.ext_socks}. Switch to 'managed' mode "
                                "and legalPrivacy will run its own private Tor.")
@@ -425,7 +436,8 @@ class TorManager:
             self.control_host, self.control_port = split_hostport(self.ext_control, 9051)
             if self.socks_port == 9150 and self.control_port == 9051:
                 self.control_port = 9151
-        self.log.info("tor", f"Using external Tor at {self.socks_addr}")
+        self.log.info("tor", f"Using {'the ' + self.anon_os['name'] + ' gateway' + chr(39) + 's' if self.anon_os else 'external'} "
+                             f"Tor at {self.socks_addr}")
         self.started_at = time.time()
         self.state = "ready"
         self.bootstrap_pct = 100

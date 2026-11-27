@@ -589,6 +589,8 @@ class TorTab(Tab):
         self._mix_text(v_tor.get(), v_onion.get())
         self.f_check(cc, "tor_manage", "Let legalPrivacy manage Tor (recommended)",
                      "Untick to use an existing Tor at the addresses below instead.")
+        self.f_radios(cc, "tor_anon_os", [("auto", "On Whonix / Qubes-Whonix, use the gateway's Tor (recommended; never Tor over Tor)"),
+                                          ("off", "Ignore Whonix / Qubes and use the setting above")])
         r = cc.row((6, 0))
         cc.lbl(r, "SOCKS").pack(side="left")
         self.f_entry(r, "tor_socks", 20).pack(side="left", padx=(6, 14))
@@ -1087,7 +1089,7 @@ class TorTab(Tab):
         self.bar["value"] = (t.get("install_progress") or 0) * 100 if state == "installing" else (100 if state == "ready" else pct)
         self.sum_var.set((t.get("error") or ("Downloading and verifying the official Tor bundle…" if state == "installing"
                                               else t.get("bootstrap_summary") or "")) + (f"  ⚠ {t['hint']}" if t.get("hint") else ""))
-        kvs = [("Mode", t.get("mode")), ("Bridge", t.get("bridge_label") or "—"), ("Version", t.get("version") or "—"),
+        kvs = [("Mode", f"{t.get('anon_os')} gateway" if t.get("anon_os") else t.get("mode")), ("Bridge", t.get("bridge_label") or "—"), ("Version", t.get("version") or "—"),
                ("SOCKS", t.get("socks") or "—"),
                ("Control", t.get("control") or "—"), ("PID", t.get("pid") or "—"),
                ("Uptime", L.fmt_uptime(t.get("uptime"))), ("Downloaded", L.fmt_bytes(t.get("read"))),
