@@ -1352,8 +1352,11 @@ class Controller:
                              + (f" ({n} update{'s' if n != 1 else ''} behind)" if n else "") + ". "
                              "Update with: git pull" if self._update.get("how") else
                              "A newer legalPrivacy is available. Download it from GitHub.")
-        except Exception as exc:                                # offline is fine
-            self._update = {"status": "unchecked", "error": f"Couldn't reach GitHub: {exc}"}
+        except Exception as exc:                                # offline is fine, but say so (once per kind of problem)
+            msg = f"Couldn't check GitHub for a newer version: {exc}"
+            if (getattr(self, "_update", None) or {}).get("error") != msg:
+                self.log.warn("app", msg)
+            self._update = {"status": "unchecked", "error": msg, "at": time.time()}
         return self.update_state()
 
     def update_watch(self) -> None:
