@@ -2,3 +2,4 @@
 import os
 
 os.environ.setdefault("LEGALPRIVACY_AUTOINSTALL", "0")
+os.environ.setdefault("LEGALPRIVACY_GEOBAN_DOWNLOADS", "0")      # nor do they download the address lists

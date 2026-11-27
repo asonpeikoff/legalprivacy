@@ -32,7 +32,15 @@ def _manager(tmp_path, behaviours, max_ms=700):
         return 200, GOOD
     m = ProxyManager(tmp_path / "p.json", get=get, rng=random.Random(1))
     m.max_ms = max_ms
+    m.avoid_banned = False                                    # these test addresses are not what is being tested
     return m
+
+
+def test_proxies_in_banned_ranges_are_dropped(tmp_path):
+    m = _manager(tmp_path, {"http://11.1.1.1:80": "good", "http://8.8.8.8:80": "good"})
+    m.avoid_banned = True
+    m.refresh(workers=2)
+    assert {r["proxy"] for r in m.good()} == {"http://8.8.8.8:80"}
 
 
 def test_only_proxies_that_prove_themselves_are_kept_and_the_rest_are_thrown_out(tmp_path):
