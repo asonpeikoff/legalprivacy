@@ -34,7 +34,26 @@ def test_behind_says_by_how_many_and_how_to_update():
 
 def test_your_own_newer_work_is_not_called_out_of_date():
     assert U.check("2.14.0", _http("behind"), commit=OLD)["status"] == "current"
-    assert U.check("2.14.0", _http(fail_compare=True), commit=OLD)["status"] == "unknown"
+    r = U.check("9.0.0", _http(fail_compare=True), commit=OLD)      # a commit GitHub doesn't know: version numbers decide
+    assert r["status"] == "current" and "version numbers" in r["note"]
+    assert U.check("2.14.0", _http(fail_compare=True), commit=OLD)["status"] == "behind"
+
+
+def test_your_own_changes_on_top_of_an_old_copy_still_show_the_newer_version():
+    r = U.check("2.14.0", _http("diverged", 5), commit=OLD)
+    assert r["status"] == "behind" and r["behind_by"] == 5 and r["diverged"]
+
+
+def test_the_commit_is_read_from_the_git_folder_when_git_itself_cannot(tmp_path, monkeypatch):
+    import subprocess
+    git = tmp_path / ".git"
+    (git / "refs" / "heads").mkdir(parents=True)
+    (git / "HEAD").write_text("ref: refs/heads/master\n")
+    (git / "packed-refs").write_text(f"# pack-refs with: peeled\n{OLD} refs/heads/master\n")
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: subprocess.CompletedProcess(a, 128, "", "dubious ownership"))
+    assert U.local_commit(tmp_path) == OLD
+    (git / "refs" / "heads" / "master").write_text(NEW + "\n")
+    assert U.local_commit(tmp_path) == NEW
 
 
 def test_without_git_it_compares_version_numbers(monkeypatch):
@@ -58,7 +77,9 @@ def test_controller_reports_and_survives_being_offline(tmp_path, monkeypatch):
 
     def boom(v):
         raise OSError("offline")
-    assert c.update_check(boom)["status"] == "unchecked"
+    s = c.update_check(boom)
+    assert s["status"] == "unchecked" and "offline" in s["error"]
+    assert any("Couldn't check GitHub" in e["message"] for e in c.log.since(0))       # said, not swallowed
     s = c.update_check(lambda v: {"status": "behind", "behind_by": 2, "how": "git pull"})
     assert s["status"] == "behind" and s["enabled"] is True
 
