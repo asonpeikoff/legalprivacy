@@ -523,6 +523,7 @@ class Agent:
              max_download_mb=round(self.max_download / 1e6, 1))
         steps, last_stats = 0, self.now()
         while not self.stop.is_set() and (max_steps is None or steps < max_steps):
+            progressed = False
             n = max(1, int(self.rng.expovariate(1 / self.burst_mean)) + 1)
             for _ in range(n):
                 if self.stop.is_set():
@@ -531,10 +532,13 @@ class Agent:
                     emit("info", "budget reached; resting", budget="spent")
                     self.wait(self.rng.uniform(120, 600))
                     break
+                progressed = True
                 steps += 1
                 self.wait(max(MIN_GAP_SECONDS, self.rng.lognormvariate(1.2, 0.8)))
                 if max_steps is not None and steps >= max_steps:
                     break
+            if max_steps is not None and not progressed:
+                break
             hour = time.localtime(self.now()).tm_hour + time.localtime(self.now()).tm_min / 60
             mean_gap = 3600 / max(1.0, self.rate * self.diurnal(hour)) * self.burst_mean * self.gap_scale
             self.wait(self.rng.expovariate(1 / max(5.0, mean_gap)))
