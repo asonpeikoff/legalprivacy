@@ -9,14 +9,20 @@ import pytest
 from legalprivacy import procclean, selfupdate
 from legalprivacy.events import EventLog
 
-pytestmark = pytest.mark.skipif(sys.platform == "win32" or not shutil.which("sleep"), reason="needs a POSIX sleep")
+pytestmark = pytest.mark.skipif(sys.platform == "win32" or not shutil.which("sleep"), reason="needs a POSIX shell and sleep")
 
 
 def _fake_tor(folder):
+    """A long-running process named "tor" whose command line names its folder. A shell script, not a copy of `sleep`:
+    on runners where `sleep` is a multi-call binary (uutils coreutils), a copy named "tor" picks its job from its own
+    name and exits at once ("unknown program 'tor'")."""
     folder.mkdir(parents=True, exist_ok=True)
     exe = folder / "tor"
-    shutil.copy(shutil.which("sleep"), exe)
-    return subprocess.Popen([str(exe), "60"])
+    exe.write_text("#!/bin/sh\nwhile :; do sleep 1; done\n")
+    exe.chmod(0o755)
+    p = subprocess.Popen([str(exe), "60"])
+    time.sleep(0.3)                     # let the kernel name it before the scan
+    return p
 
 
 def test_leftover_tor_in_our_folder_is_stopped(tmp_path):

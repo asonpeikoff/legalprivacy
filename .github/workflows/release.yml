@@ -32,6 +32,7 @@ jobs:
           #   rename: legalprivacy-launch-macos
 
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30      # tests + build take ~7 min; a hang fails fast
 
     steps:
       - uses: actions/checkout@v4
@@ -69,6 +70,7 @@ jobs:
     needs: build
     if: ${{ !cancelled() }}      # still publish when macOS had no runner; the check below keeps Windows+Linux mandatory
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v4

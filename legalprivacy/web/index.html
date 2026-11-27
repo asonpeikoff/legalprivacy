@@ -546,7 +546,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
       <label class="opt"><input type="radio" name="bmode" value="meek"> <b>Built-in meek</b> <span class="mute" id="bnMeek"></span></label>
       <label class="opt"><input type="radio" name="bmode" value="custom"> <b>My bridges</b> <span class="mute">— the saved lines below</span></label>
       <textarea id="tBridges" rows="5" placeholder="obfs4 1.2.3.4:443 FINGERPRINT cert=… iat-mode=0"></textarea>
-      <label class="chk"><input type="checkbox" id="bAuto"><span>If Tor can't connect directly, try the built-in bridges automatically <span class="mute">(obfs4, then Snowflake; on by default)</span></span></label>
+      <label class="chk"><input type="checkbox" id="bAuto"><span>If Tor gets stuck, try other ways automatically <span class="mute">(direct, then obfs4, Snowflake, meek and your saved bridges; then a full reset and again. Never loosens the avoid list. On by default)</span></span></label>
       <div class="row" style="margin-top:6px">Country <input type="text" id="bCountry" size="3" maxlength="2" placeholder="auto" title="Two-letter country code, e.g. ir, cn, ru. Leave empty to let the Tor Project detect it.">
         <button id="bGet">Get bridges that work here</button>
         <details class="why"><summary>ⓘ</summary><div>Asks the Tor Project's bridge service (bridges.torproject.org, the same one Tor Browser uses) which bridges work in your country, and saves them as “My bridges”. This contacts that site from your connection.</div></details></div>
@@ -1600,7 +1600,7 @@ $('#bGet').onclick=async()=>{
   if(!confirm('Ask bridges.torproject.org for bridges that work in your country? This contacts that site from your connection.'))return;
   $('#bGet').disabled=true;$('#bGet').textContent='Asking…';
   try{const r=await api('/api/tor/getbridges',{country:$('#bCountry').value.trim()});
-    toast(r.ok?`Saved ${r.count} bridge(s): ${r.types.join(', ')}. Restart Tor to use them.`:r.message,!r.ok);await poll();fillTor(true)}
+    toast(r.ok?`${r.message} Restart Tor to use them.`:r.message,!r.ok);await poll();fillTor(true)}
   catch(e){toast('Could not reach the bridge service: '+e.message,1)}
   finally{$('#bGet').disabled=false;$('#bGet').textContent='Get bridges that work here'}};
 $$('input[name=bmode]').forEach(x=>x.onchange=()=>{dirty.tor=true;$('#tSaved').textContent='unsaved changes'});
@@ -1622,7 +1622,7 @@ function renderTorStatus(){
   $('#tState').textContent=({stopped:'Stopped',installing:'Installing…',starting:'Starting…',bootstrapping:'Connecting…',ready:'Connected',error:'Problem'})[t.state]||t.state;
   $('#tBar').style.width=(t.state==='installing'?t.install_progress*100:t.bootstrap_pct)+'%';
   $('#tSum').textContent=(t.error?t.error:t.state==='installing'?'Downloading & verifying the official Tor bundle…':t.bootstrap_summary||'')+(t.hint?'  ⚠ '+t.hint:'');
-  $('#tKv').innerHTML=[['Mode',t.mode],['Version',t.version||'—'],['SOCKS',t.socks||'—'],['Control',t.control||'—'],['PID',t.pid||'—'],['Uptime',t.uptime?fmtDur(t.uptime):'—'],['Downloaded',fmtB(t.read)],['Uploaded',fmtB(t.written)],['Program',t.binary||'not installed']].map(([k,v])=>`<b>${k}</b><span style="word-break:break-all">${esc(v)}</span>`).join('');
+  $('#tKv').innerHTML=[['Mode',t.mode],['Bridge',t.bridge_label||'—'],['Version',t.version||'—'],['SOCKS',t.socks||'—'],['Control',t.control||'—'],['PID',t.pid||'—'],['Uptime',t.uptime?fmtDur(t.uptime):'—'],['Downloaded',fmtB(t.read)],['Uploaded',fmtB(t.written)],['Program',t.binary||'not installed']].map(([k,v])=>`<b>${k}</b><span style="word-break:break-all">${esc(v)}</span>`).join('');
   $('#cCount').textContent=t.circuits_built||0;
   $('#cBody').innerHTML=(t.circuits||[]).map(c=>`<tr><td>${esc(c.id)}</td><td class="${c.status==='BUILT'?'ok':''}">${esc(c.status)}</td><td>${esc(c.purpose)}</td><td class="url">${esc(c.path.join(' → '))}</td></tr>`).join('')||'<tr><td colspan=4 class="mute">no circuits</td></tr>';
   $('#tInstallNote').textContent=!t.supported_platform?'Automatic install is not available on this platform — install Tor with your package manager.':t.installed_bundle?'Official Tor bundle installed by legalPrivacy.':t.binary?'Using Tor found on this computer.':'Tor is not installed yet — it will be downloaded automatically when needed.';
