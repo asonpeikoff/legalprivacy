@@ -8,6 +8,7 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -17,6 +18,7 @@ jobs:
         run: pip install ruff && ruff check .
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20      # a healthy run takes ~6 min; a hang fails fast instead of holding the runner ~30 min
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
