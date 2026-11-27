@@ -685,18 +685,7 @@ class Runner:
         finally:
             self.current = None
         if target.kind == "html" and target.role != "search" and result.ok:
-            if not getattr(lane.transport, "is_browser", False):
-                from .safety import page_language
-                lang = page_language(result.html or "")
-                if lang and not lang.startswith("en"):
-                    result.foreign, result.html = True, ""
-                    result.detail = "not in English: moved on"
-            if getattr(result, "foreign", False):          # not in English: leave that site alone for a week
-                import urllib.parse as _up
-                h = (_up.urlparse(getattr(result, "final_url", "") or target.url).hostname or "").removeprefix("www.")
-                if h:
-                    self._rest_host(h, self.rng.uniform(5, 9) * 86400)
-            if not getattr(result, "login_wall", False) and not getattr(result, "foreign", False) \
+            if not getattr(result, "login_wall", False) \
                     and not getattr(lane.transport, "is_browser", False):
                 from .loginwall import looks_like_login_wall
                 if looks_like_login_wall(target.url, html=result.html or ""):

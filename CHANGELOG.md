@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **A Clear button for tested proxies** (Tools → Proxies, web and desktop): throws out every tested proxy at once.
+- **More onion (Tor) noise.** The onion budget was low (≈40/day, ~1–2 an hour), so Tor often looked idle. Raised to ≈240/day (about 10 an hour on average, with the usual random pacing so it varies a lot) so onion visits are visible; the light/heavy presets rise too.
+
+- **Speed test fixed (was 403 on download and upload).** The request carried no User-Agent, and speed.cloudflare.com answers 403 without one; it now sends a normal browser User-Agent. The speed test uses only a clearnet proxy you set in Settings — never the tested free-proxy pool.
+- **Proxy tester tries far more candidates.** It tested only 400 new candidates per run; the cap is now 2,500, and the progress line shows how many were found versus tested (e.g. "testing 120/2500 of 1,900 found"). Free public proxies are mostly dead or slow regardless, so few will pass.
+
+- **The noise no longer skips non-English sites.** The English-only filter (which skipped sites on country domains like `.de`, language sections like `/fr/`, and pages declaring a non-English `<html lang>`, and rested them for a week) is removed, so every language is visited like any other. The "not in English: moved on" activity-log line is gone.
+
+- **Load test (your own target), on the Tools tab.** Generates load from this one computer and graphs it live (requests/s, ok vs failed, bytes, latency p50/p90/p99). L7 sends real HTTP requests (GET/HEAD/POST); L4 opens real TCP connections. It never spoofs addresses or forges packets, there is no way to drive other machines from it, and it refuses government/Virginia address ranges. It will not start until you confirm you own the target or are authorised to test it, and it is capped (2000/s, 256 concurrent, 600 s; raise with the `LEGALPRIVACY_LOADTEST_*` environment variables). To load-test from several of your own machines, run the app on each and point them at the same target.
+
 - **Scraped files are easy to get to.** Tools → Scrape has an "Open folder" button (opens the last job's folder in your file manager) and lists the newest files it saved.
 
 - **Scraping through a proxy works, and says why when it can't.** A proxy is re-tested right before a job uses it (free proxies die within hours), one that fails during the job is dropped and the next tested one is tried (up to 5), and if none is left the job stops rather than carrying on without a proxy (which would show your own address). Errors now name the real cause (for example "the proxy refused or dropped the connection (Tunnel connection failed: 403 Forbidden)") instead of a line cut off after "Caused by S".

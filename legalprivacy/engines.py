@@ -14,7 +14,6 @@ from dataclasses import dataclass
 from html.parser import HTMLParser
 
 from .transports import Target
-from .safety import english_url
 
 # Search engine mix: DuckDuckGo is the main one (about 70% plus its lite page), with a little of the others, Google the most
 # of them (about 12%), then Bing, Brave and Startpage, and a trace of the rest. Settings -> Search engines changes any of it.
@@ -303,7 +302,7 @@ class SearchTargetFactory:
         return Target(url=endpoint + urllib.parse.quote_plus(query), note=note, role="search")
 
     def result_target(self, html: str, search_url: str, prefer_host: str | None = None) -> Target | None:
-        links = [u for u in extract_result_links(html, search_url) if english_url(u)]
+        links = extract_result_links(html, search_url)
         if not links:
             return None
         # the top result about half the time, the rest falling off with position
@@ -376,8 +375,6 @@ class CrawlTargetFactory:
             if p.scheme not in ("http", "https") or absu == here or not _looks_like_page(p):
                 continue
             if self.same_site_only and p.netloc.lower() != base.netloc.lower():
-                continue
-            if not english_url(absu):                    # English-language pages only
                 continue
             links.append(absu)
         if not links:

@@ -36,9 +36,9 @@ from .scheduler import MaxFailuresExceeded, Runner, build_lanes
 from .tormanager import TorManager, find_tor_binary, port_open
 
 PRESETS = {   # budgets per day: search / crawl / dns / onion
-    "light":  {"search": 50,  "crawl": 20,  "dns": 80,  "onion": 15},
-    "normal": {"search": 120, "crawl": 40,  "dns": 200, "onion": 40},
-    "heavy":  {"search": 300, "crawl": 100, "dns": 500, "onion": 100},
+    "light":  {"search": 50,  "crawl": 20,  "dns": 80,  "onion": 100},
+    "normal": {"search": 120, "crawl": 40,  "dns": 200, "onion": 240},
+    "heavy":  {"search": 300, "crawl": 100, "dns": 500, "onion": 600},
 }
 def wipe_old_log_files() -> None:
     """Delete any cricket.log left by an older version. The app keeps no log files."""
@@ -1012,6 +1012,39 @@ class Controller:
         self.log.info("tools", f"Scraping {url} into {out}" + (" through a tested proxy." if proxy else "."))
         return self.scrape_state()
 
+    # ── load testing (Tools) ────────────────────────────────────────────────
+    def loadtest_state(self) -> dict:
+        from .loadtest import MAX_CONN, MAX_RPS, MAX_SECONDS
+        job = getattr(self, "_loadtest", None)
+        return {"job": job.snapshot() if job else None,
+                "caps": {"rps": MAX_RPS, "concurrency": MAX_CONN, "seconds": MAX_SECONDS}}
+
+    def loadtest_start(self, body: dict) -> dict:
+        """Start one capped load run against a target you confirm you control. One machine, one job. See loadtest.py."""
+        from .loadtest import LoadTest, LoadTestError
+        job = getattr(self, "_loadtest", None)
+        if job and job.status["running"]:
+            raise ConfigError("A load test is already running. Stop it first.")
+        try:
+            lt = LoadTest(target=str(body.get("target", "")), mode=str(body.get("mode", "http")),
+                          rps=int(body.get("rps", 50)), concurrency=int(body.get("concurrency", 10)),
+                          duration=float(body.get("duration", 30)), method=str(body.get("method", "GET")),
+                          body=str(body.get("post_body", "")), authorized=body.get("authorized") is True)
+        except (LoadTestError, ValueError, TypeError) as exc:
+            raise ConfigError(str(exc)) from None
+        self._loadtest = lt
+        threading.Thread(target=lt.run, daemon=True, name="loadtest").start()
+        self.log.warn("tools", f"Load test started against {lt.target} ({lt.mode.upper()}, {lt.rps}/s x {lt.concurrency} "
+                               f"for {lt.duration:g}s) — you confirmed this target is yours or authorised.")
+        return self.loadtest_state()
+
+    def loadtest_stop(self) -> dict:
+        job = getattr(self, "_loadtest", None)
+        if job:
+            job.stop.set()
+            self.log.info("tools", "Load test stopped.")
+        return self.loadtest_state()
+
     def scrape_stop(self) -> dict:
         job = getattr(self, "_scrape", None)
         if job:
@@ -1019,6 +1052,11 @@ class Controller:
         return self.scrape_state()
 
     def proxy_state(self) -> dict:
+        return self.proxies.state()
+
+    def proxy_clear(self) -> dict:
+        n = self.proxies.clear()
+        self.log.info("tools", f"Cleared {n} tested proxy(ies).")
         return self.proxies.state()
 
     def proxy_refresh(self) -> dict:

@@ -684,13 +684,8 @@ class BrowserTransport(Transport):
                                                 "access denied", "attention required"))
                     or (status == 202 and "duckduckgo" in page.url)):
                 status = 429          # a bot check: back off instead of counting it as a visit
-            walled = foreign = False
+            walled = foreign = False                      # foreign kept for the result object; the language filter was removed
             if status < 400 and target.role != "search":
-                try:
-                    lang = (page.evaluate("() => document.documentElement.lang || ''") or "").lower()[:2]
-                except Exception:
-                    lang = ""
-                foreign = bool(lang) and lang != "en"
                 from .loginwall import looks_like_login_wall
                 try:
                     probe = page.evaluate(
@@ -700,30 +695,28 @@ class BrowserTransport(Transport):
                     probe = [0, ""]
                 walled = looks_like_login_wall(page.url, title, probe[1], password_fields=probe[0])
             side = None
-            if not (walled or foreign) and target.role != "search":
+            if not walled and target.role != "search":
                 side = self._open_side_tab(page, mobile)            # now and then a link is opened in a second tab, as people do
             try:
-                if walled or foreign:     # needs an account, or not in English: a quick glance, then elsewhere
+                if walled:                # needs an account: a quick glance, then elsewhere
                     stats = driver.browse(dwell=self.rng.uniform(2, 6))
                 else:
                     stats = driver.serp() if target.role == "search" else driver.browse()
             finally:
                 if side is not None:
                     self._glance_and_close(side, page, mobile)
-            downloaded = None if walled or foreign else (self._maybe_download(page) or self._maybe_save_image(page))
+            downloaded = None if walled else (self._maybe_download(page) or self._maybe_save_image(page))
             s["last_url"] = page.url
             s["on_serp"] = target.role == "search"
             if target.role == "search":
                 s["serp_ref"] = target.url
-            html = "" if walled or foreign else page.content()[:2_000_000]   # never follow links off these
+            html = "" if walled else page.content()[:2_000_000]   # never follow links off a login wall
             parts = [f"{how} {'📱' if mobile else '🖥'}", f"{stats['scrolls']} scrolls",
                      f"{int(stats['depth'] * 100)}% depth", f"{stats['seconds']:.0f}s on page"]
             if stats.get("serp"):
                 parts.insert(1, f"results: {stats['serp']}")
             if walled:
                 parts.insert(1, "login required: moved on")
-            elif foreign:
-                parts.insert(1, "not in English: moved on")
             if stats["back_scrolls"]:
                 parts.append(f"{stats['back_scrolls']} scroll-back")
             if stats.get("selections"):

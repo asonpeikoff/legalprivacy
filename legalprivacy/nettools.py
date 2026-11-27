@@ -23,6 +23,8 @@ from .paths import getenv  # noqa: E402
 
 DOWN_URL = getenv("SPEED_DOWN_URL") or "https://speed.cloudflare.com/__down?bytes={n}"
 UP_URL = getenv("SPEED_UP_URL") or "https://speed.cloudflare.com/__up"
+# speed.cloudflare.com (and many endpoints) answer 403 to a request with no browser User-Agent.
+SPEED_UA = "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
 DOWN_BYTES = 10_000_000
 UP_BYTES = 2_000_000
 LEAK_TEST_URL = "https://www.dnsleaktest.com/"
@@ -162,7 +164,8 @@ def speed_test(proxy: str | None = None, progress: Callable[[str], None] = lambd
     try:
         t0 = time.time()
         got = 0
-        with opener.open(DOWN_URL.format(n=down_bytes), timeout=timeout) as r:
+        down_req = urllib.request.Request(DOWN_URL.format(n=down_bytes), headers={"User-Agent": SPEED_UA})
+        with opener.open(down_req, timeout=timeout) as r:
             while True:
                 chunk = r.read(65536)
                 if not chunk:
@@ -176,7 +179,7 @@ def speed_test(proxy: str | None = None, progress: Callable[[str], None] = lambd
     try:
         payload = os.urandom(up_bytes)
         req = urllib.request.Request(UP_URL, data=payload, method="POST",
-                                     headers={"Content-Type": "application/octet-stream"})
+                                     headers={"Content-Type": "application/octet-stream", "User-Agent": SPEED_UA})
         t0 = time.time()
         with opener.open(req, timeout=timeout) as r:
             r.read()

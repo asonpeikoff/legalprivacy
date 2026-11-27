@@ -476,7 +476,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
 
 <!-- ACTIVITY -->
 <section id="t-act" class="tab">
-  <p class="small mute" style="margin:0 0 8px"><b>Activity</b> lists every request legalPrivacy has sent (a search, a page visit, a name lookup) and how it went. Use it to see what the noise looks like.</p>
+  <p class="small mute" style="margin:0 0 8px"><b>Activity</b> lists every request legalPrivacy has sent (a search, a page visit, a name lookup) and how it went. Use it to see what the noise looks like. <b>Newest is at the top.</b></p>
   <div class="row">
     <select id="aLane"><option value="">All lanes</option><option>clearnet</option><option>tor</option></select>
     <select id="aEng"><option value="">All engines</option><option>search</option><option>crawl</option><option>dns</option><option>onion</option></select>
@@ -492,7 +492,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
 
 <!-- LOG -->
 <section id="t-log" class="tab">
-  <p class="small mute" style="margin:0 0 8px"><b>Live Log</b> shows the app's own messages: starting, stopping, Tor status and errors. Use it to find out why something is not working. (For the requests themselves, see Activity.)</p>
+  <p class="small mute" style="margin:0 0 8px"><b>Live Log</b> shows the app's own messages: starting, stopping, Tor status and errors. Use it to find out why something is not working. (For the requests themselves, see Activity.) <b>Newest is at the bottom.</b></p>
   <div class="row">
     <select id="lLevel"><option value="debug">Debug+</option><option value="info" selected>Info+</option><option value="warn">Warnings+</option><option value="error">Errors</option></select>
     <span id="lChips"></span>
@@ -1073,6 +1073,21 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div id="toolMacOut" class="small" style="margin-top:8px"></div>
     <div class="small mute" style="margin-top:6px"><code>sudo legalprivacy mac randomize --all</code> &nbsp; <code>sudo legalprivacy mac restore --all</code></div>
   </div>
+  <div class="card"><h3>Load test (your own target)</h3>
+    <p class="small mute">Generates load from <b>this one computer</b> against a target you run, and graphs it. L7 sends real HTTP requests; L4 opens TCP connections. It never spoofs addresses or forges packets, there is no way to drive other machines from here (run the app on each of your own boxes to load from several), and it will not aim at government address ranges. Capped (shown below); raise the caps with the LEGALPRIVACY_LOADTEST_* environment variables. Only use it on infrastructure you own or are authorised to test — unauthorised load testing is illegal.</p>
+    <div class="row"><input type="text" id="ltTarget" placeholder="https://your-host/path  (L7)  ·  10.0.0.5:8080  (L4)" style="flex:1"></div>
+    <div class="row" style="flex-wrap:wrap;gap:10px;margin-top:6px">
+      <label class="small">Mode <select id="ltMode"><option value="http">L7 HTTP</option><option value="tcp">L4 TCP connect</option></select></label>
+      <label class="small">Method <select id="ltMethod"><option>GET</option><option>HEAD</option><option>POST</option></select></label>
+      <label class="small">Rate/s <input type="number" id="ltRps" value="50" min="1" style="width:80px"></label>
+      <label class="small">Concurrency <input type="number" id="ltConc" value="10" min="1" style="width:80px"></label>
+      <label class="small">Seconds <input type="number" id="ltDur" value="30" min="1" style="width:80px"></label>
+    </div>
+    <label class="chk" style="margin-top:6px"><input type="checkbox" id="ltAuth"><span>I own this target or am authorised to load-test it.</span></label>
+    <div class="row" style="margin-top:8px"><button id="ltGo">Start</button><button id="ltStop">Stop</button><span class="small mute" id="ltNote"></span></div>
+    <canvas id="ltCanvas" height="120" style="width:100%;margin-top:10px;display:none"></canvas>
+    <div id="ltOut" class="small" style="margin-top:8px"></div>
+  </div>
   <div class="card"><h3>Scrape a site</h3>
     <p class="small mute">A polite spider for jobs you start. Tables become CSV files; images, video, audio, documents and archives are saved to a folder. It follows robots.txt, stays on the site, waits a random few seconds between requests, and can mix in visits to unrelated popular sites so the job does not arrive as one unbroken run. It reads only what a visitor can see: no logins.</p>
     <div class="row"><input type="text" id="scUrl" placeholder="https://example.com/page" style="flex:1"></div>
@@ -1083,7 +1098,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
   </div>
   <div class="card"><h3>Proxies (tested)</h3>
     <p class="small mute">Pulls free proxy lists from public GitHub files (and any page you add), tests every candidate through a real HTTPS request, and throws out the slow, dead, wrong-answer and transparent ones. Used only for jobs you start, such as scraping, never for the noise or for logins: free proxies are run by strangers and can read plain traffic.</p>
-    <div class="row"><button id="pxGo">Fetch and test</button><span class="small mute" id="pxNote"></span></div>
+    <div class="row"><button id="pxGo">Fetch and test</button><button id="pxClear" title="Throw out every tested proxy">Clear</button><span class="small mute" id="pxNote"></span></div>
     <div id="pxOut" class="small" style="margin-top:8px"></div>
     <div class="row" style="margin-top:8px"><input type="text" id="pxUrl" placeholder="Add a list or web page with ip:port addresses" style="flex:1"><button id="pxAdd">Add source</button></div>
   </div>
@@ -1529,7 +1544,7 @@ function render(){
 function laneCard(l){
   const EN={search:'Web searches',crawl:'Visits to websites',dns:'Name (DNS) lookups',onion:'Visits to .onion sites (Tor)',packages:'Package installs (pip, npm)'};
   const isT=l.name==='tor';
-  const rows=Object.entries(l.engines).map(([e,b])=>`<tr><td style="width:90px" title="${esc(EN[e]||e)}">${e==='onion'?'🧅 ':''}${esc(e)}</td><td><div class="bar ${isT?'tor':''}"><i style="width:${Math.min(100,100*b.spent/Math.max(1,b.per_day))}%"></i></div></td><td style="width:150px" class="mute"><span title="Requests of this kind used so far, out of the limit for this hour">${b.spent}/${b.per_day} this hour</span></td></tr>`).join('');
+  const rows=Object.entries(l.engines).map(([e,b])=>`<tr><td style="width:90px" title="${esc(EN[e]||e)}">${e==='onion'?'🧅 ':''}${esc(e)}</td><td><div class="bar ${isT?'tor':''}"><i style="width:${Math.min(100,100*b.spent/Math.max(1,b.per_day))}%"></i></div></td><td style="width:150px" class="mute"><span title="Done so far this hour, out of the most allowed this hour (a ceiling, not a plan). Onion and file ceilings are low on purpose, so Tor traffic is sparse.">${b.spent} of ${b.per_day} max this hour</span></td></tr>`).join('');
   const st=!l.open?'<span class="pill warn" title="Tor is still starting. This lane begins as soon as Tor is ready.">waiting for Tor</span>':l.linger==='away'?'<span class="pill" title="Long session: a page was left open as if you stepped away. This route stays quiet for a few hours, then comes back to the same page.">stepped away</span>':l.linger==='work'?'<span class="pill ok" title="Long session: it keeps going back to the same page for a while, like working on something.">long session</span>':l.dimmed?'<span class="pill warn" title="A website pushed back, so noise moves on to other sites and this route is used a little less for a while. Normal; it recovers by itself.">slowed down</span>':'<span class="pill ok">active</span>';
   return `<div class="card"><h3>${isT?'🧅 Through Tor':'Regular internet'} ${st}</h3><table><tbody>${rows}</tbody></table>${l.last_error?`<div class="small warnc" style="margin-top:6px">last error: ${esc(l.last_error)}</div>`:''}</div>`
 }
@@ -2150,18 +2165,41 @@ function scShow(d){const j=d.job;if(!j){$('#scOut').innerHTML=`<span class="mute
   $('#scOut').innerHTML=`<div>${j.pages} pages · ${j.tables} tables · ${j.files} files (${(j.bytes/1e6).toFixed(1)} MB)${j.noise?` · ${j.noise} noise visits`:''}${j.skipped_robots?` · ${j.skipped_robots} skipped by robots.txt`:''}</div>${j.current?`<div class="mute">${esc(j.current)}</div>`:''}<div class="mute">Folder: <code>${esc(j.folder)}</code></div>${j.errors.length?`<div class="warnc">${j.errors.length} problems, e.g. ${esc(j.errors[0])}</div>`:''}`+scFiles(d);
   if(j.running&&!scT)scT=setInterval(scPoll,1500);if(!j.running&&scT){clearInterval(scT);scT=null}}
 async function scPoll(){try{scShow(await api('/api/scrape'))}catch(e){}}
+let ltT=null;
+function ltDraw(j){const c=$('#ltCanvas');const s=j.series||[];c.style.display=s.length?'block':'none';if(!s.length)return;
+  const w=c.width=c.clientWidth||600,h=c.height;const ctx=c.getContext('2d');ctx.clearRect(0,0,w,h);
+  const max=Math.max(1,...s.map(b=>b.sent));const n=s.length,bw=w/Math.max(n,30);
+  s.forEach((b,i)=>{const x=i*bw;const ok=(b.ok/max)*(h-2),fa=(b.failed/max)*(h-2);
+    ctx.fillStyle='#4ea1ff';ctx.fillRect(x,h-ok,Math.max(1,bw-1),ok);
+    ctx.fillStyle='#e0566a';ctx.fillRect(x,h-ok-fa,Math.max(1,bw-1),fa);});
+  ctx.fillStyle='#8a94a6';ctx.font='11px system-ui';ctx.fillText(`peak ${max}/s`,4,12);}
+function ltShow(d){const j=d.job,c=d.caps||{};
+  if(!j){$('#ltOut').innerHTML=`<span class="mute">Caps: ${c.rps}/s, ${c.concurrency} concurrent, ${c.seconds}s.</span>`;$('#ltCanvas').style.display='none';return}
+  const L=j.latency_ms||{};
+  $('#ltNote').textContent=j.running?`Running… ${j.elapsed}s`:(j.done?'Finished':'');
+  $('#ltOut').innerHTML=`<div>${j.mode.toUpperCase()} → <code>${esc(j.target)}</code> · ${j.sent} sent · <span style="color:#4ea1ff">${j.ok} ok</span> · <span style="color:#e0566a">${j.failed} failed</span> · ↓${fmtB(j.bytes_in)} ↑${fmtB(j.bytes_out)}</div>`
+    +`<div class="mute">now ${(j.now||{}).rps||0}/s · latency p50 ${L.p50??'—'} / p90 ${L.p90??'—'} / p99 ${L.p99??'—'} ms${j.capped&&(j.capped.rps||j.capped.conn)?' · at a cap':''}</div>`
+    +(Object.keys(j.errors||{}).length?`<div class="warnc">${Object.entries(j.errors).map(([k,v])=>esc(k)+': '+v).join(' · ')}</div>`:'');
+  ltDraw(j);
+  if(j.running&&!ltT)ltT=setInterval(ltPoll,1000);if(!j.running&&ltT){clearInterval(ltT);ltT=null}}
+async function ltPoll(){try{ltShow(await api('/api/loadtest'))}catch(e){}}
+$('#ltGo').onclick=async()=>{if(!$('#ltAuth').checked){$('#ltNote').textContent='Tick the authorisation box first.';return}
+  try{ltShow(await api('/api/loadtest/start',{target:$('#ltTarget').value.trim(),mode:$('#ltMode').value,method:$('#ltMethod').value,rps:parseInt($('#ltRps').value),concurrency:parseInt($('#ltConc').value),duration:parseInt($('#ltDur').value),authorized:true}))}catch(e){$('#ltNote').textContent=String(e.message||e)}};
+$('#ltStop').onclick=async()=>{try{ltShow(await api('/api/loadtest/stop',{}))}catch(e){}};
+ltPoll();
 $('#scGo').onclick=async()=>{try{scShow(await api('/api/scrape/start',{url:$('#scUrl').value.trim(),kinds:$$('.scK:checked').map(x=>x.value),depth:parseInt($('#scDepth').value),max_pages:parseInt($('#scPages').value),mix_noise:$('#scMix').checked,use_proxy:$('#scProxy').checked}))}catch(e){$('#scNote').textContent=String(e.message||e)}};
 $('#scOpen').onclick=async()=>{try{const r=await api('/api/scrape/open',{which:'last'});toast('Opened '+r.folder)}catch(e){toast(e.message,1)}};
 $('#scStop').onclick=async()=>{try{scShow(await api('/api/scrape/stop',{}))}catch(e){}};
 scPoll();
 let pxT=null;
-function pxShow(d){const p=d.progress||{};$('#pxNote').textContent=p.running?`Testing… ${p.tested}/${p.total}: ${p.kept} kept, ${p.thrown_out} thrown out`:(p.total?`Last run: ${p.kept} kept, ${p.thrown_out} thrown out`:'');
+function pxShow(d){const p=d.progress||{};$('#pxNote').textContent=p.running?`Testing ${p.tested}/${p.total} (of ${p.found||p.total} found)… ${p.kept} kept, ${p.thrown_out} thrown out`:(p.total?`Last run: ${p.kept} kept of ${p.total} tested${p.found?` (${p.found} found)`:''}, ${p.thrown_out} thrown out`:'');
   const rows=(d.fastest||[]).slice(0,12).map(r=>`<tr><td><code>${esc(r.proxy)}</code></td><td>${r.ms} ms</td></tr>`).join('');
   $('#pxOut').innerHTML=`<div><b>${d.kept}</b> working proxies kept (answer within ${d.max_ms} ms).</div>`+(rows?`<table style="margin-top:6px"><tbody>${rows}</tbody></table>`:'')+
    `<div class="mute" style="margin-top:6px">Sources:</div>`+(d.sources||[]).map(s=>`<div class="small">${esc(s.name)} — ${s.error?'<span class="bad">'+esc(s.error)+'</span>':(s.found==null?'not read yet':s.found+' found')}${(d.extra_sources||[]).includes(s.url)?` <a data-rm="${esc(s.url)}" role="button" tabindex="0">remove</a>`:''}</div>`).join('');
   $$('#pxOut [data-rm]').forEach(a=>a.onclick=async()=>{try{pxShow(await api('/api/proxies/source',{action:'remove',url:a.dataset.rm}))}catch(e){$('#pxNote').textContent=String(e.message||e)}});
   if(p.running&&!pxT)pxT=setInterval(pxPoll,1500);if(!p.running&&pxT){clearInterval(pxT);pxT=null}}
 async function pxPoll(){try{pxShow(await api('/api/proxies'))}catch(e){}}
+$('#pxClear').onclick=async()=>{try{pxShow(await api('/api/proxies/clear',{}));toast('Tested proxies cleared')}catch(e){$('#pxNote').textContent=String(e.message||e)}};
 $('#pxGo').onclick=async()=>{try{pxShow(await api('/api/proxies/refresh',{}))}catch(e){$('#pxNote').textContent=String(e.message||e)}};
 $('#pxAdd').onclick=async()=>{try{pxShow(await api('/api/proxies/source',{action:'add',url:$('#pxUrl').value.trim()}));$('#pxUrl').value=''}catch(e){$('#pxNote').textContent=String(e.message||e)}};
 pxPoll();

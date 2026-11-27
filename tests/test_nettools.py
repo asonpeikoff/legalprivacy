@@ -46,6 +46,25 @@ def test_speed_endpoints_can_be_overridden_from_the_environment():
     assert "cloudflare" in nettools.DOWN_URL
 
 
+def test_speed_test_sends_a_browser_user_agent_so_endpoints_do_not_403(monkeypatch):
+    # Regression: speed.cloudflare.com answers 403 to a request with no User-Agent (the default urllib one).
+    seen = []
+    import urllib.request
+
+    class FakeResp:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def read(self, n=-1): return b"" if seen and seen[-1].get("read") else (seen[-1].__setitem__("read", True) or b"x" * 1000)
+
+    def fake_open(self, req, timeout=0):
+        ua = req.get_header("User-agent") if hasattr(req, "get_header") else None
+        seen.append({"url": req.full_url, "ua": ua})
+        return FakeResp()
+    monkeypatch.setattr(urllib.request.OpenerDirector, "open", fake_open)
+    nettools.speed_test(down_bytes=1000, up_bytes=1000, timeout=5)
+    assert len(seen) == 2 and all(h["ua"] and "Mozilla" in h["ua"] for h in seen)
+
+
 def _stub(monkey_resolvers, egress, qubes=None):
     nettools.system_resolvers = lambda: {"system": "Linux", "resolvers": monkey_resolvers, "note": ""}
     nettools.egress_resolver = lambda: egress
