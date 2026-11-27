@@ -1735,12 +1735,13 @@ function renderRelay(){
 async function pollRelay(){if(!$('#t-tor').classList.contains('on'))return;try{R=await api('/api/relay');renderRelay()}catch(e){}}
 setInterval(pollRelay,2500);$$('#nav button').forEach(b=>{if(b.dataset.t==='tor')b.addEventListener('click',()=>setTimeout(pollRelay,0))});
 async function updRefresh(check){try{const u=await api(check?'/api/update/check':'/api/update',check?{}:undefined);
-  const bar=$('#updBar');bar.hidden=u.status!=='behind';
+  const bar=$('#updBar');bar.hidden=!(u.status==='behind'||(u.enabled&&u.error));
   $('#updInstall').hidden=!(u.status==='behind'&&u.can_install);
   if(u.status==='behind')$('#updTx').textContent=u.can_install?`A newer legalPrivacy is available${u.latest_version?` (${u.latest_version})`:''}. Install it now: the app restarts by itself and this page reloads.`:'A newer legalPrivacy is available'+(u.behind_by?` (${u.behind_by} update${u.behind_by===1?'':'s'} ahead of yours)`:'')+(u.latest_message?`: “${u.latest_message}”`:'')+(u.how?'. To update, run: git pull':'. Download it from GitHub.');
+  if(u.status!=='behind'&&u.error)$('#updTx').textContent=u.error+'. The app tries again every six hours.';
   const t=u.status==='current'?'Up to date.':u.status==='behind'?'A newer version is out.':(u.error||'Not checked yet.');
   $('#updInfo').textContent=`${u.version} · ${t}`;return u}catch(e){$('#updInfo').textContent=e.message}}
-$('#updGo').onclick=async()=>{await updRefresh(true);toast($('#updBar').hidden?'You have the newest version.':'A newer version is available.')};
+$('#updGo').onclick=async()=>{const u=await updRefresh(true);toast(!u?'Could not check.':u.status==='behind'?'A newer version is available.':u.error?u.error:'You have the newest version.',!!(u&&u.error))};
 $('#updNow').onclick=async()=>{await updRefresh(true)};
 $('#updInstall').onclick=async()=>{const btn=$('#updInstall');btn.disabled=true;
   let old='';try{old=(await api('/api/update')).version}catch(e){}
