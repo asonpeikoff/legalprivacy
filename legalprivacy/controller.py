@@ -36,9 +36,9 @@ from .scheduler import MaxFailuresExceeded, Runner, build_lanes
 from .tormanager import TorManager, find_tor_binary, port_open
 
 PRESETS = {   # budgets per day: search / crawl / dns / onion
-    "light":  {"search": 50,  "crawl": 20,  "dns": 80,  "onion": 15},
-    "normal": {"search": 120, "crawl": 40,  "dns": 200, "onion": 40},
-    "heavy":  {"search": 300, "crawl": 100, "dns": 500, "onion": 100},
+    "light":  {"search": 50,  "crawl": 20,  "dns": 80,  "onion": 60},
+    "normal": {"search": 120, "crawl": 40,  "dns": 200, "onion": 150},
+    "heavy":  {"search": 300, "crawl": 100, "dns": 500, "onion": 400},
 }
 def wipe_old_log_files() -> None:
     """Delete any cricket.log left by an older version. The app keeps no log files."""
@@ -1052,6 +1052,11 @@ class Controller:
         return self.scrape_state()
 
     def proxy_state(self) -> dict:
+        return self.proxies.state()
+
+    def proxy_clear(self) -> dict:
+        n = self.proxies.clear()
+        self.log.info("tools", f"Cleared {n} tested proxy(ies).")
         return self.proxies.state()
 
     def proxy_refresh(self) -> dict:

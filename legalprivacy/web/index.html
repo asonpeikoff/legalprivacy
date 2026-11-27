@@ -1098,7 +1098,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
   </div>
   <div class="card"><h3>Proxies (tested)</h3>
     <p class="small mute">Pulls free proxy lists from public GitHub files (and any page you add), tests every candidate through a real HTTPS request, and throws out the slow, dead, wrong-answer and transparent ones. Used only for jobs you start, such as scraping, never for the noise or for logins: free proxies are run by strangers and can read plain traffic.</p>
-    <div class="row"><button id="pxGo">Fetch and test</button><span class="small mute" id="pxNote"></span></div>
+    <div class="row"><button id="pxGo">Fetch and test</button><button id="pxClear" title="Throw out every tested proxy">Clear</button><span class="small mute" id="pxNote"></span></div>
     <div id="pxOut" class="small" style="margin-top:8px"></div>
     <div class="row" style="margin-top:8px"><input type="text" id="pxUrl" placeholder="Add a list or web page with ip:port addresses" style="flex:1"><button id="pxAdd">Add source</button></div>
   </div>
@@ -2199,6 +2199,7 @@ function pxShow(d){const p=d.progress||{};$('#pxNote').textContent=p.running?`Te
   $$('#pxOut [data-rm]').forEach(a=>a.onclick=async()=>{try{pxShow(await api('/api/proxies/source',{action:'remove',url:a.dataset.rm}))}catch(e){$('#pxNote').textContent=String(e.message||e)}});
   if(p.running&&!pxT)pxT=setInterval(pxPoll,1500);if(!p.running&&pxT){clearInterval(pxT);pxT=null}}
 async function pxPoll(){try{pxShow(await api('/api/proxies'))}catch(e){}}
+$('#pxClear').onclick=async()=>{try{pxShow(await api('/api/proxies/clear',{}));toast('Tested proxies cleared')}catch(e){$('#pxNote').textContent=String(e.message||e)}};
 $('#pxGo').onclick=async()=>{try{pxShow(await api('/api/proxies/refresh',{}))}catch(e){$('#pxNote').textContent=String(e.message||e)}};
 $('#pxAdd').onclick=async()=>{try{pxShow(await api('/api/proxies/source',{action:'add',url:$('#pxUrl').value.trim()}));$('#pxUrl').value=''}catch(e){$('#pxNote').textContent=String(e.message||e)}};
 pxPoll();

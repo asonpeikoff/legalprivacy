@@ -399,6 +399,8 @@ class UIServer:
                         return self._json(ctl.scrape_open(str(body.get("which", "last"))))
                     elif path == "/api/scrape/stop":
                         return self._json(ctl.scrape_stop())
+                    elif path == "/api/proxies/clear":
+                        return self._json(ctl.proxy_clear())
                     elif path == "/api/proxies/refresh":
                         return self._json(ctl.proxy_refresh())
                     elif path == "/api/proxies/source":

@@ -405,7 +405,7 @@ class Profile:
         "search": EngineConfig(budget_per_day=120),
         "crawl": EngineConfig(budget_per_day=40),
         "dns": EngineConfig(budget_per_day=480),     # 3x searches + link-following ("More")
-        "onion": EngineConfig(budget_per_day=40, max_depth=3),
+        "onion": EngineConfig(budget_per_day=150, max_depth=3),   # onion visits are the only Tor noise, so keep it visibly busy
         "packages": EngineConfig(budget_per_day=28),
         "files": EngineConfig(budget_per_day=10),
     })

@@ -577,6 +577,8 @@ class ToolsTab(Tab):
                "HTTPS request and throws out the slow, dead, wrong-answer and transparent ones. Used only for jobs you start, "
                "such as scraping, never for the noise or for logins: free proxies are run by strangers and can read plain traffic.")
         self.prox = self._tool(c, "Fetch and test", self.proxies_run)
+        self.app.btn(self.prox.card.row() if hasattr(self.prox, "card") else c.row(), "Clear", "stop", "secondary",
+                     self.proxies_clear).pack(side="left")
         r = c.row()
         self.prox_url = tk.StringVar()
         ttk.Entry(r, textvariable=self.prox_url, width=48).pack(side="left", fill="x", expand=True)
@@ -714,6 +716,11 @@ class ToolsTab(Tab):
             if (d.get("progress") or {}).get("running"):
                 self.after(1500, poll)
         self.app.work(self.app.ctl.proxy_refresh, lambda d: poll(d), lambda e: self._text(self.prox, str(e)))
+
+    def proxies_clear(self) -> None:
+        self.app.work(self.app.ctl.proxy_clear,
+                      lambda d: self._text(self.prox, self._proxy_text(d)),
+                      lambda e: self._text(self.prox, str(e)))
 
     def proxies_add(self) -> None:
         url = self.prox_url.get().strip()

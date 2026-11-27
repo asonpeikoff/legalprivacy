@@ -225,6 +225,15 @@ class ProxyManager:
         rows.sort(key=lambda r: r["ms"])
         return rows[:n] if n else rows
 
+    def clear(self) -> int:
+        """Throw out every tested proxy. Returns how many were removed."""
+        with self.lock:
+            n = len(self.proxies)
+            self.proxies = {}
+            self.progress = {"running": False, "tested": 0, "total": 0, "kept": 0, "thrown_out": 0, "found": 0}
+        self.save()
+        return n
+
     def drop(self, proxy: str) -> None:
         """A proxy failed while in use: it goes at once (the next refresh may find it again if it recovers)."""
         with self.lock:

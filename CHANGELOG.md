@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **A Clear button for tested proxies** (Tools → Proxies, web and desktop): throws out every tested proxy at once.
+- **More onion (Tor) noise.** The onion budget was low (≈40/day, ~1–2 an hour), so Tor often looked idle. Raised to ≈150/day (~6 an hour) so onion visits are visible; the light/heavy presets rise too.
+
 - **Speed test fixed (was 403 on download and upload).** The request carried no User-Agent, and speed.cloudflare.com answers 403 without one; it now sends a normal browser User-Agent. The speed test uses only a clearnet proxy you set in Settings — never the tested free-proxy pool.
 - **Proxy tester tries far more candidates.** It tested only 400 new candidates per run; the cap is now 2,500, and the progress line shows how many were found versus tested (e.g. "testing 120/2500 of 1,900 found"). Free public proxies are mostly dead or slow regardless, so few will pass.
 

@@ -111,3 +111,12 @@ def test_a_proxy_is_retested_right_before_use_and_dead_ones_are_dropped(tmp_path
     assert "http://9.9.9.9:80" not in m.proxies
     m.drop("http://8.8.8.8:80")
     assert m.pick_checked() is None
+
+
+def test_clear_throws_out_every_tested_proxy(tmp_path):
+    m = _manager(tmp_path, {"http://8.8.8.8:80": "good", "http://3.3.3.3:80": "good"})
+    m.refresh(workers=2)
+    assert m.good()
+    n = m.clear()
+    assert n == 2 and m.good() == [] and m.proxies == {}
+    assert m.clear() == 0                                  # clearing again removes nothing
