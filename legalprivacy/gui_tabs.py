@@ -666,17 +666,17 @@ class TorTab(Tab):
         self.bridge_now = bd.note("", pady=(2, 0))
         grid_cards(mid, [sd, bd], 2)
 
-        self._build_dns(f, 5)
-        self._build_relay(f, 6)
+        self._build_relay(f, 5)
 
         lg = Card(f, app, "Tor log", "log")
-        lg.grid(row=7, column=0, sticky="ew", pady=(0, GAP))
+        lg.grid(row=6, column=0, sticky="ew", pady=(0, GAP))
         self.log = tk.Text(lg.body, height=8, wrap="none", state="disabled", relief="flat", borderwidth=0, highlightthickness=1,
                            font=app.fonts["mono"], padx=8, pady=6)
         self.log.pack(fill="x")
         app.btn(lg.body, "Clear", None, "ghost", self.clear_log, "Empty this box so you can see only what comes next").pack(anchor="e", pady=(4, 0))
         app.text_widgets.append(self.log)
         self.log_last = 0
+        self._build_dns(f, 7)                              # last on purpose: advanced, not recommended
         self.tor: dict = {}
         self.retheme()
 
@@ -688,13 +688,14 @@ class TorTab(Tab):
     # -- Tor DNS (optional) --------------------------------------------------
     def _build_dns(self, f, row: int) -> None:
         app = self.app
-        dc = Card(f, app, "Tor DNS (optional)", "web",
-                  help="Tor can answer DNS lookups on a local port. Names are looked up by Tor exit relays, so this is a "
+        dc = Card(f, app, "Advanced, not recommended: Tor as a name resolver for other programs", "web",
+                  help="This is not about .onion addresses: those need no DNS lookup and are always handled inside Tor, whatever you set here. This is only for ordinary website names such as example.com, asked by other programs on this computer. Tor can answer DNS lookups on a local port. Names are looked up by Tor exit relays, so this is a "
                        "deliberate, narrow use of exits for DNS only. The Tor lane for noise stays onion-only. Only A, AAAA "
                        "and PTR lookups work.")
         dc.grid(row=row, column=0, sticky="ew", pady=(0, GAP))
-        self.dns_chk = self.f_check(dc, "tor_dns", "Answer DNS lookups through Tor",
-                                    "Off by default. Needs the Tor that legalPrivacy manages. Changing it restarts that Tor.")
+        self.dns_chk = self.f_check(dc, "tor_dns", "Answer ordinary (clearnet) website-name lookups through Tor exit relays",
+                                    "Off by default and not recommended: slower, and it puts your name lookups in the hands of exit relays. "
+                                    "The noise never uses it. Needs the Tor that legalPrivacy manages. Changing it restarts that Tor.")
         slot = ttk.Frame(dc.body, style="CardBody.TFrame")      # fixed place for the parts that show and hide
         slot.pack(fill="x")
         self.dns_body = ttk.Frame(slot, style="CardBody.TFrame")
