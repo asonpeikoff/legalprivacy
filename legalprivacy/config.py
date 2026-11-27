@@ -90,7 +90,7 @@ class TransportConfig:
     onion_seeds: list[str] = field(default_factory=list)   # extra seeds; empty = built-ins
     onion_follow_offsite: bool = True
     bridges: list[str] = field(default_factory=list)       # bridge lines for censored networks
-    bridge_mode: str = "off"          # off | obfs4 | snowflake | meek (built into the Tor bundle) | custom (yours)
+    bridge_mode: str = "obfs4"        # off | obfs4 | snowflake | meek (built into the Tor bundle) | custom (yours); obfs4 by default
     bridge_auto: bool = True          # if Tor can't connect directly, try the built-in bridges by itself
     dns_port: int = 0                 # Tor DNS (optional): 0 = off, else the preferred local UDP port for Tor's DNSPort
     dns_lan: bool = False             # share Tor DNS on one private network address (off; loopback only by default)
@@ -411,7 +411,7 @@ class Profile:
     })
     transports: dict[str, TransportConfig] = field(default_factory=lambda: {
         "clearnet": TransportConfig(),
-        "tor": TransportConfig(enabled=False, socks=DEFAULT_TOR_SOCKS, control=DEFAULT_TOR_CONTROL),
+        "tor": TransportConfig(enabled=True, socks=DEFAULT_TOR_SOCKS, control=DEFAULT_TOR_CONTROL),    # on by default: the app's own Tor, built-in obfs4 bridges
     })
     relay: RelayConfig = field(default_factory=RelayConfig)
     daily_max_failures: int = 30        # no longer used: failures never pause or stop the noise (kept so old settings files still load)

@@ -580,10 +580,6 @@ class TorTab(Tab):
         v_onion = self.f_check(cc, "tor_onion", "Include .onion sites in the noise",
                                "Needs Tor above. Adds visits to real .onion websites, which never leave the Tor network. "
                                "If this is off, Tor runs but no onion sites are visited.")
-        self.f_check(cc, "tor_onion_browser", "Use the real Tor Browser for onion visits",
-                     "Off by default (it opens a Tor Browser window). Scrolls, reads and clicks like a person, through this app's Tor, at security level "
-                     "Safest. If it can't start (not installed yet, no display), the plain lane is used and the Live Log "
-                     "says why.")
         for var in (v_tor, v_onion):
             var.trace_add("write", lambda *_a: self._mix_text(v_tor.get(), v_onion.get()))
         self._mix_text(v_tor.get(), v_onion.get())
@@ -680,6 +676,12 @@ class TorTab(Tab):
         app.text_widgets.append(self.log)
         self.log_last = 0
         self._build_dns(f, 7)                              # last on purpose: advanced, not recommended
+        ob = Card(f, app, "Advanced: real Tor Browser for onion visits", "web")
+        ob.grid(row=8, column=0, sticky="ew", pady=(0, GAP))
+        self.f_check(ob, "tor_onion_browser", "Use the real Tor Browser for onion visits",
+                     "Off by default (it opens a Tor Browser window). Scrolls, reads and clicks like a person, through this app's Tor, at security level "
+                     "Safest. If it can't start (not installed yet, no display), the plain lane is used and the Live Log "
+                     "says why.")
         self.tor: dict = {}
         self.retheme()
 

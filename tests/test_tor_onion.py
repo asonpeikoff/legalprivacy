@@ -61,13 +61,13 @@ def test_onion_walk_never_leaves_onion_space():
     assert f.next_from('<a href="https://evil.example/">c</a>', GOOD) is None
 
 
-def test_tor_is_off_by_default_and_clearnet_over_tor_off():
+def test_tor_is_on_by_default_with_builtin_obfs4_and_clearnet_over_tor_off():
     p = Profile(name="d")
     tor = p.transports["tor"]
-    assert tor.enabled is False and tor.onion is True
+    assert tor.enabled is True and tor.onion is True and tor.bridge_mode == "obfs4"
     assert p.active_engines("tor") == ["onion", "files"]   # onion, plus some file downloads          # even when later enabled
     assert "onion" not in p.active_engines("clearnet")
-    assert build_lanes(p, WORDS) and [l.name for l in build_lanes(p, WORDS)] == ["clearnet"]
+    assert build_lanes(p, WORDS) and [l.name for l in build_lanes(p, WORDS)] == ["clearnet", "tor"]
 
 
 def test_enabling_tor_adds_onion_lane_only():
