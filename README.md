@@ -400,9 +400,9 @@ of the noise lookups. This covers the DNS noise on your normal connection. The T
 
 | Setting | What it does |
 |---|---|
-| **Mix** (default) | Switches between your normal DNS and the secure resolvers in random 10–60 minute blocks, half the time each (adjustable) |
+| **Mix** (default) | Switches between your normal DNS and the secure resolvers in random 10–60 minute blocks: about 85% of the time on your normal DNS, so the noise mostly lands where your real lookups do, and 15% on the secure resolvers (adjustable) |
 | **Your normal DNS** | Your computer's own resolver: router, ISP, VPN or your system's encrypted DNS |
-| **Secure resolvers only** | Only the resolvers in the list in Settings. By default: OpenNIC ns2.de `80.152.203.134`, ns3.de `193.31.24.55` and ns4.de `80.153.146.105` as primaries, and Quad9 `9.9.9.9` as a fallback used only when they're down or slower than 250 ms. Every row is editable; extras: the whole OpenNIC directory, Quad9's pair, your own IPs. |
+| **Secure resolvers only** | Only the resolvers in the list in Settings. By default: OpenNIC ns2.de `80.152.203.134`, ns3.de `193.31.24.55` and ns4.de `80.153.146.105` as primaries, and Quad9 `9.9.9.9` as a fallback used only when they're down or slower than 250 ms. With encryption on (the default), only servers that speak DNS over TLS can be used, so the secure part goes to Quad9 and Cloudflare. Every row is editable; extras: the whole OpenNIC directory, Quad9's pair, your own IPs. |
 
 Each lookup in Requests shows which resolver answered it. **Check now** times each resolver and asks it for `whoami.akamai.net`, which reveals the machine that really answered. If something on your network secretly answers in their place (some ISPs, workplaces, hotels and cloud hosts do), the list says **⚠ intercepted**.
 

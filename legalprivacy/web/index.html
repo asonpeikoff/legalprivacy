@@ -416,12 +416,10 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
   <button data-t="tools" title="Tools"><svg class="ic" aria-hidden="true"><use href="#i-tools"/></svg><span class="tl">Tools</span></button>
   <button data-t="health" title="Health"><svg class="ic" aria-hidden="true"><use href="#i-health"/></svg><span class="tl">Health</span></button>
 </div></div>
-<div class="ng" data-g="Learn"><div class="gh" role="button" tabindex="0" aria-expanded="true">Learn<span class="gc" aria-hidden="true">▾</span></div><div class="gb">
+<div class="ng" data-g="Settings"><div class="gh" role="button" tabindex="0" aria-expanded="true">Settings<span class="gc" aria-hidden="true">▾</span></div><div class="gb">
+  <button data-t="set" title="Settings"><svg class="ic" aria-hidden="true"><use href="#i-set"/></svg><span class="tl">Settings</span></button>
   <button data-t="mylist" title="My List"><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg><span class="tl">My List</span></button>
   <button data-t="ml" title="ML"><svg class="ic" aria-hidden="true"><use href="#i-ml"/></svg><span class="tl">ML</span></button>
-</div></div>
-<div class="ng" data-g="App"><div class="gh" role="button" tabindex="0" aria-expanded="true">App<span class="gc" aria-hidden="true">▾</span></div><div class="gb">
-  <button data-t="set" title="Settings"><svg class="ic" aria-hidden="true"><use href="#i-set"/></svg><span class="tl">Settings</span></button>
   <button data-t="help" title="Help"><svg class="ic" aria-hidden="true"><use href="#i-help"/></svg><span class="tl">Help</span></button>
 </div></div>
 <div class="gh rt" role="button" tabindex="0" id="railToggle" title="Collapse or expand the menu"><span class="gc">⇤</span><span class="tl">Collapse</span></div>
@@ -643,8 +641,8 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div class="small mute">In Requests and the App log each lookup shows the site looked up and which resolver answered, e.g. <code>www.reddit.com [via your normal DNS]</code>.</div>
     <label class="chk"><input type="checkbox" id="dEnc"><span><b>Encrypt the DNS lookups</b> <span class="mute">(on by default — maximum DNS security) — lookups to the secure resolvers go over TLS (DNS over TLS, port 853) with the resolver's certificate checked, never in plain text; a resolver that cannot do that is swapped for Quad9 or Cloudflare (both validate DNSSEC). Onion visits never use your own DNS at all: the name is looked up by Tor.</span></span></label>
     <label class="opt"><input type="radio" name="dnsm" value="system"> <b>Your normal DNS</b> <span class="mute">— whatever your router, ISP, VPN or system already uses, so the noise lands exactly where your real lookups do</span></label>
-    <label class="opt"><input type="radio" name="dnsm" value="secure"> <b>Secure resolvers only</b> <span class="mute">(recommended, default) — only the resolvers listed below</span></label>
-    <label class="opt"><input type="radio" name="dnsm" value="mix"> <b>Mix</b> <span class="mute">— switch between the two in random 10–60 minute blocks, spending</span> <input type="number" id="dShare" min="0" max="100" style="width:64px"> <span class="mute">% of the time on your normal DNS</span></label>
+    <label class="opt"><input type="radio" name="dnsm" value="secure"> <b>Secure resolvers only</b> <span class="mute">— only the resolvers listed below; with encryption on, that means Quad9 and Cloudflare, the ones that speak DNS over TLS</span></label>
+    <label class="opt"><input type="radio" name="dnsm" value="mix"> <b>Mix</b> <span class="mute">— recommended, the default: switch between the two in random 10–60 minute blocks, spending</span> <input type="number" id="dShare" min="0" max="100" style="width:64px"> <span class="mute">% of the time on your normal DNS</span></label>
     <div class="small" id="dSys" style="margin:6px 0"></div>
     <div id="dWarn"></div>
     <div class="row" style="margin-top:10px"><b>Resolvers</b> <span class="small mute">— the exact IPs used in Secure / Mix mode</span>

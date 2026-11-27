@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **DNS noise is mixed by default again: about 85% on your normal DNS, 15% on the secure resolvers.** "Secure resolvers only" had become the default, and with encryption on, every lookup went to Quad9 or Cloudflare (the only servers in the list that speak DNS over TLS; the OpenNIC ones do not), which is why Quad9 showed up so much. Now the noise mostly uses whatever your router, ISP or VPN already uses, and the encrypted secure part is mixed in. Settings still on the old default move over once; the share stays adjustable in Settings → DNS.
+- **The menu has three sections: Monitor, Privacy and Settings.** "Learn" and "App" are combined into Settings (Settings, My List, ML, Help).
 - **Whonix / Qubes-Whonix: "use the gateway's Tor" is now off by default.** A qube whose network qube is sys-whonix already reaches the internet through the gateway's Tor with nothing to set in the app, so the option is now off and its label no longer claims it prevents "Tor over Tor". The switch stays (Tor tab, web and desktop). A settings file still on the old default ("auto") is moved to off once.
 - **The Tor tab's circuit count was 0 while Tor had a dozen.** The count now comes from the circuit list as well as Tor's figure, and when a connected Tor will not list its circuits (a filtered control port, as on Whonix) it says "count not available" instead of a false 0. A refused circuit or traffic query no longer stops the rest of the Tor status from updating.
 - **No more parenthesized asides in section headings** ("(optional)", "(your own target)", "(tested)" and the like), on the web dashboard and in the desktop app. The circuits heading reads "Circuits: 12 built".
