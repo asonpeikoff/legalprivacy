@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v2.23.0
 
 - **A Clear button for tested proxies** (Tools → Proxies, web and desktop): throws out every tested proxy at once.
 - **More onion (Tor) noise.** The onion budget was low (≈40/day, ~1–2 an hour), so Tor often looked idle. Raised to ≈240/day (about 10 an hour on average, with the usual random pacing so it varies a lot) so onion visits are visible; the light/heavy presets rise too.
