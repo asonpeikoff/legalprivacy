@@ -3,8 +3,11 @@
 # Sets up a private environment on first run, and updates it whenever the requirements change.
 #
 #   ./start-legalprivacy.sh                    start it in the BACKGROUND (Linux): no terminal needs to stay open, closing
-#                                              this window does not stop it; opens the dashboard and prints the link
+#                                              this window does not stop it; opens the dashboard and prints the link.
+#                                              A copy that is already running is stopped first, so running this again
+#                                              always leaves exactly one fresh copy (safe to run any number of times)
 #   ./start-legalprivacy.sh --foreground       the old way: run it in this window until you close it or press Ctrl+C
+#                                              (also stops a copy already running first)
 #   ./start-legalprivacy.sh --stop             stop the background copy (the same as: killall legalprivacy)
 #   ./start-legalprivacy.sh --service          Linux: install it as a background service that starts when you log in
 #                                              and keeps running with no window; the dashboard is still a web page
@@ -28,12 +31,25 @@ fi
 DIR=$(pwd)
 UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 UNIT="$UNIT_DIR/legalprivacy.service"
-is_running() { pgrep -x legalprivacy >/dev/null 2>&1; }
+# A running copy is named "legalprivacy"; older versions showed up as this folder's python running "-m legalprivacy".
+is_running() { pgrep -x legalprivacy >/dev/null 2>&1 || pgrep -f "$DIR/.venv/bin/python -m legalprivacy( |$)" >/dev/null 2>&1; }
+service_active() { command -v systemctl >/dev/null 2>&1 && systemctl --user is-active --quiet legalprivacy.service 2>/dev/null; }
+# Stop every running copy: the tidy way first (as Ctrl+C: Tor and the relay stop too), then by force after 12 s.
+stop_running() {
+  service_active && systemctl --user stop legalprivacy.service 2>/dev/null
+  is_running || return 1
+  killall legalprivacy 2>/dev/null; pkill -x legalprivacy 2>/dev/null
+  pkill -f "$DIR/.venv/bin/python -m legalprivacy( |$)" 2>/dev/null
+  for _ in 1 2 3 4 5 6 7 8 9 10 11 12; do is_running || return 0; sleep 1; done
+  killall -9 legalprivacy 2>/dev/null; pkill -9 -x legalprivacy 2>/dev/null
+  pkill -9 -f "$DIR/.venv/bin/python -m legalprivacy( |$)" 2>/dev/null
+  sleep 1
+  ! is_running
+}
 case "${1:-}" in
   --stop)
-    if is_running; then
-      killall legalprivacy 2>/dev/null || pkill -x legalprivacy
-      for _ in 1 2 3 4 5 6 7 8 9 10 11 12; do is_running || break; sleep 1; done
+    if is_running || service_active; then
+      stop_running
       is_running && { echo "It did not stop; force it with: killall -9 legalprivacy"; exit 1; }
       echo "legalPrivacy stopped."
     else
@@ -42,6 +58,7 @@ case "${1:-}" in
     exit 0 ;;
   --foreground)
     shift
+    stop_running && echo "Stopped the copy that was already running."
     exec .venv/bin/python -m legalprivacy "$@" ;;
   --url)
     exec .venv/bin/python -m legalprivacy.launcher --url ;;
@@ -88,9 +105,15 @@ UNITEOF
 esac
 if [ "$(uname -s)" = "Linux" ]; then
   # Background by default: detached from this terminal (its own session, no hang-up signal), output discarded
-  # (the app keeps its log in memory; read it in the dashboard's Live Log). Its process name is "legalprivacy".
+  # (the app keeps its log in memory; read it in the dashboard's App log). Its process name is "legalprivacy".
+  # Always one fresh copy: a copy that is already running (maybe an old version, or a stuck one that only looks like it
+  # works) is stopped first, so running this script again is safe and never leaves two copies fighting over the port.
+  if stop_running; then
+    echo "Stopped the copy that was already running; starting a fresh one."
+  fi
   if is_running; then
-    echo "legalPrivacy is already running."
+    echo "A running copy would not stop. Stop it by force with:  killall -9 legalprivacy   then run this again."
+    exit 1
   else
     if command -v setsid >/dev/null 2>&1; then
       LEGALPRIVACY_BACKGROUND=1 setsid nohup .venv/bin/python -m legalprivacy "$@" >/dev/null 2>&1 </dev/null &
