@@ -50,9 +50,9 @@ def test_plan_hour_sets_budgets_and_spreads_pacing():
     assert lo < 3600 / total < hi                                  # spread across the hour, not a burst
 
 
-def test_dns_defaults_to_secure_with_only_opennic_on():
+def test_dns_defaults_to_mix_with_only_opennic_on():
     cfg = Profile(name="t").dns
-    assert cfg.mode == "secure" and cfg.opennic is False and cfg.quad9 is False and cfg.custom == []
+    assert cfg.mode == "mix" and cfg.opennic is False and cfg.quad9 is False and cfg.custom == []
     assert [r["ip"] for r in cfg.resolvers] == ["80.152.203.134", "193.31.24.55", "80.153.146.105", "9.9.9.9"]
     assert [r["role"] for r in cfg.resolvers] == ["primary"] * 3 + ["fallback"]
 

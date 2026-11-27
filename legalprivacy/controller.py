@@ -54,7 +54,7 @@ APP_DEFAULTS = {"migrated_ason": False, "migrated_share": False, "migrated_tb_la
                 "ml_auto": False, "ml_history": [],
                 "clear_logs_on_restart": True,   # on start, clear App log and Requests entries older than…
                 "log_keep_days": 7,              # …this many days (0 = clear everything)
-                "migrated_defaults_v3": False, "migrated_defaults_v4": False, "migrated_defaults_v5": False,
+                "migrated_defaults_v3": False, "migrated_defaults_v4": False, "migrated_defaults_v5": False, "migrated_defaults_v6": False,
                 "migrated_anon_off": False,
                 "settings_version": ""}          # the version that last saved these settings (an update asks keep or reset)
 
@@ -99,6 +99,18 @@ def move_old_defaults(profile) -> list[str]:
     return moved
 
 
+def move_old_defaults_v6(profile) -> list[str]:
+    """DNS noise defaults to Mix again: about 85% on your normal DNS (your router, ISP or VPN), the rest on the secure
+    resolvers. "Secure resolvers only" had been the default, and with encryption on every lookup went to Quad9 or
+    Cloudflare (the only ones in the table that speak DNS over TLS). Settings still on that default move over once."""
+    if profile.dns.mode != "secure":
+        return []
+    profile.dns.mode = "mix"
+    if not 0 < float(profile.dns.system_share) < 1:
+        profile.dns.system_share = 0.85
+    return [f"DNS: mix, {round(float(profile.dns.system_share) * 100)}% on your normal DNS"]
+
+
 def move_old_defaults_v5(profile) -> list[str]:
     """Tor on and the built-in obfs4 bridges are the defaults now (they were off): settings still on those old defaults move
     over once, and the log says so. Turn either off again in Settings and it stays off."""
@@ -122,9 +134,6 @@ def move_old_defaults_v4(profile) -> list[str]:
     if not rc.acknowledged:                          # a saved practice-mode relay (practice mode is gone)
         rc.acknowledged, rc.enabled = True, True
         moved.append("relay: public non-exit relay (practice mode is gone)")
-    if profile.dns.mode == "mix" and abs(float(profile.dns.system_share) - 0.85) < 1e-9:
-        profile.dns.mode, profile.dns.encrypted = "secure", True
-        moved.append("DNS: secure resolvers, encrypted")
     tc = getattr(profile, "traffic", None)
     if tc is not None and abs(float(tc.onion) - 40.0) < 1e-9:
         tc.onion = 100.0
@@ -294,6 +303,9 @@ class Controller:
             if not self.app.get("migrated_defaults_v5"):
                 self._moved_defaults = list(getattr(self, "_moved_defaults", None) or []) + move_old_defaults_v5(self.profile)
                 self.app["migrated_defaults_v5"] = True
+            if not self.app.get("migrated_defaults_v6"):
+                self._moved_defaults = list(getattr(self, "_moved_defaults", None) or []) + move_old_defaults_v6(self.profile)
+                self.app["migrated_defaults_v6"] = True
             if not self.app.get("migrated_anon_off"):
                 tor = self.profile.transports.get("tor")
                 if tor is not None and tor.anon_os == "auto":

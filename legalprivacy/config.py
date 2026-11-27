@@ -183,7 +183,7 @@ RECOMMENDED_RESOLVERS = [
 @dataclass
 class DnsConfig:
     """Which resolver the DNS noise uses. See legalprivacy/dnsplan.py."""
-    mode: str = "secure"          # secure (default: only the resolver table) | mix (blocks on your normal DNS + the table) | system
+    mode: str = "mix"             # mix (default: blocks on your normal DNS, system_share of the time, + the table) | secure | system
     encrypted: bool = True        # DNS over TLS (port 853, certificate checked, never plain text) to the secure resolvers
     resolvers: list[dict] = field(default_factory=lambda: [dict(r) for r in RECOMMENDED_RESOLVERS])
     slow_ms: int = 250            # a primary slower than this counts as "not working fast"

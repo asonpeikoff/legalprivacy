@@ -77,7 +77,7 @@ def test_default_avoid_list_is_the_us_and_there_is_no_governmental_name_filter()
 def test_dns_defaults_lean_on_normal_dns_and_do_more_lookups():
     from legalprivacy.config import Profile
     p = Profile(name="d")
-    assert p.dns.mode == "secure" and p.dns.encrypted and p.dns.system_share == 0.85
+    assert p.dns.mode == "mix" and p.dns.encrypted and p.dns.system_share == 0.85
     assert p.engines["dns"].budget_per_day > p.engines["search"].budget_per_day
 
 
@@ -204,3 +204,13 @@ def test_old_defaults_move_to_tor_on_with_obfs4_once():
     assert tor.enabled is True and tor.bridge_mode == "obfs4"
     tor.bridge_mode = "snowflake"                       # a bridge you chose is left alone
     assert move_old_defaults_v5(p) == [] and tor.bridge_mode == "snowflake"
+
+
+def test_dns_on_the_old_secure_only_default_moves_to_mix_once():
+    from legalprivacy.config import Profile
+    from legalprivacy.controller import move_old_defaults_v6
+    p = Profile(name="d")
+    p.dns.mode = "secure"
+    assert move_old_defaults_v6(p) == ["DNS: mix, 85% on your normal DNS"] and p.dns.mode == "mix"
+    p.dns.mode = "system"                                        # a choice someone made stays
+    assert move_old_defaults_v6(p) == [] and p.dns.mode == "system"

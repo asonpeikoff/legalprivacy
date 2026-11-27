@@ -9,9 +9,9 @@ from legalprivacy.engines import DOT_HOSTS, DnsNoise, configure_dns, dot_query
 from legalprivacy.transports import TorTransport
 
 
-def test_secure_encrypted_dns_is_the_default():
+def test_mixed_dns_with_encryption_for_the_secure_part_is_the_default():
     p = Profile(name="d")
-    assert p.dns.mode == "secure" and p.dns.encrypted is True
+    assert p.dns.mode == "mix" and p.dns.system_share == 0.85 and p.dns.encrypted is True
     apply_overrides(p, {"dns": {"encrypted": False}})
     assert p.dns.encrypted is False
 

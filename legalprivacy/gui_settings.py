@@ -86,8 +86,9 @@ class SettingsTab(Tab):
         self.f_radios(c, "dns_mode", [
             ("system", "Your normal DNS", "Whatever your router, ISP, VPN or system already uses, so the noise lands exactly "
                                           "where your real lookups do."),
-            ("secure", "Secure resolvers only", "Only the resolvers listed below."),
-            ("mix", "Mix (recommended)", "Switch between the two in random 10-60 minute blocks.")])
+            ("secure", "Secure resolvers only", "Only the resolvers listed below. With encryption on, that means Quad9 "
+                                                "and Cloudflare, the ones that speak DNS over TLS."),
+            ("mix", "Mix", "Recommended, the default: switch between the two in random 10-60 minute blocks.")])
         r = c.row()
         c.lbl(r, "In mix mode, spend").pack(side="left")
         self.f_spin(r, "dns_share", 0, 100, 5, 5).pack(side="left", padx=6)
