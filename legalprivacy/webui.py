@@ -389,6 +389,8 @@ class UIServer:
                         return self._json(ctl.map_block(str(body.get("host", "")), str(body.get("mode", ""))))
                     elif path == "/api/scrape/start":
                         return self._json(ctl.scrape_start(body))
+                    elif path == "/api/scrape/open":
+                        return self._json(ctl.scrape_open(str(body.get("which", "last"))))
                     elif path == "/api/scrape/stop":
                         return self._json(ctl.scrape_stop())
                     elif path == "/api/proxies/refresh":

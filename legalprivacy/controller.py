@@ -929,8 +929,40 @@ class Controller:
     # ── scraping jobs (Tools) ──────────────────────────────────────────────
     def scrape_state(self) -> dict:
         job = getattr(self, "_scrape", None)
+        root = app_dir() / "scrapes"
+        last = Path(job.status["folder"]) if job else max((d for d in root.glob("*") if d.is_dir()), default=None,
+                                                           key=lambda d: d.stat().st_mtime) if root.exists() else None
         return {"job": dict(job.status) if job else None, "kinds": ["tables", "images", "video", "audio", "documents", "archives"],
-                "proxies": len(self.proxies.good()), "folder": str(app_dir() / "scrapes")}
+                "proxies": len(self.proxies.good()), "folder": str(root),
+                "last_folder": str(last) if last else None, "files": self._scrape_files(last)}
+
+    @staticmethod
+    def _scrape_files(folder: Path | None, n: int = 40) -> list[dict]:
+        """The newest files a scrape saved (name relative to its folder, size), for the Tools tab."""
+        if not folder or not folder.is_dir():
+            return []
+        files = sorted((f for f in folder.rglob("*") if f.is_file()), key=lambda f: f.stat().st_mtime, reverse=True)
+        return [{"name": str(f.relative_to(folder)), "bytes": f.stat().st_size} for f in files[:n]]
+
+    def scrape_open(self, which: str = "last") -> dict:
+        """Open the scrape folder (the last job's, or all of them) in this computer's file manager."""
+        import subprocess
+        root = (app_dir() / "scrapes").resolve()
+        st = self.scrape_state()
+        target = Path(st["last_folder"] if which == "last" and st["last_folder"] else root).resolve()
+        if target != root and root not in target.parents:
+            raise ConfigError("Only the app's scrape folder can be opened.")
+        target.mkdir(parents=True, exist_ok=True)
+        try:
+            if sys.platform == "win32":
+                import os
+                os.startfile(str(target))                    # noqa: S606 - a folder of ours, opened in Explorer
+            else:
+                subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", str(target)],
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except OSError as exc:
+            raise ConfigError(f"Could not open a file manager ({exc}). The folder is {target}") from None
+        return {"ok": True, "folder": str(target)}
 
     def scrape_start(self, body: dict) -> dict:
         """Start one polite crawl of a site the user named. Tables become CSV; images, video, audio, documents and archives are

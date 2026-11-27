@@ -1078,7 +1078,7 @@ details.why>summary .ibtn{display:inline-flex;align-items:center;justify-content
     <div class="row"><input type="text" id="scUrl" placeholder="https://example.com/page" style="flex:1"></div>
     <div class="row" style="flex-wrap:wrap;gap:10px;margin-top:6px"><label class="chk"><input type="checkbox" class="scK" value="tables" checked><span>Tables</span></label><label class="chk"><input type="checkbox" class="scK" value="images" checked><span>Images</span></label><label class="chk"><input type="checkbox" class="scK" value="video"><span>Video</span></label><label class="chk"><input type="checkbox" class="scK" value="audio"><span>Audio</span></label><label class="chk"><input type="checkbox" class="scK" value="documents" checked><span>Documents</span></label><label class="chk"><input type="checkbox" class="scK" value="archives"><span>Archives</span></label></div>
     <div class="row" style="flex-wrap:wrap;gap:10px;margin-top:6px"><label class="small">Link depth <select id="scDepth"><option>0</option><option selected>1</option><option>2</option><option>3</option></select></label><label class="small">Pages up to <input type="number" id="scPages" value="20" min="1" max="500" style="width:70px"></label><label class="chk"><input type="checkbox" id="scMix" checked><span>Mix in noise</span></label><label class="chk"><input type="checkbox" id="scProxy"><span>Through a tested proxy</span></label></div>
-    <div class="row" style="margin-top:8px"><button id="scGo">Start</button><button id="scStop">Stop</button><span class="small mute" id="scNote"></span></div>
+    <div class="row" style="margin-top:8px"><button id="scGo">Start</button><button id="scStop">Stop</button><button id="scOpen" title="Open the folder with the scraped files in your file manager">Open folder</button><span class="small mute" id="scNote"></span></div>
     <div id="scOut" class="small" style="margin-top:8px"></div>
   </div>
   <div class="card"><h3>Proxies (tested)</h3>
@@ -2144,12 +2144,14 @@ $('#pwGo').onclick=()=>{let o='';if($('#pwKind').value==='pass'){o=Array.from({l
   else{const cs='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*-_=+';o=Array.from({length:20},()=>cs[rndInt(cs.length)]).join('')}$('#pwOut').textContent=o;$('#pwBits').textContent=' about '+Math.round($('#pwKind').value==='pass'?6*Math.log2(PW_WORDS.length):20*Math.log2(64))+' bits'};
 $('#pwCopy').onclick=()=>{const t=$('#pwOut').textContent;if(t&&navigator.clipboard)navigator.clipboard.writeText(t).catch(()=>{})};
 let scT=null;
-function scShow(d){const j=d.job;if(!j){$('#scOut').innerHTML=`<span class="mute">Saved under ${esc(d.folder)}. ${d.proxies} tested proxies available.</span>`;return}
+function scFiles(d){const f=d.files||[];return f.length?`<details style="margin-top:6px"><summary class="small">${f.length}${f.length>=40?'+':''} newest files</summary><div class="small mute" style="max-height:220px;overflow:auto">${f.map(x=>`<div><code>${esc(x.name)}</code> · ${fmtB(x.bytes)}</div>`).join('')}</div></details>`:''}
+function scShow(d){const j=d.job;if(!j){$('#scOut').innerHTML=`<span class="mute">Saved under ${esc(d.folder)}. ${d.proxies} tested proxies available.</span>`+scFiles(d);return}
   $('#scNote').textContent=j.running?'Running…':(j.done?'Finished':'');
-  $('#scOut').innerHTML=`<div>${j.pages} pages · ${j.tables} tables · ${j.files} files (${(j.bytes/1e6).toFixed(1)} MB)${j.noise?` · ${j.noise} noise visits`:''}${j.skipped_robots?` · ${j.skipped_robots} skipped by robots.txt`:''}</div>${j.current?`<div class="mute">${esc(j.current)}</div>`:''}<div class="mute">Folder: <code>${esc(j.folder)}</code></div>${j.errors.length?`<div class="warnc">${j.errors.length} problems, e.g. ${esc(j.errors[0])}</div>`:''}`;
+  $('#scOut').innerHTML=`<div>${j.pages} pages · ${j.tables} tables · ${j.files} files (${(j.bytes/1e6).toFixed(1)} MB)${j.noise?` · ${j.noise} noise visits`:''}${j.skipped_robots?` · ${j.skipped_robots} skipped by robots.txt`:''}</div>${j.current?`<div class="mute">${esc(j.current)}</div>`:''}<div class="mute">Folder: <code>${esc(j.folder)}</code></div>${j.errors.length?`<div class="warnc">${j.errors.length} problems, e.g. ${esc(j.errors[0])}</div>`:''}`+scFiles(d);
   if(j.running&&!scT)scT=setInterval(scPoll,1500);if(!j.running&&scT){clearInterval(scT);scT=null}}
 async function scPoll(){try{scShow(await api('/api/scrape'))}catch(e){}}
 $('#scGo').onclick=async()=>{try{scShow(await api('/api/scrape/start',{url:$('#scUrl').value.trim(),kinds:$$('.scK:checked').map(x=>x.value),depth:parseInt($('#scDepth').value),max_pages:parseInt($('#scPages').value),mix_noise:$('#scMix').checked,use_proxy:$('#scProxy').checked}))}catch(e){$('#scNote').textContent=String(e.message||e)}};
+$('#scOpen').onclick=async()=>{try{const r=await api('/api/scrape/open',{which:'last'});toast('Opened '+r.folder)}catch(e){toast(e.message,1)}};
 $('#scStop').onclick=async()=>{try{scShow(await api('/api/scrape/stop',{}))}catch(e){}};
 scPoll();
 let pxT=null;

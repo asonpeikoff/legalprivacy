@@ -160,3 +160,20 @@ def test_with_no_working_proxy_left_the_job_stops_instead_of_going_direct(tmp_pa
     job, used = _proxy_job(tmp_path, bad, ["http://198.51.100.2:8080"])
     st = job.run()
     assert st["pages"] == 0 and "no working proxy: tried 2" in st["errors"][0] and None not in used
+
+
+def test_the_scrape_folder_and_its_newest_files_are_shown_and_can_be_opened(tmp_path, monkeypatch):
+    import subprocess
+    monkeypatch.setenv("LEGALPRIVACY_HOME", str(tmp_path))
+    from legalprivacy.controller import Controller
+    c = Controller(str(tmp_path / "config.yaml"))
+    job = tmp_path / "scrapes" / "20261127-example.com"
+    (job / "images").mkdir(parents=True)
+    (job / "images" / "a.png").write_bytes(b"x" * 10)
+    (job / "tables.csv").write_text("a,b")
+    st = c.scrape_state()
+    assert st["last_folder"] == str(job) and {f["name"] for f in st["files"]} == {"images/a.png", "tables.csv"}
+    opened = []
+    monkeypatch.setattr(subprocess, "Popen", lambda args, **k: opened.append(args))
+    monkeypatch.setattr("sys.platform", "linux")
+    assert c.scrape_open()["folder"] == str(job.resolve()) and opened[0] == ["xdg-open", str(job.resolve())]
