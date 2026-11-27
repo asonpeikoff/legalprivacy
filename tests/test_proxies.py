@@ -13,7 +13,7 @@ def test_parse_picks_out_public_addresses_from_text_and_pages():
     assert parse("") == [] and parse(None) == []
 
 
-def _manager(tmp_path, behaviours, max_ms=300):
+def _manager(tmp_path, behaviours, max_ms=700):
     """behaviours: proxy -> 'good' | 'slow' | 'dead' | 'wrong' | 'transparent'."""
     def get(url, proxy, timeout):
         if url != TEST_URL:                                   # a source list
@@ -24,7 +24,7 @@ def _manager(tmp_path, behaviours, max_ms=300):
         if b == "dead":
             raise OSError("connection refused")
         if b == "slow":
-            time.sleep(0.5)
+            time.sleep(1.4)
         if b == "wrong":
             return 200, "<html>pay us</html>"
         if b == "transparent":

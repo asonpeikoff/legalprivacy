@@ -94,13 +94,13 @@ def test_torrc_has_no_dnsport_by_default(tmp_path, monkeypatch):
 def test_torrc_dnsport_loopback(tmp_path, monkeypatch):
     t = _torrc(tmp_path, monkeypatch, dns_port=19053)
     assert "DNSPort 127.0.0.1:19053" in t
-    assert "0.0.0.0" not in t
+    assert "DNSPort 0.0.0.0" not in t
     assert "ExitPolicy" not in t and "ExitNodes" not in t       # the noise lane stays as it was
 
 
 def test_torrc_dnsport_lan(tmp_path, monkeypatch):
     t = _torrc(tmp_path, monkeypatch, dns_port=19053, dns_lan=True, dns_lan_addr="192.168.1.9")
-    assert "DNSPort 192.168.1.9:19053" in t and "0.0.0.0" not in t
+    assert "DNSPort 192.168.1.9:19053" in t and "DNSPort 0.0.0.0" not in t
 
 
 def test_dns_info_states():

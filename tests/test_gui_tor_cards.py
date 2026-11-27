@@ -47,9 +47,8 @@ def test_cards_default_off_and_save(tk_app):
     v = tor.values()
     assert v["tor_dns"] is False and v["tor_dns_lan"] is False          # off by default
     assert not tor.dns_body.winfo_manager()                             # details hidden until switched on
-    assert tor.r_practice.get() is True
     assert app.ctl.relay_state()["status"]["state"] == "stopped"        # never started by itself
-    assert "ORPort 127.0.0.1:" in tor.r_torrc.get("1.0", "end")         # practice mode by default
+    assert "ORPort 127.0.0.1:" not in tor.r_torrc.get("1.0", "end")     # a public relay
     assert "DNSPort" not in tor.r_torrc.get("1.0", "end")
     tor.load({"tor_dns": True})
     app.pump_for(2.0)
@@ -64,7 +63,8 @@ def test_public_relay_start_needs_the_checklist(tk_app):
     app.pump_for(1.2)
     tor = _tor_tab(app)
     tor._r_tor_found = True
-    tor.r_practice.set(False)
+    for var in tor.r_checks.values():
+        var.set(False)
     tor._relay_changed()
     assert "disabled" in tor.r_start.state() and "checklist" in tor.r_msg.cget("text")
     for var in tor.r_checks.values():

@@ -98,7 +98,7 @@ def test_the_firefox_path_you_set_is_used_or_explained(tmp_path):
 def test_the_banned_relay_is_always_excluded_and_strictly(tmp_path):
     from legalprivacy.events import EventLog
     from legalprivacy.tormanager import TorManager as TM
-    tm = TM(EventLog(), exclude_nodes=[], exclude_strict=False)
+    tm = TM(EventLog(), exclude_nodes=[])
     tm.binary = "/usr/bin/tor"
     tm.socks_port, tm.control_port, tm.cookie_path = 19050, 19051, str(tmp_path / "cookie")
     text = tm._write_torrc(tmp_path).read_text()
@@ -113,13 +113,13 @@ def test_the_dns_only_exit_is_gone_and_an_old_saved_one_becomes_a_middle_relay()
         generate_torrc(RelaySpec(mode="dns"))
     with pytest.raises(ConfigError):
         RelayConfig(mode="dns").validate()
-    p = apply_overrides(Profile(name="old"), {"contribute": {"relay": {"mode": "dns", "practice": True}}})
+    p = apply_overrides(Profile(name="old"), {"contribute": {"relay": {"mode": "dns"}}})
     assert p.relay.mode == "middle"                                   # an old settings file still loads
-    t = generate_torrc(RelaySpec(mode=p.relay.mode, practice=False))
+    t = generate_torrc(RelaySpec(mode=p.relay.mode))
     assert "ExitRelay 0" in t and "ExitPolicy accept" not in t
 
 
-def test_the_relay_is_a_public_middle_relay_by_default_and_practice_is_off():
+def test_the_relay_is_a_public_middle_relay_by_default():
     from legalprivacy.config import Profile
     r = Profile(name="d").relay
-    assert (r.mode, r.practice, r.enabled, r.autostart) == ("middle", False, True, True)
+    assert (r.mode, r.enabled, r.autostart) == ("middle", True, True)

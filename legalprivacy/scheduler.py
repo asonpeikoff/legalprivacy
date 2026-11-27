@@ -650,6 +650,14 @@ class Runner:
             identity, pacer = self._identity_pacer_for(lane)
             target = self._make_target(lane, eng_name, identity)
         ex = getattr(self.profile, "extras", None)
+        if ex is not None and getattr(ex, "geoban", True) and target.kind == "html" and target.role != "search":
+            import urllib.parse as _up
+            from . import geoban as _gb
+            for _ in range(5):                            # never visit an address in Virginia or a government range
+                host = _up.urlparse(target.url).hostname or ""
+                if not _gb.shared().host_reason(host):
+                    break
+                target = self._make_target(lane, eng_name, identity)
         if ex is not None and ex.polite and target.kind == "html" and target.role != "search":
             import urllib.parse as _up
             for _ in range(3):                            # polite: no site twice within a minute

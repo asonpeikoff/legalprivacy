@@ -150,13 +150,12 @@ class TorManager:
                  control_password: str | None = None, bridges: list[str] | None = None,
                  bridge_mode: str = "off", bridge_auto: bool = True,
                  auto_install: bool = True, dns_port: int = 0, dns_lan: bool = False,
-                 dns_lan_addr: str = "", exclude_nodes: list[str] | None = None, exclude_strict: bool = False,
+                 dns_lan_addr: str = "", exclude_nodes: list[str] | None = None,
                  share_browser: bool = False):
         self.log = log
         self.share_browser = bool(share_browser)
         self.user_socks_port = 0
         self.exclude_nodes = [e.strip() for e in (exclude_nodes or []) if e.strip()]
-        self.exclude_strict = bool(exclude_strict)
         self.mode = mode                      # managed | external
         self.ext_socks, self.ext_control = socks, control
         self.control_password = control_password
@@ -442,10 +441,16 @@ class TorManager:
         from .config import valid_exclude_entry
         excl = [e if e.startswith("{") else "$" + e.lstrip("$") for e in self.exclude_nodes if valid_exclude_entry(e)]
         excl += ["$" + fp for fp in BANNED_RELAYS if "$" + fp not in excl]     # relays banned for good (see config.BANNED_RELAYS)
+        if getattr(self, "geoban", True):                                      # government ranges and Virginia relays (see geoban.py)
+            try:
+                from . import geoban
+                excl += [e for e in geoban.shared().tor_excludes() if e not in excl]
+            except Exception as exc:
+                self.log.info("tor", f"Address ban not applied to Tor: {exc!r}")
         if excl:                                  # relays you don't trust: Tor avoids them for every hop it can
-            lines += ["ExcludeNodes " + ",".join(excl), "StrictNodes 1" if (self.exclude_strict or BANNED_RELAYS) else "StrictNodes 0"]
-            self.log.info("tor", f"Avoiding {len(excl)} relay(s)/countries ({len(BANNED_RELAYS)} banned for good, the rest you listed)"
-                                 f"{' (strictly)' if self.exclude_strict or BANNED_RELAYS else ''}.")
+            lines += ["ExcludeNodes " + ",".join(excl), "StrictNodes 1"]
+            self.log.info("tor", f"Avoiding {len(excl)} relay(s)/countries ({len(BANNED_RELAYS)} banned for good, the rest you listed) "
+                                 "(strictly, always).")
         bundle_data = Path(self.binary).resolve().parent.parent / "data"
         for name, key in (("geoip", "GeoIPFile"), ("geoip6", "GeoIPv6File")):
             if (bundle_data / name).exists():

@@ -455,7 +455,7 @@ def start_services(ctl) -> None:
             ctl.log.error("app", str(exc))
     ctl.torbrowser_watch()
     ctl.update_watch()
-    ctl.relay_autostart()                 # "start the relay with the app" is on by default, in practice mode (nothing published)
+    ctl.relay_autostart()                 # "start the relay with the app" is on by default, as a public middle relay
 
 
 def run_ui(profile_path: str | None = None, port: int | None = None, open_browser: bool | None = None,

@@ -36,7 +36,6 @@ class RelaySpec:
     or_port: int = 9001
     dir_port: int = 9030
     socks_policy: str = "reject *:*"
-    practice: bool = False            # True: ORPort on loopback only, nothing published (safe to try)
     private: bool = False             # bridge: don't tell the bridge authority, so only people you give the line to can use it
 
     def validate(self) -> None:
@@ -70,8 +69,7 @@ def _safe_path(path: str) -> str:
 def generate_torrc(spec: RelaySpec, data_dir: str | None = None) -> str:
     """Emit a non-exit relay torrc. Bridges get bridge-specific lines.
 
-    data_dir (optional) adds a DataDirectory and logging to stdout, for a relay the app runs itself.
-    spec.practice binds the ORPort to loopback and publishes nothing."""
+    data_dir (optional) adds a DataDirectory and logging to stdout, for a relay the app runs itself."""
     spec.validate()
     lines = [
         TORRC_HEADER.format(mode=spec.mode).rstrip(),
@@ -81,12 +79,10 @@ def generate_torrc(spec: RelaySpec, data_dir: str | None = None) -> str:
     if spec.contact:
         lines.append(f"ContactInfo {spec.contact}")
     dir_port_line = "DirPort 0" if spec.mode == "bridge" else f"DirPort {spec.dir_port}"
-    if spec.practice:
-        dir_port_line = "DirPort 0"
     lines += [
         f"RelayBandwidthRate {spec.bandwidth_rate}",
         f"RelayBandwidthBurst {spec.bandwidth_rate}",
-        f"ORPort 127.0.0.1:{spec.or_port}" if spec.practice else f"ORPort {spec.or_port}",
+        f"ORPort {spec.or_port}",
         dir_port_line,
         "SocksPort 0",
         "ExitRelay 0",
@@ -95,17 +91,12 @@ def generate_torrc(spec: RelaySpec, data_dir: str | None = None) -> str:
     ]
     if data_dir:
         lines += [f'DataDirectory "{_safe_path(data_dir)}"', "Log notice stdout"]
-    if spec.practice:
-        lines += ["", "# Practice mode: loopback only, nothing is published, no one can connect"]
-    else:
-        lines += ["", "# Safety: publish reachable relay", "AssumeReachable 0"]
+    lines += ["", "# Safety: publish reachable relay", "AssumeReachable 0"]
     if spec.mode == "bridge":
         lines += ["", "# Bridge mode: no descriptor publication to the main directory", "BridgeRelay 1"]
-        lines.append("PublishServerDescriptor 0" if (spec.practice or spec.private) else "PublishServerDescriptor bridge")
+        lines.append("PublishServerDescriptor 0" if spec.private else "PublishServerDescriptor bridge")
     else:
         lines += ["", "BridgeRelay 0"]
-        if spec.practice:
-            lines.append("PublishServerDescriptor 0")
     # final guard: nothing may enable exiting after our policy line
     lines += ["", "# pinned: this relay exits nothing", "ExitPolicy reject6 *:*"]
     return "\n".join(lines) + "\n"
