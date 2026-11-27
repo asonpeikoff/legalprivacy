@@ -33,8 +33,8 @@ def test_my_defaults_round_trip(ctl):
 
 def test_private_bridge_is_not_published_and_gives_a_pasteable_line(tmp_path):
     from legalprivacy.relay import RelaySpec, generate_torrc
-    pub = generate_torrc(RelaySpec(mode="bridge", nickname="b", practice=False))
-    priv = generate_torrc(RelaySpec(mode="bridge", nickname="b", practice=False, private=True))
+    pub = generate_torrc(RelaySpec(mode="bridge", nickname="b"))
+    priv = generate_torrc(RelaySpec(mode="bridge", nickname="b", private=True))
     assert "PublishServerDescriptor bridge" in pub and "PublishServerDescriptor 0" in priv
     assert "ExitRelay 0" in priv and "reject *:*" in priv
     from legalprivacy.config import valid_bridge_line
@@ -56,7 +56,7 @@ def test_torrc_avoids_listed_relays(tmp_path, monkeypatch):
     from legalprivacy.events import EventLog
     from legalprivacy.tormanager import TorManager
     monkeypatch.setenv("LEGALPRIVACY_HOME", str(tmp_path))
-    tm = TorManager(EventLog(), exclude_nodes=["a" * 40, "{ru}"], exclude_strict=True)
+    tm = TorManager(EventLog(), exclude_nodes=["a" * 40, "{ru}"])
     tm.binary = str(tmp_path / "bundle" / "tor" / "tor")
     tm.socks_host, tm.socks_port, tm.control_host, tm.control_port = "127.0.0.1", 19050, "127.0.0.1", 19051
     tm.cookie_path = str(tmp_path / "cookie")
@@ -68,7 +68,7 @@ def test_default_avoid_list_is_the_us_and_there_is_no_governmental_name_filter()
     import legalprivacy
     from legalprivacy.config import BANNED_RELAYS, Profile
     tor = Profile(name="d").transports["tor"]
-    assert tor.exclude_nodes == ["{us}"] and tor.exclude_strict is True
+    assert tor.exclude_nodes == ["{us}"]
     assert not hasattr(tor, "exclude_gov_names")                    # guessing from names was removed
     assert "5C62A7A4BFD24D61034499857C4B5E437CD2361F" in BANNED_RELAYS
     assert not (Path(legalprivacy.__file__).parent / "relayfilter.py").exists()

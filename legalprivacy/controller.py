@@ -102,9 +102,9 @@ def move_old_defaults_v4(profile) -> list[str]:
     settings file holds every value, so an old default looks like a choice; these were not)."""
     moved = []
     rc = profile.relay
-    if rc.practice and not rc.acknowledged:
-        rc.practice, rc.acknowledged, rc.enabled = False, True, True
-        moved.append("relay: public non-exit relay instead of practice mode")
+    if not rc.acknowledged:                          # a saved practice-mode relay (practice mode is gone)
+        rc.acknowledged, rc.enabled = True, True
+        moved.append("relay: public non-exit relay (practice mode is gone)")
     if profile.dns.mode == "mix" and abs(float(profile.dns.system_share) - 0.85) < 1e-9:
         profile.dns.mode, profile.dns.encrypted = "secure", True
         moved.append("DNS: secure resolvers, encrypted")
@@ -156,7 +156,7 @@ class Controller:
         self.observer.baseline_fn = self._baseline
         self._feed_timer_started = False
         from .relayrun import RelayManager
-        self.relay = RelayManager(self.log)        # optional relay: its own Tor process, practice mode unless set up
+        self.relay = RelayManager(self.log)        # optional relay: its own Tor process
         from .remoterun import RemoteManager
         self.remote = RemoteManager(self.log, pools=self._remote_pools)   # other computers you own, over SSH
         from .torbrowser import TorBrowserManager
@@ -370,8 +370,7 @@ class Controller:
                 or (self.tor.dns_port_cfg, self.tor.dns_lan, self.tor.dns_lan_addr) != (
                     cfg.dns_port, cfg.dns_lan, cfg.dns_lan_addr) \
                 or self.tor.share_browser != bool(cfg.share_browser) \
-                or (self.tor.exclude_nodes, self.tor.exclude_strict) != (
-                    [e.strip() for e in cfg.exclude_nodes if e.strip()], bool(cfg.exclude_strict)):
+                or self.tor.exclude_nodes != [e.strip() for e in cfg.exclude_nodes if e.strip()]:
             if self.tor and self.tor.state not in ("stopped",):
                 self.tor.stop()
             self.tor = TorManager(self.log, mode=mode, socks=cfg.socks, control=cfg.control,
@@ -379,7 +378,7 @@ class Controller:
                                   bridges=cfg.bridges, auto_install=cfg.auto_install,
                                   bridge_mode=cfg.bridge_mode, bridge_auto=cfg.bridge_auto,
                                   dns_port=cfg.dns_port, dns_lan=cfg.dns_lan, dns_lan_addr=cfg.dns_lan_addr,
-                                  exclude_nodes=cfg.exclude_nodes, exclude_strict=cfg.exclude_strict,
+                                  exclude_nodes=cfg.exclude_nodes,
                                   share_browser=cfg.share_browser)
         self.tor.geoban = bool(self.profile.extras.geoban)
         return self.tor
@@ -1149,7 +1148,7 @@ class Controller:
                 time.sleep(21600)
         threading.Thread(target=loop, daemon=True, name="torbrowser-watch").start()
 
-    # ── Relay (a separate Tor process; starts with the app in practice mode by default) ──
+    # ── Relay (a separate Tor process; starts with the app as a public middle relay by default) ──
     RELAY_CHECKLIST = ("address", "always_on", "bandwidth", "not_exit", "public_ip")
 
     @staticmethod
@@ -1169,7 +1168,7 @@ class Controller:
             rc = RelayConfig(mode=str(body.get("mode", cur.mode)), nickname=str(body.get("nickname", cur.nickname)),
                              contact=None,
                              bandwidth_rate=f"{mb:g} MBytes", or_port=int(body.get("or_port", cur.or_port)),
-                             dir_port=0, practice=body.get("practice", cur.practice) is True,
+                             dir_port=0,
                              private=body.get("private", cur.private) is True)
             rc.validate()
             return {"torrc": generate_torrc(rc.spec(), data_dir="(the relay's own data folder)"), "error": None}
@@ -1180,7 +1179,7 @@ class Controller:
         """What to paste into the Tor tab of the computer that should use this bridge. The address is left for
         you to fill in: the app does not look up its own public address."""
         st = self.relay.snapshot()
-        if st.get("mode") != "bridge" or st.get("practice") or not st.get("fingerprint"):
+        if st.get("mode") != "bridge" or not st.get("fingerprint"):
             return None
         return f"{{YOUR-SERVER-IP}}:{st['or_port']} {st['fingerprint']}"
 
@@ -1196,7 +1195,7 @@ class Controller:
         torrc = self.relay.torrc if self.relay.running else generate_torrc(spec, data_dir="(the relay's own data folder)")
         return {
             "settings": {"mode": rc.mode, "nickname": rc.nickname, "contact": rc.contact or "",
-                         "bandwidth_mb": mb, "or_port": rc.or_port, "practice": rc.practice,
+                         "bandwidth_mb": mb, "or_port": rc.or_port,
                          "autostart": rc.autostart, "acknowledged": rc.acknowledged, "private": rc.private},
             "status": self.relay.snapshot(), "torrc": torrc, "bridge_line": self._bridge_line(),
             "tor_found": bool(find_tor_binary()), "estimate": monthly_estimate(mb),
@@ -1214,17 +1213,15 @@ class Controller:
             raise ConfigError("bandwidth and port must be numbers") from None
         if not (0.1 <= mb <= 1000):
             raise ConfigError("bandwidth cap must be between 0.1 and 1000 MBytes per second")
-        practice = body.get("practice", cur.practice) is True
         ticked = {str(k) for k, v in (body.get("checklist") or {}).items() if v is True} \
             if isinstance(body.get("checklist"), dict) else set()
-        if not practice and not set(self.RELAY_CHECKLIST) <= ticked:
-            raise ConfigError("Tick every item on the checklist before starting a public relay, "
-                              "or use practice mode.")
+        if not set(self.RELAY_CHECKLIST) <= ticked:
+            raise ConfigError("Tick every item on the checklist before starting the relay.")
         raw = {"mode": str(body.get("mode", cur.mode)), "nickname": str(body.get("nickname", cur.nickname)),
                "contact": None,
-               "bandwidth_rate": f"{mb:g} MBytes", "or_port": or_port, "dir_port": 0, "practice": practice,
+               "bandwidth_rate": f"{mb:g} MBytes", "or_port": or_port, "dir_port": 0,
                "private": body.get("private", cur.private) is True,
-               "acknowledged": cur.acknowledged or not practice}
+               "acknowledged": True}
         if "autostart" in body:
             raw["autostart"] = body["autostart"] is True
         self.apply_config({"contribute": {"relay": raw}})      # validates with relay.RelaySpec; saved on success
@@ -1295,16 +1292,14 @@ class Controller:
 
     def relay_autostart(self) -> None:
         """Called once when the app opens. Starts the relay if 'start with the app' is on (the default): a public
-        NON-exit relay (it carries other people's Tor traffic, never exits anything). Practice mode (loopback only,
-        nothing published) is an option, not the default. Switch it all off on the Tor tab."""
+        NON-exit relay (it carries other people's Tor traffic, never exits anything). Switch it off on the Tor tab."""
         rc = self.profile.relay
-        if rc.autostart and (rc.practice or rc.acknowledged):
+        if rc.autostart and rc.acknowledged:
             if not self.relay._find_binary():            # default-on: stay quiet until Tor has been installed once
                 self.log.info("relay", "Relay not started: Tor is not installed yet (it installs the first time you start Tor).")
                 return
-            if not rc.practice:
-                self.log.info("relay", "Starting the Tor relay: it lists this computer's address in Tor's public relay list and "
-                                       "carries other people's encrypted Tor traffic (never an exit). Turn it off on the Tor tab.")
+            self.log.info("relay", "Starting the Tor relay: it lists this computer's address in Tor's public relay list and "
+                                   "carries other people's encrypted Tor traffic (never an exit). Turn it off on the Tor tab.")
             try:
                 self.relay.start(rc.spec())
             except Exception as exc:

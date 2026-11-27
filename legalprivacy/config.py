@@ -97,7 +97,6 @@ class TransportConfig:
     dns_lan_addr: str = ""            # which of this computer's private addresses, when dns_lan is on
     exclude_nodes: list[str] = field(default_factory=lambda: ["{us}"])   # relays (fingerprints) or countries Tor avoids
     share_browser: bool = True        # Tor Browser (opened from this app) uses this app's Tor, so your own browsing and the noise share one Tor
-    exclude_strict: bool = True       # never use them, even if that means Tor can't connect (turn off if Tor won't connect)
 
     def validate(self, name: str) -> None:
         if self.browser not in ("auto", "on", "off"):
@@ -142,7 +141,6 @@ class RelayConfig:
     bandwidth_rate: str = "5Mbit"
     or_port: int = 9001
     dir_port: int = 9030
-    practice: bool = False            # practice mode: loopback only, nothing published (an option; not the default)
     autostart: bool = True            # start the relay with the app (on by default: a public non-exit relay)
     acknowledged: bool = True         # the checklist's facts were accepted (on by default; the Tor tab explains them)
     private: bool = False             # bridge only: a private bridge for your own use, not handed out to anyone else
@@ -163,7 +161,7 @@ class RelayConfig:
         from .relay import RelaySpec
         return RelaySpec(mode=self.mode, nickname=self.nickname, contact=None,      # never published: a contact address is public
                          bandwidth_rate=self.bandwidth_rate, or_port=self.or_port,
-                         dir_port=self.dir_port, practice=self.practice, private=self.private)
+                         dir_port=self.dir_port, private=self.private)
 
 
 RECOMMENDED_RESOLVERS = [
@@ -529,7 +527,7 @@ def apply_overrides(profile: Profile, raw: dict[str, Any]) -> Profile:
                 merged[k] = int(merged[k])
         except (TypeError, ValueError):
             raise ConfigError("relay ports must be whole numbers") from None
-        for k in ("enabled", "practice", "autostart", "acknowledged"):
+        for k in ("enabled", "autostart", "acknowledged"):
             merged[k] = merged[k] is True
         merged["nickname"], merged["bandwidth_rate"] = str(merged["nickname"]), str(merged["bandwidth_rate"])
         merged["contact"] = str(merged["contact"]) if merged.get("contact") else None

@@ -19,9 +19,8 @@ def lines_of(t):
 
 
 @pytest.mark.parametrize("mode", ["middle", "bridge"])
-@pytest.mark.parametrize("practice", [False, True])
-def test_never_an_exit_and_never_wildcard(mode, practice):
-    t = generate_torrc(RelaySpec(mode=mode, practice=practice, contact="me@example.org"), data_dir="/tmp/x")
+def test_never_an_exit_and_never_wildcard(mode):
+    t = generate_torrc(RelaySpec(mode=mode, contact="me@example.org"), data_dir="/tmp/x")
     assert "ExitPolicy accept" not in t and "ExitPolicy accept6" not in t
     assert "ExitRelay 0" in t and "ExitPolicy reject *:*" in t
     assert "0.0.0.0" not in t and "[::]" not in t
@@ -30,20 +29,10 @@ def test_never_an_exit_and_never_wildcard(mode, practice):
     assert "SocksPort 0" in t                                    # nobody can use it as a proxy
 
 
-def test_practice_mode_flags():
-    t = lines_of(generate_torrc(RelaySpec(mode="middle", practice=True, or_port=9443)))
-    assert "ORPort 127.0.0.1:9443" in t
-    assert "PublishServerDescriptor 0" in t
-    assert "DirPort 0" in t
-    assert "AssumeReachable 0" not in t
-    b = lines_of(generate_torrc(RelaySpec(mode="bridge", practice=True)))
-    assert "PublishServerDescriptor 0" in b and "PublishServerDescriptor bridge" not in b
-    assert "ORPort 127.0.0.1:9001" in b
-
-
-def test_public_mode_is_unchanged_by_the_practice_option():
-    t = lines_of(generate_torrc(RelaySpec(mode="middle", practice=False)))
+def test_the_relay_is_always_public():
+    t = lines_of(generate_torrc(RelaySpec(mode="middle")))
     assert "ORPort 9001" in t and "PublishServerDescriptor 0" not in t and "AssumeReachable 0" in t
+    assert not any("NoListen" in x or "NoAdvertise" in x or x.startswith("ORPort 127.") for x in t)
     assert "PublishServerDescriptor bridge" in lines_of(generate_torrc(RelaySpec(mode="bridge")))
 
 
@@ -76,7 +65,7 @@ def test_config_reuses_relay_validators():
 
 def test_relay_defaults_are_on_and_never_an_exit():
     r = Profile(name="x").relay
-    assert r.enabled is True and r.autostart is True and r.practice is False and r.acknowledged is True
+    assert r.enabled is True and r.autostart is True and r.acknowledged is True
     assert r.mode == "middle"                                   # a non-exit relay: it exits nothing for anyone
 
 
@@ -139,18 +128,18 @@ def free_port():
         return s.getsockname()[1]
 
 
-def test_state_machine_practice(ctl, home):
+def test_state_machine(ctl, home):
     assert ctl.relay_state()["status"]["state"] == "stopped"
     port = free_port()
-    st = ctl.relay_start({"practice": True, "or_port": port, "nickname": "practice1"})
+    st = ctl.relay_start({"checklist": ALL_TICKED, "or_port": port, "nickname": "practice1"})
     assert st["status"]["state"] in ("starting", "running")
     assert wait_for(lambda: ctl.relay_state()["status"]["state"] == "running")
     s = ctl.relay_state()["status"]
-    assert s["practice"] is True and s["fingerprint"].startswith("9239E26B") and s["reachable"] is None
+    assert s["fingerprint"].startswith("9239E26B")
     assert any("running a new relay" in ln for ln in s["log"])
-    # torrc on disk: practice flags, own data dir, owner-only permissions
+    # torrc on disk: own data dir, owner-only permissions
     torrc = (home / "relay" / "torrc").read_text()
-    assert f"ORPort 127.0.0.1:{port}" in torrc and "PublishServerDescriptor 0" in torrc
+    assert f"ORPort {port}\n" in torrc and "ExitRelay 0" in torrc
     assert f'DataDirectory "{(home / "relay" / "data").as_posix()}"' in torrc
     if os.name == "posix":
         assert stat.S_IMODE((home / "relay").stat().st_mode) == 0o700
@@ -162,16 +151,16 @@ def test_state_machine_practice(ctl, home):
 
 
 def test_second_start_refused_while_running(ctl):
-    ctl.relay_start({"practice": True, "or_port": free_port()})
+    ctl.relay_start({"checklist": ALL_TICKED, "or_port": free_port()})
     with pytest.raises(RuntimeError):
-        ctl.relay_start({"practice": True, "or_port": free_port()})
+        ctl.relay_start({"checklist": ALL_TICKED, "or_port": free_port()})
 
 
 def test_crash_becomes_error_with_plain_message(home, tmp_path):
     from legalprivacy.controller import Controller
     c = Controller(str(home / "config.yaml"))
     c.relay._find_binary = lambda: make_fake(tmp_path, "crash")
-    c.relay_start({"practice": True, "or_port": free_port()})
+    c.relay_start({"checklist": ALL_TICKED, "or_port": free_port()})
     assert wait_for(lambda: c.relay_state()["status"]["state"] == "error")
     assert "stopped on its own" in c.relay_state()["status"]["error"]
 
@@ -179,7 +168,7 @@ def test_crash_becomes_error_with_plain_message(home, tmp_path):
 def test_no_tor_installed_is_a_plain_error(ctl):
     ctl.relay._find_binary = lambda: None
     with pytest.raises(RuntimeError, match="not installed"):
-        ctl.relay_start({"practice": True, "or_port": free_port()})
+        ctl.relay_start({"checklist": ALL_TICKED, "or_port": free_port()})
     assert ctl.relay_state()["status"]["state"] == "stopped"
 
 
@@ -189,24 +178,24 @@ def test_port_in_use_is_refused(ctl):
         s.bind(("127.0.0.1", 0))
         s.listen()
         with pytest.raises(RuntimeError, match="already in use"):
-            ctl.relay_start({"practice": True, "or_port": s.getsockname()[1]})
+            ctl.relay_start({"checklist": ALL_TICKED, "or_port": s.getsockname()[1]})
 
 
 def test_public_relay_needs_every_checklist_item(ctl):
     port = free_port()
     with pytest.raises(ConfigError, match="checklist"):
-        ctl.relay_start({"practice": False, "or_port": port})
+        ctl.relay_start({"or_port": port})
     partial = dict(ALL_TICKED, public_ip=False)
     with pytest.raises(ConfigError, match="checklist"):
-        ctl.relay_start({"practice": False, "or_port": port, "checklist": partial})
+        ctl.relay_start({"or_port": port, "checklist": partial})
     with pytest.raises(ConfigError, match="checklist"):
-        ctl.relay_start({"practice": False, "or_port": port, "checklist": dict(ALL_TICKED, not_exit="yes")})
+        ctl.relay_start({"or_port": port, "checklist": dict(ALL_TICKED, not_exit="yes")})
     assert ctl.relay_state()["status"]["state"] == "stopped"
 
 
 def test_public_relay_with_checklist(ctl, home):
     port = free_port()
-    ctl.relay_start({"practice": False, "or_port": port, "checklist": ALL_TICKED, "bandwidth_mb": 2})
+    ctl.relay_start({"or_port": port, "checklist": ALL_TICKED, "bandwidth_mb": 2})
     assert wait_for(lambda: ctl.relay_state()["status"]["reachable"] is True)
     torrc = (home / "relay" / "torrc").read_text()
     assert f"ORPort {port}" in torrc and "RelayBandwidthRate 2 MBytes" in torrc
@@ -216,20 +205,20 @@ def test_public_relay_with_checklist(ctl, home):
 
 def test_injection_through_the_controller(ctl):
     ctl.relay_stop()
-    ctl.relay_start({"practice": True, "or_port": free_port(), "contact": "a@b.c\nExitRelay 1"})   # ignored: never published
+    ctl.relay_start({"checklist": ALL_TICKED, "or_port": free_port(), "contact": "a@b.c\nExitRelay 1"})   # ignored: never published
     assert "ExitRelay 1" not in ctl.relay_state()["torrc"] and "ContactInfo" not in ctl.relay_state()["torrc"]
     ctl.relay_stop()
     with pytest.raises(ConfigError):
-        ctl.relay_start({"practice": True, "or_port": free_port(), "nickname": "x\nExitRelay 1"})
+        ctl.relay_start({"checklist": ALL_TICKED, "or_port": free_port(), "nickname": "x\nExitRelay 1"})
     with pytest.raises(ConfigError):
-        ctl.relay_start({"practice": True, "or_port": free_port(), "bandwidth_mb": "9\nExitRelay 1"})
+        ctl.relay_start({"checklist": ALL_TICKED, "or_port": free_port(), "bandwidth_mb": "9\nExitRelay 1"})
     assert ctl.relay_state()["status"]["state"] == "stopped"
 
 
 def test_bandwidth_bounds(ctl):
     for bad in (0, -1, 5000):
         with pytest.raises(ConfigError):
-            ctl.relay_start({"practice": True, "or_port": free_port(), "bandwidth_mb": bad})
+            ctl.relay_start({"checklist": ALL_TICKED, "or_port": free_port(), "bandwidth_mb": bad})
 
 
 def test_state_has_estimate_and_torrc_preview(ctl):
@@ -237,7 +226,7 @@ def test_state_has_estimate_and_torrc_preview(ctl):
     assert st["estimate"]["max_gb_per_direction"] == pytest.approx(1 * 86400 * 30 / 1000, abs=0.1)
     assert "ExitPolicy reject *:*" in st["torrc"] and "ExitRelay 0" in st["torrc"]
     assert "ORPort 127.0.0.1:" not in st["torrc"]                # public by default, not practice mode
-    assert st["settings"]["practice"] is False and st["settings"]["autostart"] is True
+    assert st["settings"]["autostart"] is True
 
 
 # ── never automatic, never remembered as "on" ───────────────────────────────
@@ -246,11 +235,11 @@ def test_starts_with_the_app_by_default_as_a_public_non_exit_relay(home, tmp_pat
     c = Controller(str(home / "config.yaml"))
     c.relay._find_binary = lambda: make_fake(tmp_path)
     c.apply_config({"contribute": {"relay": {"or_port": free_port()}}})
-    assert c.profile.relay.autostart is True and c.profile.relay.practice is False
+    assert c.profile.relay.autostart is True
     c.relay_autostart()
     try:
         assert c.relay_state()["status"]["state"] in ("starting", "running")
-        assert c.relay.spec.practice is False and c.relay.spec.mode == "middle"
+        assert c.relay.spec.mode == "middle"
     finally:
         c.relay.stop()
 
@@ -265,7 +254,7 @@ def test_default_autostart_is_quiet_when_tor_is_not_installed(home):
 
 def test_running_is_not_saved_and_autostart_can_be_turned_off(ctl, home, tmp_path):
     from legalprivacy.controller import Controller
-    ctl.relay_start({"practice": True, "or_port": free_port()})
+    ctl.relay_start({"checklist": ALL_TICKED, "or_port": free_port()})
     ctl.relay_stop()
     ctl.apply_config({"contribute": {"relay": {"autostart": False}}})
     c2 = Controller(str(home / "config.yaml"))                 # a new launch reads the saved settings
@@ -293,21 +282,21 @@ def test_autostart_of_a_public_relay_is_skipped_if_the_checklist_was_unaccepted(
 
 # ── stop on quit and on Panic ───────────────────────────────────────────────
 def test_quit_stops_the_relay(ctl):
-    ctl.relay_start({"practice": True, "or_port": free_port()})
+    ctl.relay_start({"checklist": ALL_TICKED, "or_port": free_port()})
     assert wait_for(lambda: ctl.relay.running)
     ctl.stop(stop_tor=True)
     assert not ctl.relay.running and ctl.relay_state()["status"]["state"] == "stopped"
 
 
 def test_stop_without_tor_flag_leaves_the_relay_alone(ctl):
-    ctl.relay_start({"practice": True, "or_port": free_port()})
+    ctl.relay_start({"checklist": ALL_TICKED, "or_port": free_port()})
     ctl.stop()                                                 # stops the noise only
     assert ctl.relay.running
 
 
 @pytest.mark.parametrize("level", ["soft", "medium"])
 def test_panic_stops_relay_but_keeps_data(ctl, home, level):
-    ctl.relay_start({"practice": True, "or_port": free_port()})
+    ctl.relay_start({"checklist": ALL_TICKED, "or_port": free_port()})
     assert wait_for(lambda: ctl.relay_state()["status"]["state"] == "running")
     r = ctl.panic(level)
     assert "relay stopped" in r["done"] and not ctl.relay.running
@@ -315,7 +304,7 @@ def test_panic_stops_relay_but_keeps_data(ctl, home, level):
 
 
 def test_hard_panic_deletes_relay_data_only_after_stop(ctl, home):
-    ctl.relay_start({"practice": True, "or_port": free_port()})
+    ctl.relay_start({"checklist": ALL_TICKED, "or_port": free_port()})
     assert wait_for(lambda: ctl.relay_state()["status"]["state"] == "running")
     (home / "relay" / "data").mkdir(exist_ok=True)
     (home / "relay" / "data" / "keys").write_text("secret")
@@ -330,7 +319,7 @@ def test_hard_panic_deletes_relay_data_only_after_stop(ctl, home):
 
 
 def test_wipe_refuses_while_running(ctl, home):
-    ctl.relay_start({"practice": True, "or_port": free_port()})
+    ctl.relay_start({"checklist": ALL_TICKED, "or_port": free_port()})
     assert wait_for(lambda: ctl.relay.running)
     assert ctl.relay.wipe_data() is False
     assert (home / "relay").exists()
@@ -358,9 +347,9 @@ def test_dashboard_routes(home, tmp_path):
             return out
         code, st = call("/api/relay")
         assert code == 200 and st["status"]["state"] == "stopped"
-        code, err = call("/api/relay/start", {"practice": False, "or_port": free_port()})
+        code, err = call("/api/relay/start", {"or_port": free_port()})
         assert code == 400 and "checklist" in err["error"]
-        code, st = call("/api/relay/start", {"practice": True, "or_port": free_port()})
+        code, st = call("/api/relay/start", {"checklist": ALL_TICKED, "or_port": free_port()})
         assert code == 200 and st["status"]["state"] in ("starting", "running")
         code, st = call("/api/relay/stop", {})
         assert code == 200 and st["status"]["state"] == "stopped"

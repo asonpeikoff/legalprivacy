@@ -58,7 +58,7 @@ class RelayManager:
         self.pid: int | None = None
         self.started_at: float | None = None
         self.bootstrap_pct = 0
-        self.reachable: bool | None = None  # None = not known yet (never for practice mode)
+        self.reachable: bool | None = None  # None = not known yet
         self.fingerprint: str | None = None
         self.tail: deque[str] = deque(maxlen=TAIL_LINES)
         self._proc: subprocess.Popen | None = None
@@ -94,8 +94,7 @@ class RelayManager:
             if not binary:
                 raise RuntimeError("Tor is not installed yet. Start Tor once from the Tor tab (it installs the "
                                    "official bundle), then come back.")
-            host = "127.0.0.1" if spec.practice else "0.0.0.0"
-            if not _port_free(host, spec.or_port):
+            if not _port_free("0.0.0.0", spec.or_port):
                 raise RuntimeError(f"Port {spec.or_port} is already in use on this computer. Pick another one.")
             data = self.data_dir()
             self._reap_orphan(data)
@@ -124,7 +123,7 @@ class RelayManager:
                 ref = weakref.ref(self)
                 atexit.register(lambda: (lambda m: m and m.stop())(ref()))      # never outlive the app
                 self._registered = True
-        self.log.info("relay", f"Starting a {spec.mode} relay ({'practice mode, not published' if spec.practice else 'public'}).")
+        self.log.info("relay", f"Starting a {spec.mode} relay (public).")
         threading.Thread(target=self._pump, args=(proc,), daemon=True, name="relay-log").start()
 
     def _reap_orphan(self, data: Path) -> None:
@@ -238,19 +237,18 @@ class RelayManager:
     def snapshot(self) -> dict[str, Any]:
         with self._lock:
             sp = self.spec
-            practice = bool(sp and sp.practice)
             uptime = int(time.time() - self.started_at) if self.started_at and self.running else 0
             return {
                 "state": self.state, "error": self.error, "pid": self.pid, "uptime": uptime,
-                "mode": sp.mode if sp else None, "practice": practice if sp else None,
+                "mode": sp.mode if sp else None,
                 "or_port": sp.or_port if sp else None, "bootstrap_pct": self.bootstrap_pct,
                 "reachable": self.reachable, "fingerprint": self.fingerprint,
-                "hint": self._hint(practice, uptime),
+                "hint": self._hint(uptime),
                 "log": list(self.tail)[-80:],
             }
 
-    def _hint(self, practice: bool, uptime: int) -> str | None:
-        if self.state != "running" or practice:
+    def _hint(self, uptime: int) -> str | None:
+        if self.state != "running":
             return None
         if self.reachable is False:
             return ("Tor could not connect to your relay from the outside. Check that the router forwards the "

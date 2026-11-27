@@ -10,7 +10,7 @@ def ctl(tmp_path, monkeypatch):
 
 
 def test_preview_follows_the_unsaved_settings(ctl):
-    r = ctl.relay_preview({"mode": "bridge", "practice": False, "or_port": 9443, "bandwidth_mb": 2, "nickname": "abc"})
+    r = ctl.relay_preview({"mode": "bridge", "or_port": 9443, "bandwidth_mb": 2, "nickname": "abc"})
     assert r["error"] is None
     assert "ORPort 9443" in r["torrc"] and "BridgeRelay 1" in r["torrc"] and "RelayBandwidthRate 2 MBytes" in r["torrc"]
     assert "ExitPolicy accept" not in r["torrc"] and r["torrc"].endswith("ExitPolicy reject6 *:*\n")
