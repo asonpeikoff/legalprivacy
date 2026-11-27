@@ -11,7 +11,8 @@ import random
 from pathlib import Path
 
 root = Path(__file__).resolve().parent.parent
-snap = json.load(gzip.open(root / "data/feeds/snapshot.json.gz"))
+with gzip.open(root / "data/feeds/snapshot.json.gz") as f:
+    snap = json.load(f)
 out = root / "android/app/src/main/assets"
 out.mkdir(parents=True, exist_ok=True)
 rng = random.Random(7)
